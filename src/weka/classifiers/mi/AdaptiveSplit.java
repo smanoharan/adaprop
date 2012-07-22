@@ -28,10 +28,13 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
     /** The split point for that attribute (assume NUMERIC) */
     protected double m_AttrSplitPoint;
 
+    /** Contains the bags as propositionalised instances */
+    protected Instances m_propositionalisedDataset;
+
     /** @return a String describing this classifier. */
     public String globalInfo()
     {
-        return   "An adaptive propositionalization algorithm."; // TODO add more
+        return "An adaptive propositionalization algorithm."; // TODO add more
     }
 
     @Override // TODO Copy over Javadocs
@@ -150,10 +153,21 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
     }
 
     // TODO javadocs
-    private double findMedian(Instances trainingData, int attrIndex)
+    private double findMean(Instances trainingData, int attrIndex)
     {
-        // TODO
-        return 0.5;
+        double sum = 0;
+        int count = 0;
+
+        for (Instance bag : trainingData)
+        {
+            for (Instance inst : bag.relationalValue(REL_INDEX))
+            {
+                sum += inst.value(attrIndex);
+                count++;
+            }
+        }
+
+        return sum / count;
     }
 
     // TODO javadocs
@@ -166,16 +180,16 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
         final ArrayList<Attribute> attInfo = new ArrayList<Attribute>();
         attInfo.add(new Attribute("less-than"));
         attInfo.add(new Attribute("greater-than"));
-        attInfo.add(new Attribute("class"));
+        attInfo.add((Attribute) trainingData.classAttribute().copy()); // class
 
         // create propositionalised dataset
         final int numBags = trainingData.numInstances();
-        Instances propositionalised = new Instances("prop", attInfo, numBags);
-        propositionalised.setClassIndex(2); // TODO update this or make a const
+        m_propositionalisedDataset = new Instances("prop", attInfo, numBags);
+        m_propositionalisedDataset.setClassIndex(2); // TODO update this or make a const
 
         // find the split point
         // TODO need to convert this?
-        double splitPoint = findMedian(trainingData, attrIndex);
+        double splitPoint = findMean(trainingData, attrIndex);
 
         for (Instance bag : trainingData)
         {
@@ -186,9 +200,10 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
                     bag.relationalValue(REL_INDEX),
                     attrIndex,
                     splitPoint,
-                    bag.classValue());
+                    bag.classValue(),
+                    m_propositionalisedDataset);
 
-            propositionalised.add(propositionalisedBag);
+            m_propositionalisedDataset.add(propositionalisedBag);
         }
 
         // eval on propositionalised dataset
@@ -197,17 +212,25 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
         Evaluation evalModel = null;
         try
         {
-            evalModel = new Evaluation(propositionalised);
-            evalModel.crossValidateModel(m_Classifier,
-                    propositionalised, 10, new Debug.Random());
-            // TODO better Random seeding necessary.
+            m_Classifier.buildClassifier(m_propositionalisedDataset);
+
+            // count num errors
+            int numErr = 0;
+            for (Instance inst : m_propositionalisedDataset)
+            {
+                if (m_Classifier.classifyInstance(inst) != inst.classValue())
+                {
+                    numErr++;
+                }
+            }
+
+            return ((double) numErr); // TODO no need to divide by numInst?
         }
         catch (Exception e)
         {
             // TODO what to do?
             throw new RuntimeException(e);
         }
-        return evalModel.errorRate();
     }
 
     @Override // TODO Copy over Javadocs
@@ -251,7 +274,8 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
      *  It is possible to be more efficient at train time.
      */
     private static Instance propositionaliseBag(Instances bagInstances,
-                    int attrIndex, double splitPoint, double classVal)
+                    int attrIndex, double splitPoint, double classVal,
+                    Instances propositionalisedDataset)
     {
         // TODO support NOM splitting attr, missing vals
 
@@ -272,7 +296,10 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
         }
 
         final double[] attValues = {countLessThan, countGeq, classVal};
-        return new DenseInstance(1.0, attValues);
+        Instance i = new DenseInstance(1.0, attValues);
+        i.setDataset(propositionalisedDataset);
+
+        return i;
     }
 
     @Override // TODO copy over Javadocs
@@ -283,10 +310,10 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
                 newBag.relationalValue(REL_INDEX),
                 m_BestAttrToSplitOn,
                 m_AttrSplitPoint,
-                newBag.classValue());
+                newBag.classValue(),
+                m_propositionalisedDataset);
 
         // use the base classifier for prediction.
         return m_Classifier.distributionForInstance(propositionalisedBag);
     }
-
 }
