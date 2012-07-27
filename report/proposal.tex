@@ -1,0 +1,44 @@
+\documentclass[a4paper,12pt,titlepage]{article} % use larger type; default would be 10pt
+
+\usepackage[parfill]{parskip} % Begin paragraphs with an empty line rather than an indent
+\usepackage{apacite} % apa style citations and references
+\usepackage{fullpage} % reduce margins
+
+\linespread{1.1}
+
+\title{Adaptive Propositionalisation of Multi-Instance Data Towards Image Classification}
+\author{Siva Manoharan, supervised by Eibe Frank}
+%\date{} % No date
+
+\begin{document}
+\maketitle 
+%\thispagestyle{empty} % remove line numbers
+
+\section{Introduction}
+\section{Background}
+\section{Planned Approach}
+\section{Evaluation}
+
+\section{Project Schedule}
+\begin{itemize}
+	\item {\bf Weeks 1 - 2:} Literature review
+	\item {\bf Weeks 1 - 3:} Basic algorithm - split by one attribute only.
+	\item {\bf Weeks ...:} Interim report
+	\item {\bf Weeks ...:} Work on supporting Nominal attributes and missing values.
+	\item {\bf Weeks ...:} Final report
+\end{itemize}
+\section{Resources required}
+\section{Conclusion}
+
+
+Multi-instance learning is a type of supervised machine learning where the data is grouped into bags of instances and the learning is performed over the bags, rather than the individual instances. As the majority of existing machine learning algorithms are designed for single instance learning, a possible approach to handling multi-instance data is propositionalisation, where a single feature vector is derived from each bag. The resulting dataset of feature vectors could then be used with any single instance learner.
+
+Existing work on propositionalisation includes simple approaches such as calculating summary statistics on the instances in each bag. There is also existing work on more advanced approaches, such as partitioning the space in which the instances reside \cite{Weidmann2003}.
+
+The aim of this project is to explore adaptive propositionalisation, where the propositionalisation process is aware of the underlying single instance learner and therefore can optimise the propositionalisation of the bags with respect to the learner, potentially resulting in greater accuracy.
+
+A possible application for multi-instance learning is image classification. There is existing work on using multi-instance learning for scene classification \cite{MaronRatan1998}. In this project, a secondary aim is to apply and optimise the adaptive propositionalisation approach to this application of image classification.
+
+\bibliographystyle{apacite} 
+\bibliography{brief-proposal}
+\end{document}

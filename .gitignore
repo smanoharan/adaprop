@@ -4,3 +4,15 @@
 *.jar
 *.war
 *.ear
+
+# LaTeX temp files
+*.pdf
+*.aux
+*.log
+*.synctex.gz
+
+# IntelliJ IDEA
+.idea/*
+
+# Lib
+lib/*
