@@ -3,16 +3,18 @@ package weka.classifiers.mi;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import weka.classifiers.rules.OneR;
+import weka.classifiers.rules.ZeroR;
+import weka.classifiers.trees.J48;
 import weka.core.Attribute;
 import weka.core.DenseInstance;
 import weka.core.Instance;
 import weka.core.Instances;
 
 import java.util.ArrayList;
+import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 /** Author: Siva Manoharan, 1117707 */
 public class AdaptiveSplitTest
@@ -20,16 +22,22 @@ public class AdaptiveSplitTest
     public static final int NUM_ATTR = 5; // number of attr in si-dataset
     public static final int NUM_BAGS = 3; // number of mi bags
     public static final int NUM_INST_PER_BAG = 4;
+    public static final int REL_INDEX = AdaptiveSplit.REL_INDEX;
 
     /** Instance, under test */
     private AdaptiveSplit adaptiveSplit;
 
+    /** Contains the mi bags for testing */
     private static Instances miData;
 
     /** Header for the single-instance relation */
     private static Instances siHeader;
-    private static final double TOLERANCE = 0.000001;
 
+    /** Header for the resultant propositionalised dataset */
+    private static Instances propHeader;
+
+    /** For comparing doubles */
+    private static final double TOLERANCE = 0.000001;
 
     /* TODO Tests:
     *  - GetCapabilities
@@ -50,6 +58,18 @@ public class AdaptiveSplitTest
     {
         setupSingleInstanceHeader();
         setupMultiInstanceData();
+        setupPropositionalisedHeader();
+    }
+
+    /** Setup the dataset for the propositionalised instances */
+    private static void setupPropositionalisedHeader()
+    {
+        final ArrayList<Attribute> attInfo = new ArrayList<Attribute>();
+        attInfo.add(new Attribute("less-than"));
+        attInfo.add(new Attribute("greater-than"));
+        attInfo.add((Attribute) miData.classAttribute().copy());
+        propHeader = new Instances("prop-header", attInfo, 0);
+        propHeader.setClassIndex(2);
     }
 
     /** Initialise the siHeader */
@@ -106,6 +126,14 @@ public class AdaptiveSplitTest
         return attr;
     }
 
+    private static Attribute createClassAttribute()
+    {
+        final List<String> attributeValues = new ArrayList<String>(2);
+        attributeValues.add("class-0");
+        attributeValues.add("class-1");
+        return new Attribute("class", attributeValues);
+    }
+
     /** Initialise the miData, assuming siHeader has been init'd */
     private static void setupMultiInstanceData()
     {
@@ -113,7 +141,7 @@ public class AdaptiveSplitTest
         final ArrayList<Attribute> attInfo = new ArrayList<Attribute>();
         attInfo.add(new Attribute("bag-id"));
         attInfo.add(createRelationAttribute());
-        attInfo.add(new Attribute("class"));
+        attInfo.add(createClassAttribute());
 
         miData = new Instances("mi-header", attInfo, 0);
         miData.setClassIndex(2);
@@ -124,7 +152,8 @@ public class AdaptiveSplitTest
             Instance bag = new DenseInstance(3);
             bag.setValue(0, bagIndex);
             bag.setValue(1, bagIndex);
-            bag.setValue(2, bagIndex % 2); // alternate between class=0 and 1.
+            int bagClass = bagIndex < 2 ? 0 : 1;
+            bag.setValue(2, bagClass); // alternate between class=0 and 1.
 
             // add bag to dataset
             bag.setDataset(miData);
@@ -184,15 +213,176 @@ public class AdaptiveSplitTest
     }
 
     @Test
-    public void testEvalSplit() throws Exception
+    public void testEvalSplitWithZeroR() throws Exception
     {
-        // TODO
+        // init the m_classifier
+        adaptiveSplit.setClassifier(new ZeroR());
+
+        double expected = 1; // evaluated in WEKA
+        double actual = adaptiveSplit.evaluateSplittingDimension(miData, 2);
+        assertEquals(expected, actual, TOLERANCE);
     }
 
     @Test
-    public void testPropositionaliseBag() throws Exception
+    public void testEvalSplitWithOneR() throws Exception
     {
-        // TODO
+        // init the m_classifier
+        adaptiveSplit.setClassifier(new OneR());
+
+        double expected = 1; // evaluated in WEKA
+        double actual = adaptiveSplit.evaluateSplittingDimension(miData, 2);
+        assertEquals(expected, actual, TOLERANCE);
+    }
+
+    @Test
+    public void testEvalSplitWithJ48() throws Exception
+    {
+        // init the m_classifier
+        J48 j48 = new J48();
+        j48.setMinNumObj(1);
+        adaptiveSplit.setClassifier(j48);
+
+        double expected = 0; // evaluated in WEKA
+        double actual = adaptiveSplit.evaluateSplittingDimension(miData, 2);
+        assertEquals(expected, actual, TOLERANCE);
+    }
+
+    /**
+     * Assuming that exp and act have the same format,
+     *  check that they have the same values for all attributes.
+     *
+     * @param exp Expected
+     * @param act Actual
+     */
+    private static void assertInstanceEquals(String msg, Instance exp, Instance act)
+    {
+        // check number of attributes is equal
+        int numAttr = act.numAttributes();
+        assertEquals("Number of attributes", exp.numAttributes(), numAttr);
+
+        // for each attribute
+        for (int attrIndex = 0; attrIndex < numAttr; attrIndex++)
+        {
+            String msgAttr = ", attribute: " + attrIndex;
+            assertEquals(msg + msgAttr, exp.value(attrIndex), act.value(attrIndex), TOLERANCE);
+        }
+    }
+
+    /**
+     * Assuming that exp and act have the same format,
+     *  check that their instances have the same values
+     *
+     * @param exp Expected
+     * @param act Actual
+     */
+    private static void assertDatasetEquals(Instances exp, Instances act)
+    {
+        // check num of instances is the same
+        int actNumInst = act.numAttributes();
+        assertEquals("Number of instances", exp.numInstances(), actNumInst);
+
+        // check each instance is equal
+        for (int instIndex = 0; instIndex < actNumInst; instIndex++)
+        {
+            final String msg = "Instance: " + instIndex;
+            assertInstanceEquals(msg, exp.get(instIndex), act.get(instIndex));
+        }
+    }
+
+    private static Instances actualPropositionalisedBagFor(
+            final int attrIndex, final double split) throws Exception
+    {
+        final Instances result = new Instances(propHeader, NUM_BAGS);
+
+        // for each bag
+        for (int bagIndex = 0; bagIndex < NUM_BAGS; bagIndex++)
+        {
+            final Instance bag = miData.get(bagIndex);
+
+            // find actual value:
+            result.add(AdaptiveSplit.propositionaliseBag(
+                    bag.relationalValue(REL_INDEX), attrIndex, split,
+                    bag.classValue(), result));
+        }
+
+        return result;
+    }
+
+    // check one case of propositionaliseBag
+    private static Instances expectedPropositionalisedBagFor(
+            final int instToLeft) throws Exception
+    {
+        final Instances result = new Instances(propHeader, NUM_BAGS);
+        int instRemainingToLeft = instToLeft;
+
+        // for each bag
+        for (int bagIndex = 0; bagIndex < NUM_BAGS; bagIndex++)
+        {
+            final Instance bag = miData.get(bagIndex);
+
+            // find expected
+            int countLt = 0;
+            int countGeq = 0;
+            if (instRemainingToLeft == 0)
+            {
+                countGeq = NUM_INST_PER_BAG;
+            }
+            else if (instRemainingToLeft < NUM_INST_PER_BAG)
+            {
+                countLt = instRemainingToLeft;
+                countGeq = NUM_INST_PER_BAG - instRemainingToLeft;
+                instRemainingToLeft = 0;
+            }
+            else
+            {
+                instRemainingToLeft -= NUM_INST_PER_BAG;
+                countLt = NUM_INST_PER_BAG;
+            }
+
+            final double[] attValues = {countLt, countGeq, bag.classValue()};
+            Instance expInst = new DenseInstance(1.0, attValues);
+            expInst.setDataset(result);
+            result.add(expInst);
+        }
+
+        return result;
+    }
+
+
+    @Test /** Check just one hard-coded case for propositionaliseBag */
+    public void testPropositionaliseBagForASingleCase() throws Exception
+    {
+        // split on the 3rd attribute,
+        //  which takes values: {2, 7, 12, 17, 22, 27, ... 57}
+        // use split pt 25; so first 5 instances are to the left.
+
+        final int attrIndex = 2;
+        final double splitPt = 25;
+        final int instToLeft = 5;
+
+        Instances expected = expectedPropositionalisedBagFor(instToLeft);
+        Instances actual = actualPropositionalisedBagFor(attrIndex, splitPt);
+
+        assertDatasetEquals(expected, actual);
+    }
+
+    @Test /** Check all cases for propositionaliseBag */
+    public void testPropositionaliseBagForAllAttributes() throws Exception
+    {
+        final int numInst = NUM_INST_PER_BAG*NUM_BAGS;
+
+        // for each attribute
+        for (int attrIndex = 0; attrIndex < NUM_ATTR; attrIndex++)
+        {
+            for (int instToLeft = 0; instToLeft <= numInst; instToLeft++)
+            {
+                double splitPt = instToLeft*NUM_ATTR + attrIndex - 0.5;
+                Instances expected = expectedPropositionalisedBagFor(instToLeft);
+                Instances actual = actualPropositionalisedBagFor(attrIndex, splitPt);
+
+                assertDatasetEquals(expected, actual);
+            }
+        }
     }
 }
 

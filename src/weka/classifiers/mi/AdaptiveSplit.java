@@ -231,7 +231,7 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
     }
 
     // TODO javadocs
-    private double evaluateSplittingDimension(Instances trainingData,
+    double evaluateSplittingDimension(Instances trainingData,
                                               int attrIndex)
     {
         // TODO : support NOM { branch split } , missing { how? }
@@ -298,7 +298,7 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
      *  Use this at test time.
      *  It is possible to be more efficient at train time.
      */
-    private static Instance propositionaliseBag(Instances bagInstances,
+    static Instance propositionaliseBag(Instances bagInstances,
                     int attrIndex, double splitPoint, double classVal,
                     Instances propositionalisedDataset)
     {
