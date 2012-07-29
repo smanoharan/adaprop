@@ -10,9 +10,12 @@
 *.aux
 *.log
 *.synctex.gz
+*.bbl
+*.blg
 
 # IntelliJ IDEA
 .idea/*
 
-# Lib
+# Folders for libraries and data
 lib/*
+data/*

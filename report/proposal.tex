@@ -1,44 +1,111 @@
-\documentclass[a4paper,12pt,titlepage]{article} % use larger type; default would be 10pt
+\documentclass[a4paper,12pt]{article} % use larger type; default would be 10pt
 
 \usepackage[parfill]{parskip} % Begin paragraphs with an empty line rather than an indent
 \usepackage{apacite} % apa style citations and references
 \usepackage{fullpage} % reduce margins
+\usepackage{paralist} 			% very flexible & customisable lists (eg. enumerate/itemize, etc.)
+\usepackage{url}
 
-\linespread{1.1}
+\linespread{1.3}
 
-\title{Adaptive Propositionalisation of Multi-Instance Data Towards Image Classification}
+\title{\ \\ \  \\ Adaptive Propositionalisation of Multi-Instance Data Towards Image Classification}
 \author{Siva Manoharan, supervised by Eibe Frank}
 %\date{} % No date
 
 \begin{document}
-\maketitle 
-%\thispagestyle{empty} % remove line numbers
+ \pagenumbering{gobble}  
 
-\section{Introduction}
+\maketitle 
+\ \\ \ \ % Some blank lines
+\begin{abstract}
+Multi-instance learning is machine learning over multi-instance data, where the instances are grouped together into bags and the learning is performed over the bags rather than the individual instances. \\
+
+An approach to handling multi-instance data is to propositionalisation, where each bag of instances is converted into a single feature vector. This converted dataset can be used with any standard single-instance learning algorithm. \\
+
+This project will explore adaptive propositionalisation, where the underlying single instance base learner is used to make decisions when propositionalising the dataset. The main approach considered will be the partitioning of instance space into regions, where each region corresponds to a feature in the converted dataset. \\
+    
+An application of multi-instance learning is image classification, where, for example, the image is considered to be a bag of segments and the interaction between the segments contributes to the class of the image. This project will also consider this application of multi-instance learning.
+\end{abstract}
+
+\thispagestyle{empty}
+
+\clearpage
+\pagenumbering{arabic}  
+
+\section{Introduction} 
+
+TODO
+
 \section{Background}
+
+Multi-instance (MI) learning was introduced by \citeA{Diet97} in the context of drug activity prediction. The multi-instance learning problem was defined as a two-class supervised learning problem where the classification occurs over bags of instances rather than the individual instances. \citeA{Diet97} assumed that each instance had a hidden class label and that a bag belongs to the positive class if and only if at least one of the instances in the bag belongs to the positive class. This assumption is known as the ``standard MI assumption'' and fits the original domain of drug activity prediction well.
+
+Multi-instance learning has also been applied to other domains such as image classification and text classification where the standard MI assumption is less appropriate. Therefore, a number of generalisations to the multi-instance problem have been proposed.
+\citeA{Chen2006} proposed a generalised MI assumption in which the label of each bag is determined by the distance of the bag's instances to some hidden target points in instance space.
+Similarly, \citeA{Weidmann2003} proposed a hierarchy of MI assumptions where the bag's class is determined by the number of instances of the bag which lay in certain regions of instance space.
+This project will use the same generalised MI assumptions as \citeA{Weidmann2003}.
+
+There have been a number of proposed algorithms for dealing with multi-instance data. The original algorithm proposed by \citeA{Diet97} used axis parallel rectangles to identify the regions of the instance space where the positive instances lay. The algorithm was designed to find regions which contained at least one instance from each positive bag but no instances from the negative class. 
+\citeA{Maron98mil} proposed the Diverse Density algorithm, where the aim was to find target points in instance space which are close to at least one instance from each positive bag and far away from all instances in negative bags.
+
+\citeA{Weidmann2003} proposed a two level approach for dealing with multi-instance data subject to the generalised MI assumptions. In the first level, a decision tree was built to partition the instance space. In the second level, the occupancy counts of instances of each bag in each region was used to build a propositionalised dataset, to which a single instance learner was applied.
+The algorithm being developed in this project will use a similar process as \citeA{Weidmann2003} in the second level, but this project will consider an adaptive approach to partition the instance space.
+
+The problem of image classification fits the multi-instance learning setting well. Since an image may contain multiple objects, a single feature vector may not capture all of the information in the image. As a MI learning problem, an image can be considered to be a bag of instances, where each instance is a segment of interest in the image. There is existing work on applying MI learning to image classification: \citeA{Maron98scene} performed learning over scene images by using fixed size partitions of the image. \citeA{Zhang2002} used K-means to segment the image. This project will consider optimising the adaptive propositionalisation algorithm to perform well with MI image classification datasets.
+% TODO more on image classification <adds references>
+%[http://www.cs.cmu.edu/~juny/MILL/review.htm] 
+
 \section{Planned Approach}
-\section{Evaluation}
+
+This project will consider the adaptive partitioning approach to propositionalisation.
+At each stage, a number of candidate partitions of the instance space will be generated. Each of these partitions will be evaluated using the underlying single-instance learner and the best partition will be selected. This process can be repeated recursively for each partition resulting in a tree of regions. At the completion of this process, this tree will be used to propositionalise the multi-instance bags in a way similar to that of \citeA{Weidmann2003}.
+
+This project will consider multiple ways to generate the candidate partitions. One approach is to consider the midpoint value (mean or median) of each attribute as the split point, resulting in multiple partitions. Another approach is to consider every possible split point of the attribute, similar to the discretization process of OneR, which may produce better partitions but could be time-intensive. 
+
+Given a set of candidate partitions, the algorithm being developed in this project must select the optimal partition. 
+The current planned approach is to propositionalise the MI bags using the proposed partition and then evaluate the training-set error using the base learner, selecting the partition which results in the least error. An alternative is to use cross-validated error instead of training error, which would increase running time but may select better partitions by avoiding partitions which cause overfitting.
+
+%Algorithm(s) will be implemented using the WEKA framework.*
 
 \section{Project Schedule}
 \begin{itemize}
-	\item {\bf Weeks 1 - 2:} Literature review
-	\item {\bf Weeks 1 - 3:} Basic algorithm - split by one attribute only.
-	\item {\bf Weeks ...:} Interim report
-	\item {\bf Weeks ...:} Work on supporting Nominal attributes and missing values.
-	\item {\bf Weeks ...:} Final report
+
+	\item {\bf Semester 12B:}
+	\begin{itemize}
+		\item {\bf Weeks 1 - 3:} Literature review, Implementation of the basic algorithm using just one-level split.
+		\item {\bf Weeks 4 - 10:} 
+			Consider and implement multiple splitting criteria and use experiments to determine the best splitting method.
+			Implement branching/recursion to result in a tree of region partitions.
+		\item {\bf Weeks 11 - 12:} Write the interim report.
+	\end{itemize}
+
+	\item {\bf Summer 12/13:}
+	\begin{itemize}
+		\item {\bf Weeks 1-10:} 
+			Continue with other aspects of the algorithm. 
+			Focus on optimising the algorithm for image classification datasets.
+			Consider and implement support for Nominal attributes and Missing values.
+	\end{itemize}
+	
+	\item {\bf Semester 13A:}
+	\begin{itemize}
+		\item {\bf Weeks 1-12:} Conference presentation, Final report.
+	\end{itemize}
 \end{itemize}
-\section{Resources required}
+
+\section{Evaluation}
+
+The final output of this project will be an algorithm which can be used to adaptively propositionalise multi-instance data. Since there are other established algorithms for handling multi-instance data, the evaluation will consist of comparing the classification accuracy of this algorithm on standard multi-instance datasets against the accuracy of methods such as MILES~\cite{Chen2006}, TLC~\cite{Weidmann2003} and DD~\cite{Maron98mil}.
+
+Since this algorithm is a meta-learner, i.e.\ it is dependent on an underlying single-instance base learner, a number of different base learners will be used to evaluate the performance of this algorithm.
+ 
+Finally, this algorithm will be evaluated on standard image classification datasets (for example the \citeA{sival}) and the performance will be compared to that of established image classification algorithms.
+
 \section{Conclusion}
 
+TODO
 
-Multi-instance learning is a type of supervised machine learning where the data is grouped into bags of instances and the learning is performed over the bags, rather than the individual instances. As the majority of existing machine learning algorithms are designed for single instance learning, a possible approach to handling multi-instance data is propositionalisation, where a single feature vector is derived from each bag. The resulting dataset of feature vectors could then be used with any single instance learner.
-
-Existing work on propositionalisation includes simple approaches such as calculating summary statistics on the instances in each bag. There is also existing work on more advanced approaches, such as partitioning the space in which the instances reside \cite{Weidmann2003}.
-
-The aim of this project is to explore adaptive propositionalisation, where the propositionalisation process is aware of the underlying single instance learner and therefore can optimise the propositionalisation of the bags with respect to the learner, potentially resulting in greater accuracy.
-
-A possible application for multi-instance learning is image classification. There is existing work on using multi-instance learning for scene classification \cite{MaronRatan1998}. In this project, a secondary aim is to apply and optimise the adaptive propositionalisation approach to this application of image classification.
-
+\clearpage
 \bibliographystyle{apacite} 
-\bibliography{brief-proposal}
+\bibliography{proposal}
 \end{document}
