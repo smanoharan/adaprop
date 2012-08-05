@@ -306,6 +306,59 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
         return isEven ? 0.5*(vals.get(midIndex) + vals.get(midIndex-1)) : vals.get(midIndex);
     }
 
+    /** For storing a pair: value (double) and class (double) */
+    private static class ValClassPair implements Comparable<ValClassPair>
+    {
+        public final double val;
+        public final double classVal;
+
+        private ValClassPair(final double val, final double classVal)
+        {
+            this.val = val;
+            this.classVal = classVal;
+        }
+
+        /** @inheritDoc */
+        @Override
+        public int compareTo(final ValClassPair o)
+        {
+            double diff = this.val - o.val;
+            return diff == 0 ? 0 : diff < 0 ? -1 : 1;
+        }
+    }
+
+    static ArrayList<Double> findDiscretizedSplits(final Instances trainingData,
+                                                   final int attrIndex)
+    {
+        List<ValClassPair> vals = new ArrayList<ValClassPair>();
+        for (Instance bag : trainingData)
+        {
+            for (Instance inst : bag.relationalValue(REL_INDEX))
+            {
+                vals.add(new ValClassPair(inst.value(attrIndex), bag.classValue()));
+            }
+        }
+
+        Collections.sort(vals);
+
+        // iterate through the list, finding class-boundaries
+        ArrayList<Double> splits = new ArrayList<Double>();
+        ValClassPair last = vals.get(0);
+        final int size = vals.size();
+        for(int i=1; i<size; i++)
+        {
+            ValClassPair cur = vals.get(i);
+            if (last.classVal != cur.classVal)
+            {
+                // this is a class boundary
+                final double split = (last.val + cur.val) / 2.0;
+                splits.add(split);
+            }
+            last = cur;
+        }
+        return splits;
+    }
+
     // TODO javadocs
     double evaluateSplittingDimension(Instances trainingData,
                                               int attrIndex)

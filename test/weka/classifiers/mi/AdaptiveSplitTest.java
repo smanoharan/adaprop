@@ -10,6 +10,7 @@ import weka.classifiers.trees.J48;
 import weka.core.*;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.List;
 
@@ -302,6 +303,33 @@ public class AdaptiveSplitTest
         }
     }
 
+    @Test
+    public void testFindDiscretizeSplitPoints() throws Exception
+    {
+        // there are 12 instances, with values in increasing order
+        // discretized split points are when class changes (8-9)
+        // e.g. for attr=0: 0, ..., 35, 40, ...
+        //      for attr=0: 1, ..., 36, 41, ...
+        final int numInst = NUM_INST_PER_BAG * NUM_BAGS;
+        for (int attrIndex = 0; attrIndex < NUM_ATTR; attrIndex++)
+        {
+            final List<Double> exp = Arrays.asList(37.5+attrIndex);
+            final ArrayList<Double> act = adaptiveSplit.findDiscretizedSplits(miData, attrIndex);
+            assertListEquals("Split points for attribute " + attrIndex, exp, act);
+        }
+    }
+
+    private static void assertListEquals(String msg, List<Double> exp, List<Double> act)
+    {
+        // check sizes are equal
+        assertEquals(msg + " size", exp.size(), act.size());
+
+        // check each elem
+        for (int i=0;i<exp.size();i++)
+        {
+            assertEquals(msg + " index " + i, exp.get(i), act.get(i), TOLERANCE);
+        }
+    }
 
     @Test
     public void testEvalSplitWithZeroR() throws Exception
