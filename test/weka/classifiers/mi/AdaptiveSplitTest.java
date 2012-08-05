@@ -1,17 +1,16 @@
 package weka.classifiers.mi;
 
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import weka.classifiers.rules.OneR;
 import weka.classifiers.rules.ZeroR;
 import weka.classifiers.trees.J48;
-import weka.core.Attribute;
-import weka.core.DenseInstance;
-import weka.core.Instance;
-import weka.core.Instances;
+import weka.core.*;
 
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.List;
 
 import static org.junit.Assert.*;
@@ -50,7 +49,6 @@ public class AdaptiveSplitTest
     *  - buildClassifier?
     *  - distributionForInstance
     */
-
 
     @BeforeClass
     /** Setup the instance headers */
@@ -187,6 +185,81 @@ public class AdaptiveSplitTest
         assertNotNullOrEmpty(adaptiveSplit.toString());
     }
 
+    // ==================================================================================
+    //  Tests for option handling
+    // ==================================================================================
+
+    private static void assertOptionEquals(
+            final Option actual, final String expDesc,
+            final int expNumArgs, final String expSynopsis)
+    {
+        assertEquals(actual.name() + " Desc: ",     expDesc,        actual.description());
+        assertEquals(actual.name() + " NumArgs: ",  expNumArgs,     actual.numArguments());
+        assertEquals(actual.name() + " Synopsis: ", expSynopsis,    actual.synopsis());
+    }
+
+    // find the option corresponding to the name in the enumeration
+    private static Option findOption(final Enumeration opts, final String key)
+    {
+        while (opts.hasMoreElements())
+        {
+            Option opt = (Option) opts.nextElement();
+            if (opt.name().equals(key))
+            {
+                return opt;
+            }
+        }
+        return null;
+    }
+
+    @Test
+    public void testSplitPointOptionsAreListed() // in .listOptions();
+    {
+        // split point is chosen by '-s'. Try to find it:
+        Option opt = findOption(adaptiveSplit.listOptions(), "S");
+        if (opt == null)
+        {
+            Assert.fail("Option -S (split point) not found");
+        }
+        else
+        {
+            assertOptionEquals(opt,
+                "\tSplit point criterion: 1=mean (default), 2=median, 3=discretized",
+                1, "-S <num>");
+        }
+    }
+
+    private static void assertOptionValueEquals(
+            String[] options, String key, String expVal)
+    {
+        // find the key
+        for (int i=0; i<options.length; i++)
+        {
+            if (options[i].equals(key))
+            {
+                assertEquals("Value for option " + key, expVal, options[i+1]);
+                return;
+            }
+        }
+        Assert.fail("Option " + key + " not found in getOptions");
+    }
+
+    @Test
+    public void testGetAndSetSplitOptions() throws Exception
+    {
+        // by default: split point should be set to 1;
+        assertOptionValueEquals(adaptiveSplit.getOptions(), "-S", "1");
+
+        // try setting it to 2 (median) & use get to verify
+        adaptiveSplit.setOptions(new String[]{"-S", "2"});
+        assertOptionValueEquals(adaptiveSplit.getOptions(), "-S", "2");
+
+        // try setting it to 3 (discretize) & use get to verify
+        adaptiveSplit.setOptions(new String[]{"-S", "3"});
+    }
+
+    // ==================================================================================
+
     @Test
     public void testFindMean() throws Exception
     {
@@ -211,6 +284,24 @@ public class AdaptiveSplitTest
             assertEquals(msg, expectedMean, actualMean, TOLERANCE);
         }
     }
+
+    @Test
+    public void testFindMedian() throws Exception
+    {
+        // there are 12 instances, with values in increasing order
+        // median of attribute i is the average of the 6th and 7th bags
+        // e.g. for attr=0: 0, 5, ..., 25, 30, ...
+        //      for attr=1: 1, 6, ..., 26, 31, ...
+        final int numInst = NUM_INST_PER_BAG * NUM_BAGS;
+        for (int attrIndex = 0; attrIndex < NUM_ATTR; attrIndex++)
+        {
+            final double expectedMedian = 27.5 + attrIndex;
+            final double actualMedian = adaptiveSplit.findMedian(miData, attrIndex);
+            final String msg = "Median for attribute " + attrIndex;
+            assertEquals(msg, expectedMedian, actualMedian, TOLERANCE);
+        }
+    }
+
 
     @Test
     public void testEvalSplitWithZeroR() throws Exception

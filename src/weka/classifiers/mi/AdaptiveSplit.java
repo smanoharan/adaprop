@@ -3,9 +3,7 @@ package weka.classifiers.mi;
 import weka.classifiers.SingleClassifierEnhancer;
 import weka.core.*;
 
-import java.util.ArrayList;
-import java.util.Enumeration;
-import java.util.Vector;
+import java.util.*;
 
 /**
  * An adaptive propositionalization algorithm. Uses the base learner to decide
@@ -22,6 +20,51 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
 
     /** The index of the relational attribute in the bag instance */
     public static final int REL_INDEX = 1;
+
+    // ==================================================================================
+    // For Options:
+    // ==================================================================================
+
+    // Split point
+    private static final int SPLIT_MEAN = 1;
+    private static final int SPLIT_MEDIAN = 2;
+    private static final int SPLIT_DISCRETIZED = 3;
+    private static final int DEFAULT_SPLIT_STRATEGY = SPLIT_MEAN;
+
+    public static final Tag [] SPLIT_STRATEGIES =
+    {
+        new Tag(SPLIT_MEAN, "Split by the mean value of an attribute"),
+        new Tag(SPLIT_MEDIAN, "Split by the median value of an attribute"),
+        new Tag(SPLIT_DISCRETIZED, "Split by any value of an attribute where class value changes")
+    };
+
+    /** The instance-space splitting strategy to use */
+    protected int m_SplitStrategy = DEFAULT_SPLIT_STRATEGY;
+
+    /**
+     * Gets the current instance-space splitting strategy
+     * @return the current splitting strategy
+     */
+    public SelectedTag getSplitStrategy()
+    {
+        return new SelectedTag(this.m_SplitStrategy, SPLIT_STRATEGIES);
+    }
+
+    /**
+     * Sets the instance-space splitting selection strategy.
+     * @param newStrategy splitting selection strategy.
+     */
+    public void setSplitStrategy(final SelectedTag newStrategy)
+    {
+        if (newStrategy.getTags() == SPLIT_STRATEGIES)
+        {
+            this.m_SplitStrategy = newStrategy.getSelectedTag().getID();
+        }
+        else throw new RuntimeException(
+                "Unknown tag (not a splitting strategy tag): " + newStrategy);
+    }
+
+    // ==================================================================================
 
     /** The best attribute to split on */
     protected int m_BestAttrToSplitOn;
@@ -81,25 +124,16 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
         return result;
     }
 
-    /**
-     * Lists the options for this classifier.
-     <!-- options-start -->
-     * Valid options are: <p/>
-     *
-     * <pre> -D
-     *  If set, classifier is run in debug mode and
-     *  may output additional info to the console</pre>
-     *
-     <!-- options-end -->
-     */
+    /** @inheritDoc */
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public Enumeration listOptions()
     {
         Vector result = new Vector();
 
-        // TODO add params
-//            result.addElement(new Option(
-//                    "\tMSG", "L", 0, "-L"));
+        // split point choice
+        result.addElement(new Option(
+            "\tSplit point criterion: 1=mean (default), 2=median, 3=discretized",
+            "S", 1, "-S <num>"));
 
         Enumeration enu = super.listOptions();
         while (enu.hasMoreElements())
@@ -110,7 +144,17 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
         return result.elements();
     }
 
-    @Override // copy over javadocs
+    /**
+     * Lists the options for this classifier.
+     <!-- options-start -->
+     * Valid options are: <p/>
+     *
+     * <pre> -S <num>
+     *  Split point criterion: 1=mean (default), 2=median, 3=discretized</pre>
+     *
+     <!-- options-end -->
+     */
+    @Override
     public void setOptions(String[] options) throws Exception
     {
 //            String valString = Utils.getOption('M', options);
@@ -118,21 +162,22 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
 //            setProperty(newValue);
 //            OR
 //            setB(Utils.getFlag('B', options));
+
+        // split strategy
+        String splitStrategyStr = Utils.getOption('S', options);
+        this.setSplitStrategy(new SelectedTag(Integer.parseInt(splitStrategyStr), SPLIT_STRATEGIES));
         super.setOptions(options);
     }
 
-    /**
-     * Gets the current settings of the Classifier.
-     *
-     * @return an array of strings suitable for passing to setOptions
-     */
+    /** @inheritDoc */
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public String[] getOptions()
     {
         Vector result = new Vector();
 
-//            result.add("-L");
-//            result.add("" + curValueForL);
+        // split option
+        result.add("-S");
+        result.add("" + m_SplitStrategy);
 
         String[] options = super.getOptions();
         for (int i = 0; i < options.length; i++)
@@ -228,6 +273,37 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
         }
 
         return sum / count;
+    }
+
+    /**
+     * Find the median of all instances in trainingData for the attribute at index=attrIndex.
+     * Assumes that the attribute is numeric. <== TODO may cause problems
+     *
+     * @param trainingData The dataset of mi-bags
+     * @param attrIndex The index of the attribute to find the mean for
+     * @return The mean for the attribute over all instances in all bags
+     */
+    static double findMedian(final Instances trainingData, final int attrIndex)
+    {
+        // for now:
+        //  copy all values into a collection then sort
+        List<Double> vals = new ArrayList<Double>();
+        for (Instance bag : trainingData)
+        {
+            for (Instance inst : bag.relationalValue(REL_INDEX))
+            {
+                vals.add(inst.value(attrIndex));
+            }
+        }
+
+        Collections.sort(vals);
+
+        final int count = vals.size();
+        final boolean isEven = (count & 1) == 0;
+        final int midIndex = count / 2;
+
+        // if there is an even number of values, take the avg of the two middle elems.
+        return isEven ? 0.5*(vals.get(midIndex) + vals.get(midIndex-1)) : vals.get(midIndex);
     }
 
     // TODO javadocs
