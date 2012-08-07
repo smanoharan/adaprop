@@ -38,7 +38,7 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
         new Tag(SPLIT_DISCRETIZED, "Split by any value of an attribute where class value changes")
     };
 
-    /** The instance-space splitting strategy to use */
+    /** The id of the instance-space splitting strategy to use */
     protected int m_SplitStrategy = DEFAULT_SPLIT_STRATEGY;
 
     /**
@@ -229,198 +229,44 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
 
         // TODO create a single-instance table? (unnecessary?)
 
-        int numSingleInstAttr = trainingBags.instance(0).relationalValue(1).numAttributes();
+        final int numAttr = trainingBags.instance(0).relationalValue(1).numAttributes();
         double minErr = Double.MAX_VALUE;
 
-        // iterate through the attributes, find the one with the least error.
-        for(int attr = 0; attr < numSingleInstAttr; attr++)
+        // find the split & evaluate strategies
+        // TODO switch on m_Split
+        SplitStrategy splitStrategy = null;
+        switch (m_SplitStrategy)
         {
-            double err = evaluateSplittingDimension(trainingBags, attr);
+            case SPLIT_MEDIAN:
+                splitStrategy = new MedianSplitStrategy(numAttr);
+                break;
+            case SPLIT_DISCRETIZED:
+                splitStrategy = new DiscretizedSplitStrategy(numAttr);
+                break;
+            default:
+                splitStrategy = new MeanSplitStrategy(numAttr);
+                break;
+        }
+
+        SplitPointEvaluator spe = null; // TODO
+
+        // get the set of candidate splits
+        List<Pair<Integer, Double>> splits = splitStrategy.generateSplitPoints(trainingDataBags);
+
+        // find the best
+        for (Pair<Integer, Double> kv : splits)
+        {
+            double err = evaluateSplit(trainingBags, kv.key, kv.value);
             if (err < minErr)
             {
                 minErr = err;
-                m_BestAttrToSplitOn = attr;
+                m_BestAttrToSplitOn = kv.key;
             }
         }
 
         // TODO repeat recursively?
         // TODO retrain m_classifier with the best attribute.
         // TODO can we avoid re-training classifier with best-attr-to-split-on
-    }
-
-    /**
-     * Find the mean of all instances in trainingData for the attribute at index=attrIndex.
-     * Assumes that the attribute is numeric. <== TODO may cause problems
-     *
-     * @param trainingData The dataset of mi-bags
-     * @param attrIndex The index of the attribute to find the mean for
-     * @return The mean for the attribute over all instances in all bags
-     */
-    static double findMean(Instances trainingData, int attrIndex)
-    {
-        double sum = 0;
-        int count = 0;
-
-        // check in each bag
-        for (Instance bag : trainingData)
-        {
-            // consider each instance in each bag
-            for (Instance inst : bag.relationalValue(REL_INDEX))
-            {
-                sum += inst.value(attrIndex);
-                count++;
-            }
-        }
-
-        return sum / count;
-    }
-
-    /**
-     * Find the median of all instances in trainingData for the attribute at index=attrIndex.
-     * Assumes that the attribute is numeric. <== TODO may cause problems
-     *
-     * @param trainingData The dataset of mi-bags
-     * @param attrIndex The index of the attribute to find the mean for
-     * @return The mean for the attribute over all instances in all bags
-     */
-    static double findMedian(final Instances trainingData, final int attrIndex)
-    {
-        // for now:
-        //  copy all values into a collection then sort
-        List<Double> vals = new ArrayList<Double>();
-        for (Instance bag : trainingData)
-        {
-            for (Instance inst : bag.relationalValue(REL_INDEX))
-            {
-                vals.add(inst.value(attrIndex));
-            }
-        }
-
-        Collections.sort(vals);
-
-        final int count = vals.size();
-        final boolean isEven = (count & 1) == 0;
-        final int midIndex = count / 2;
-
-        // if there is an even number of values, take the avg of the two middle elems.
-        return isEven ? 0.5*(vals.get(midIndex) + vals.get(midIndex-1)) : vals.get(midIndex);
-    }
-
-    /** For storing a pair: value (double) and class (double) */
-    private static class ValClassPair implements Comparable<ValClassPair>
-    {
-        public final double val;
-        public final double classVal;
-
-        private ValClassPair(final double val, final double classVal)
-        {
-            this.val = val;
-            this.classVal = classVal;
-        }
-
-        /** @inheritDoc */
-        @Override
-        public int compareTo(final ValClassPair o)
-        {
-            double diff = this.val - o.val;
-            return diff == 0 ? 0 : diff < 0 ? -1 : 1;
-        }
-    }
-
-    static ArrayList<Double> findDiscretizedSplits(final Instances trainingData,
-                                                   final int attrIndex)
-    {
-        List<ValClassPair> vals = new ArrayList<ValClassPair>();
-        for (Instance bag : trainingData)
-        {
-            for (Instance inst : bag.relationalValue(REL_INDEX))
-            {
-                vals.add(new ValClassPair(inst.value(attrIndex), bag.classValue()));
-            }
-        }
-
-        Collections.sort(vals);
-
-        // iterate through the list, finding class-boundaries
-        ArrayList<Double> splits = new ArrayList<Double>();
-        ValClassPair last = vals.get(0);
-        final int size = vals.size();
-        for(int i=1; i<size; i++)
-        {
-            ValClassPair cur = vals.get(i);
-            if (last.classVal != cur.classVal)
-            {
-                // this is a class boundary
-                final double split = (last.val + cur.val) / 2.0;
-                splits.add(split);
-            }
-            last = cur;
-        }
-        return splits;
-    }
-
-    // TODO javadocs
-    double evaluateSplittingDimension(Instances trainingData,
-                                              int attrIndex)
-    {
-        // TODO : support NOM { branch split } , missing { how? }
-        // TODO cache vals for efficiency
-
-        // setup attr
-        final ArrayList<Attribute> attInfo = new ArrayList<Attribute>();
-        attInfo.add(new Attribute("less-than"));
-        attInfo.add(new Attribute("greater-than"));
-        attInfo.add((Attribute) trainingData.classAttribute().copy()); // class
-
-        // create propositionalised dataset
-        final int numBags = trainingData.numInstances();
-        m_propositionalisedDataset = new Instances("prop", attInfo, numBags);
-
-        // TODO update this or make a const
-        m_propositionalisedDataset.setClassIndex(2);
-
-        // find the split point
-        // TODO need to convert this?
-        double splitPoint = findMean(trainingData, attrIndex);
-
-        for (Instance bag : trainingData)
-        {
-            // propositionalise the bag and add it to the set
-            // TODO efficiency concerns
-            Instance propositionalisedBag = propositionaliseBag(
-                    bag.relationalValue(REL_INDEX),
-                    attrIndex,
-                    splitPoint,
-                    bag.classValue(),
-                    m_propositionalisedDataset);
-
-            m_propositionalisedDataset.add(propositionalisedBag);
-        }
-
-        // eval on propositionalised dataset
-        // TODO, not sure if the following works...
-        // TODO efficiency reasons.. is it better to compute non-cv error rate?
-        try
-        {
-            m_Classifier.buildClassifier(m_propositionalisedDataset);
-
-            // count num errors
-            int numErr = 0;
-            for (Instance inst : m_propositionalisedDataset)
-            {
-                if (m_Classifier.classifyInstance(inst) != inst.classValue())
-                {
-                    numErr++;
-                }
-            }
-
-            return ((double) numErr); // TODO no need to divide by numInst?
-        }
-        catch (Exception e)
-        {
-            // TODO what to do?
-            throw new RuntimeException(e);
-        }
     }
 
     /**
@@ -455,4 +301,315 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
 
         return i;
     }
+
+    /**
+     * A way to evaluate each split point
+     */
+    public double evaluateSplit(Instances trainingData, int splitAttrIndex, double splitPoint)
+    {
+        // TODO efficiency concerns
+        // setup attr
+        final ArrayList<Attribute> attInfo = new ArrayList<Attribute>();
+        attInfo.add(new Attribute("less-than"));
+        attInfo.add(new Attribute("greater-than"));
+        attInfo.add((Attribute) trainingData.classAttribute().copy()); // class
+
+        // create propositionalised dataset
+        final int numBags = trainingData.numInstances();
+        m_propositionalisedDataset = new Instances("prop", attInfo, numBags);
+
+        // TODO update this or make a const
+        m_propositionalisedDataset.setClassIndex(2);
+
+//            // find the split point // TODO make this more generic.
+//            double splitPoint = m_SplitStrategy == SPLIT_MEAN ?
+//                    findMean(trainingData, splitAttrIndex) :
+//                    findMedian(trainingData, splitAttrIndex);
+
+        for (Instance bag : trainingData)
+        {
+            // propositionalise the bag and add it to the set
+            // TODO efficiency concerns
+            Instance propositionalisedBag = propositionaliseBag(
+                    bag.relationalValue(REL_INDEX),
+                    splitAttrIndex,
+                    splitPoint,
+                    bag.classValue(),
+                    m_propositionalisedDataset);
+
+            m_propositionalisedDataset.add(propositionalisedBag);
+        }
+
+        // eval on propositionalised dataset
+        // TODO, not sure if the following works...
+        // TODO efficiency reasons.. is it better to compute non-cv error rate?
+        try
+        {
+            m_Classifier.buildClassifier(m_propositionalisedDataset);
+
+            // count num errors
+            int numErr = 0;
+            for (Instance inst : m_propositionalisedDataset)
+            {
+                if (m_Classifier.classifyInstance(inst) != inst.classValue())
+                {
+                    numErr++;
+                }
+            }
+
+            return ((double) numErr); // TODO no need to divide by numInst?
+        }
+        catch (Exception e)
+        {
+            // TODO what to do?
+            throw new RuntimeException(e);
+        }
+    }
+}
+
+/** For storing a pair: value (double) and class (double) */
+class Pair<A extends Comparable<A>,B extends Comparable<B>> implements Comparable<Pair<A,B>>
+{
+    public final A key;
+    public final B value;
+
+    Pair(final A val, final B classVal)
+    {
+        this.key = val;
+        this.value = classVal;
+    }
+
+    /** @inheritDoc */
+    @Override
+    public int compareTo(final Pair<A,B> o)
+    {
+        int diff = key.compareTo(o.key);
+        return diff == 0 ? value.compareTo(o.value) : diff;
+    }
+
+    @Override
+    public String toString()
+    {
+        return "(" + key + ", " + value + ")";
+    }
+}
+
+/**
+ * A strategy for generating candidate splits
+ */
+interface SplitStrategy
+{
+    /**
+     * Generate all candidate splits using the current split strategy
+     * @param trainingData The training data (as bags)
+     * @return A list of candidate splits
+     */
+    List<Pair<Integer, Double>> generateSplitPoints(final Instances trainingData);
+}
+
+abstract class CenterSplitStrategy implements SplitStrategy
+{
+    private final int numAttr;
+
+    /** @param numAttr Number of attributes in the single-instance dataset. */
+    protected CenterSplitStrategy(final int numAttr)
+    {
+        this.numAttr = numAttr;
+    }
+
+    /**
+     * Find the center of the instances in trainingData along the attrIndex axis.
+     * @param trainingData The bags of training instances.
+     * @param attrIndex The attribute to find the center for.
+     * @return the center value of the instances along the attribute.
+     */
+    abstract double findCenter(Instances trainingData, int attrIndex);
+
+    /** @inheritDoc */
+    @Override
+    public List<Pair<Integer, Double>> generateSplitPoints(final Instances trainingData)
+    {
+        List<Pair<Integer, Double>> splits = new ArrayList<Pair<Integer, Double>>(numAttr);
+
+        for(int attr=0; attr<numAttr; attr++)
+        {
+            splits.add(new Pair<Integer, Double>(attr, findCenter(trainingData, attr)));
+        }
+
+        return splits;
+    }
+}
+
+/** Each candidate split is a mean of an attribute */
+class MeanSplitStrategy extends CenterSplitStrategy
+{
+    /** @param numAttr Number of attributes in the single-instance dataset. */
+    protected MeanSplitStrategy(final int numAttr)
+    {
+        super(numAttr);
+    }
+
+    /**
+     * Find the mean of all instances in trainingData for the attribute at index=attrIndex.
+     * Assumes that the attribute is numeric. <== TODO may cause problems
+     *
+     * @param trainingData The dataset of mi-bags
+     * @param attrIndex The index of the attribute to find the mean for
+     * @return The mean for the attribute over all instances in all bags
+     */
+    static double findMean(Instances trainingData, int attrIndex)
+    {
+        double sum = 0;
+        int count = 0;
+
+        // check in each bag
+        for (Instance bag : trainingData)
+        {
+            // consider each instance in each bag
+            for (Instance inst : bag.relationalValue(AdaptiveSplit.REL_INDEX))
+            {
+                sum += inst.value(attrIndex);
+                count++;
+            }
+        }
+
+        return sum / count;
+    }
+
+    /** @inheritDoc */
+    double findCenter(Instances trainingData, int attrIndex)
+    {
+        return findMean(trainingData, attrIndex);
+    }
+}
+
+/** Each candidate split is the median of an attribute */
+class MedianSplitStrategy extends CenterSplitStrategy
+{
+    /** @param numAttr Number of attributes in the single-instance dataset. */
+    protected MedianSplitStrategy(final int numAttr)
+    {
+        super(numAttr);
+    }
+
+    /**
+     * Find the median of all instances in trainingData for the attribute at index=attrIndex.
+     * Assumes that the attribute is numeric. <== TODO may cause problems
+     *
+     * @param trainingData The dataset of mi-bags
+     * @param attrIndex The index of the attribute to find the mean for
+     * @return The mean for the attribute over all instances in all bags
+     */
+    static double findMedian(final Instances trainingData, final int attrIndex)
+    {
+        // for now:
+        //  copy all values into a collection then sort
+        List<Double> vals = new ArrayList<Double>();
+        for (Instance bag : trainingData)
+        {
+            for (Instance inst : bag.relationalValue(AdaptiveSplit.REL_INDEX))
+            {
+                vals.add(inst.value(attrIndex));
+            }
+        }
+
+        Collections.sort(vals);
+
+        final int count = vals.size();
+        final boolean isEven = (count & 1) == 0;
+        final int midIndex = count / 2;
+
+        // if there is an even number of values, take the avg of the two middle elems.
+        return isEven ? 0.5*(vals.get(midIndex) + vals.get(midIndex-1)) : vals.get(midIndex);
+    }
+
+    /** @inheritDoc */
+    double findCenter(Instances trainingData, int attrIndex)
+    {
+        return findMedian(trainingData, attrIndex);
+    }
+}
+
+/** Each split point is a class-boundary across an attribute */
+class DiscretizedSplitStrategy implements SplitStrategy
+{
+    private final int numAttr;
+
+    /** @param numAttr Number of attributes in the single-instance dataset. */
+    DiscretizedSplitStrategy(final int numAttr)
+    {
+        this.numAttr = numAttr;
+    }
+
+    /**
+     * Find the points where the class changes when the single-instance
+     *  dataset is sorted by the specified attribute.
+     * @param trainingData The training data bags
+     * @param attrIndex The attribute to order by
+     * @return The points representing the class boundaries
+     */
+    static ArrayList<Double> findDiscretizedSplits(final Instances trainingData,
+                                                   final int attrIndex)
+    {
+        List<Pair<Double,Double>> vals = new ArrayList<Pair<Double,Double>>();
+        for (Instance bag : trainingData)
+        {
+            for (Instance inst : bag.relationalValue(AdaptiveSplit.REL_INDEX))
+            {
+                vals.add(new Pair(inst.value(attrIndex), bag.classValue()));
+            }
+        }
+
+        Collections.sort(vals);
+
+        // iterate through the list, finding class-boundaries
+        ArrayList<Double> splits = new ArrayList<Double>();
+        Pair<Double, Double> last = vals.get(0);
+        final int size = vals.size();
+        for(int i=1; i<size; i++)
+        {
+            Pair<Double, Double> cur = vals.get(i);
+            if (!last.value.equals(cur.value))
+            {
+                // this is a class boundary
+                final double split = (last.key + cur.key) / 2.0;
+                splits.add(split);
+            }
+            last = cur;
+        }
+        return splits;
+    }
+
+    /** @inheritDoc */
+    @Override
+    public List<Pair<Integer, Double>> generateSplitPoints(final Instances trainingData)
+    {
+        List<Pair<Integer, Double>> splits = new ArrayList<Pair<Integer, Double>>(numAttr);
+
+        for(int attr=0; attr<numAttr; attr++)
+        {
+            for (double split : findDiscretizedSplits(trainingData, attr))
+            {
+                splits.add(new Pair<Integer, Double>(attr, split));
+            }
+        }
+
+        return splits;
+    }
+}
+
+/**
+ * A way to evaluate each split point
+ */
+interface SplitPointEvaluator
+{
+    /**
+     * Evaluate the accuracy when splitting the trainingData on the specified attribute,
+     *  using the specified split point.
+     * @param trainingData The training instances
+     * @param splitAttrIndex The attribute to split on
+     * @param splitPoint The split value
+     * @return The classification error.
+     */
+    double evaluateSplit(Instances trainingData, int splitAttrIndex, double splitPoint);
 }

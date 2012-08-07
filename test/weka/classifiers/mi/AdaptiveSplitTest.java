@@ -4,6 +4,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import weka.classifiers.Classifier;
 import weka.classifiers.rules.OneR;
 import weka.classifiers.rules.ZeroR;
 import weka.classifiers.trees.J48;
@@ -280,7 +281,7 @@ public class AdaptiveSplitTest
         for (int attrIndex = 0; attrIndex < NUM_ATTR; attrIndex++)
         {
             final double expectedMean = attrIndex + (NUM_ATTR*(numInst-1)/2.0);
-            final double actualMean = adaptiveSplit.findMean(miData, attrIndex);
+            final double actualMean = MeanSplitStrategy.findMean(miData, attrIndex);
             final String msg = "Mean for attribute " + attrIndex;
             assertEquals(msg, expectedMean, actualMean, TOLERANCE);
         }
@@ -297,7 +298,7 @@ public class AdaptiveSplitTest
         for (int attrIndex = 0; attrIndex < NUM_ATTR; attrIndex++)
         {
             final double expectedMedian = 27.5 + attrIndex;
-            final double actualMedian = adaptiveSplit.findMedian(miData, attrIndex);
+            final double actualMedian = MedianSplitStrategy.findMedian(miData, attrIndex);
             final String msg = "Median for attribute " + attrIndex;
             assertEquals(msg, expectedMedian, actualMedian, TOLERANCE);
         }
@@ -314,7 +315,7 @@ public class AdaptiveSplitTest
         for (int attrIndex = 0; attrIndex < NUM_ATTR; attrIndex++)
         {
             final List<Double> exp = Arrays.asList(37.5+attrIndex);
-            final ArrayList<Double> act = adaptiveSplit.findDiscretizedSplits(miData, attrIndex);
+            final ArrayList<Double> act = DiscretizedSplitStrategy.findDiscretizedSplits(miData, attrIndex);
             assertListEquals("Split points for attribute " + attrIndex, exp, act);
         }
     }
@@ -331,39 +332,36 @@ public class AdaptiveSplitTest
         }
     }
 
+    /** Test evaluation of with the specified classifier gives the correct value */
+    private void evalSplitWithClassifier(Classifier classifier, double exp)
+    {
+        // init the m_classifier
+        adaptiveSplit.setClassifier(classifier);
+
+        final int attrIndex = 2;
+        final double splitPt = new MeanSplitStrategy(NUM_ATTR).findCenter(miData, attrIndex);
+        final double act = adaptiveSplit.evaluateSplit(miData, attrIndex, splitPt);
+        assertEquals(classifier.getClass().getName(), exp, act, TOLERANCE);
+    }
+
     @Test
     public void testEvalSplitWithZeroR() throws Exception
     {
-        // init the m_classifier
-        adaptiveSplit.setClassifier(new ZeroR());
-
-        double expected = 1; // evaluated in WEKA
-        double actual = adaptiveSplit.evaluateSplittingDimension(miData, 2);
-        assertEquals(expected, actual, TOLERANCE);
+        evalSplitWithClassifier(new ZeroR(), 1);
     }
 
     @Test
     public void testEvalSplitWithOneR() throws Exception
     {
-        // init the m_classifier
-        adaptiveSplit.setClassifier(new OneR());
-
-        double expected = 1; // evaluated in WEKA
-        double actual = adaptiveSplit.evaluateSplittingDimension(miData, 2);
-        assertEquals(expected, actual, TOLERANCE);
+        evalSplitWithClassifier(new OneR(), 1);
     }
 
     @Test
     public void testEvalSplitWithJ48() throws Exception
     {
-        // init the m_classifier
         J48 j48 = new J48();
         j48.setMinNumObj(1);
-        adaptiveSplit.setClassifier(j48);
-
-        double expected = 0; // evaluated in WEKA
-        double actual = adaptiveSplit.evaluateSplittingDimension(miData, 2);
-        assertEquals(expected, actual, TOLERANCE);
+        evalSplitWithClassifier(j48, 0);
     }
 
     /**
