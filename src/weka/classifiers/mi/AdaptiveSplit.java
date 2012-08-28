@@ -15,8 +15,12 @@ import java.util.*;
 public class AdaptiveSplit extends SingleClassifierEnhancer
         implements MultiInstanceCapabilitiesHandler, OptionHandler
 {
-    /** for serialization */
-    static final long serialVersionUID = -131449935521003121L;
+    /**
+     * For serialization:
+     *  format: 1[dd][mm][yyyy]00..0[digit revision number]L
+     */
+    static final long serialVersionUID = 1280820120000007L;
+
 
     /** The index of the relational attribute in the bag instance */
     public static final int REL_INDEX = 1;
@@ -30,6 +34,8 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
     private static final int SPLIT_MEDIAN = 2;
     private static final int SPLIT_DISCRETIZED = 3;
     private static final int DEFAULT_SPLIT_STRATEGY = SPLIT_MEAN;
+    private static final int DEFAULT_MAX_DEPTH = 0;
+    private static final int DEFAULT_MIN_OCCUPANCY = 2;
 
     public static final Tag [] SPLIT_STRATEGIES =
     {
@@ -40,6 +46,12 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
 
     /** The id of the instance-space splitting strategy to use */
     protected int m_SplitStrategy = DEFAULT_SPLIT_STRATEGY;
+
+    /** The maximum depth of the tree of splits (0 for unlimited) */
+    protected int m_MaxDepth = DEFAULT_MAX_DEPTH;
+
+    /** The minimum occupancy of each leaf node in the tree */
+    protected int m_MinOccupancy = DEFAULT_MIN_OCCUPANCY;
 
     /**
      * Gets the current instance-space splitting strategy
@@ -64,6 +76,41 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
                 "Unknown tag (not a splitting strategy tag): " + newStrategy);
     }
 
+    /**
+     * Gets the max tree depth
+     * @return the max depth
+     */
+    public int getMaxDepth()
+    {
+        return m_MaxDepth;
+    }
+
+    /**
+     * Sets the max tree depth
+     * @param maxDepth The maximum tree depth
+     */
+    public void setMaxDepth(int maxDepth)
+    {
+        m_MaxDepth = maxDepth;
+    }
+
+    /**
+     * Gets the min occupancy for each leaf node
+     * @return the min occupancy
+     */
+    public int getMinOccupancy()
+    {
+        return m_MinOccupancy;
+    }
+
+    /**
+     * Sets the min occupancy for each leaf node
+     * @param minOccupancy The min occupancy
+     */
+    public void setMinOccupancy(int minOccupancy)
+    {
+        m_MinOccupancy = minOccupancy;
+    }
     // ==================================================================================
 
     /** The best attribute to split on */
@@ -135,6 +182,8 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
             "\tSplit point criterion: 1=mean (default), 2=median, 3=discretized",
             "S", 1, "-S <num>"));
 
+        // max depth
+
         Enumeration enu = super.listOptions();
         while (enu.hasMoreElements())
         {
@@ -194,7 +243,7 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
     public String toString()
     {
         // TODO
-        return "TODO";
+        return "Splitting on " + m_BestAttrToSplitOn + " at " + m_AttrSplitPoint;
     }
 
     @Override /** @inheritDoc */
@@ -251,7 +300,7 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
         SplitPointEvaluator spe = null; // TODO
 
         // get the set of candidate splits
-        List<Pair<Integer, Double>> splits = splitStrategy.generateSplitPoints(trainingDataBags);
+        List<Pair<Integer, Double>> splits = splitStrategy.generateSplitPoints(trainingBags);
 
         // find the best
         for (Pair<Integer, Double> kv : splits)
@@ -261,6 +310,7 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
             {
                 minErr = err;
                 m_BestAttrToSplitOn = kv.key;
+                m_AttrSplitPoint = kv.value;
             }
         }
 
@@ -612,4 +662,50 @@ interface SplitPointEvaluator
      * @return The classification error.
      */
     double evaluateSplit(Instances trainingData, int splitAttrIndex, double splitPoint);
+}
+
+
+/**
+ * Represents a single split point (a node in the adaSplitTree).
+ * This Node is either a leaf (left=right=null) or a branch (both left and right are
+ *  not null).
+ */
+class SplitNode
+{
+    /** The attribute to split on */
+    private int splitAttrIndex;
+
+    /** The value of the attribute */
+    private double splitPoint;
+
+    /** node for handling values less than the split point */
+    private SplitNode left;
+
+    /** greater than or equal to the split point */
+    private SplitNode right;
+
+    /**
+     * Find the best split point on the given dataset.
+     */
+    public SplitNode(SplitStrategy splitStrategy, Instances bags)
+    {
+        double minErr = Double.MAX_VALUE;
+
+        List<Pair<Integer, Double>> candidateSplits = splitStrategy.generateSplitPoints(bags);
+
+        // find the best split (least err)
+        for (Pair<Integer, Double> kv : candidateSplits)
+        {
+            // TODO - evalute split
+            double err = 0 ; // evaluateSplit(bags, kv.key, kv.value);
+
+            if (err < minErr)
+            {
+                minErr = err;
+                splitAttrIndex = kv.key;
+                splitPoint = kv.value;
+            }
+        }
+    }
+
 }
