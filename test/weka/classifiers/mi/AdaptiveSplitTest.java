@@ -341,7 +341,7 @@ public class AdaptiveSplitTest
         final int attrIndex = 2;
         final double splitPt = new MeanSplitStrategy(NUM_ATTR)
                 .findCenter(miData, attrIndex, new BitSet(NUM_BAGS * NUM_INST_PER_BAG));
-        final double act = adaptiveSplit.evaluateSplit(miData, attrIndex, splitPt);
+        final double act = SplitNode.evaluateSplit(miData, attrIndex, splitPt, classifier);
         assertEquals(classifier.getClass().getName(), exp, act, TOLERANCE);
     }
 
@@ -418,7 +418,7 @@ public class AdaptiveSplitTest
             final Instance bag = miData.get(bagIndex);
 
             // find actual value:
-            result.add(AdaptiveSplit.propositionaliseBag(
+            result.add(SplitNode.propositionaliseBagViaOneSplit(
                     bag.relationalValue(REL_INDEX), attrIndex, split,
                     bag.classValue(), result));
         }

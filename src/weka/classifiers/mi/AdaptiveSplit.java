@@ -1,8 +1,10 @@
 package weka.classifiers.mi;
 
+import weka.classifiers.Classifier;
 import weka.classifiers.SingleClassifierEnhancer;
 import weka.core.*;
 
+import java.io.Serializable;
 import java.util.*;
 import java.util.Queue;
 
@@ -20,8 +22,7 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
      * For serialization:
      *  format: 1[dd][mm][yyyy]00..0[digit revision number]L
      */
-    static final long serialVersionUID = 1280820120000007L;
-
+    static final long serialVersionUID = 1280820120000009L;
 
     /** The index of the relational attribute in the bag instance */
     public static final int REL_INDEX = 1;
@@ -35,7 +36,7 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
     private static final int SPLIT_MEDIAN = 2;
     private static final int SPLIT_DISCRETIZED = 3;
     private static final int DEFAULT_SPLIT_STRATEGY = SPLIT_MEAN;
-    private static final int DEFAULT_MAX_DEPTH = 0;
+    private static final int DEFAULT_MAX_DEPTH = 5;
     private static final int DEFAULT_MIN_OCCUPANCY = 2;
 
     public static final Tag [] SPLIT_STRATEGIES =
@@ -114,11 +115,8 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
     }
     // ==================================================================================
 
-    /** The best attribute to split on */
-    protected int m_BestAttrToSplitOn;
-
-    /** The split point for that attribute (assume NUMERIC) */
-    protected double m_AttrSplitPoint;
+    /** The tree of splits */
+    protected SplitNode splitTreeRoot;
 
     /** Contains the bags as propositionalised instances */
     protected Instances m_propositionalisedDataset;
@@ -184,6 +182,14 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
             "S", 1, "-S <num>"));
 
         // max depth
+        result.addElement(new Option(
+            "\tMaximum depth of the tree. 0 for unlimited (default).",
+            "maxDepth", 1, "-maxDepth <num>"));
+
+        // min occupancy
+        result.addElement(new Option(
+            "\tMinimum occupancy of each node of the tree. Default=2",
+            "minOcc", 1, "-minOcc <num>"));
 
         Enumeration enu = super.listOptions();
         while (enu.hasMoreElements())
@@ -216,6 +222,13 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
         // split strategy
         String splitStrategyStr = Utils.getOption('S', options);
         this.setSplitStrategy(new SelectedTag(Integer.parseInt(splitStrategyStr), SPLIT_STRATEGIES));
+
+        String maxDepthStr = Utils.getOption("maxDepth", options);
+        this.setMaxDepth(maxDepthStr.length() == 0 ? DEFAULT_MAX_DEPTH : Integer.parseInt(maxDepthStr));
+
+        String minOccStr = Utils.getOption("minOcc", options);
+        this.setMinOccupancy(minOccStr.length() == 0 ? DEFAULT_MAX_DEPTH :Integer.parseInt(minOccStr));
+
         super.setOptions(options);
     }
 
@@ -225,9 +238,12 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
     {
         Vector result = new Vector();
 
-        // split option
         result.add("-S");
         result.add("" + m_SplitStrategy);
+        result.add("-maxDepth");
+        result.add("" + m_MaxDepth);
+        result.add("-minOcc");
+        result.add("" + m_MinOccupancy);
 
         String[] options = super.getOptions();
         for (int i = 0; i < options.length; i++)
@@ -237,29 +253,23 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
     }
 
 
-    /**
-     * @return A string representation of this model.
-     */
+    /** @return A string representation of this model. */
     @Override
     public String toString()
     {
-        // TODO
-        return "Splitting on " + m_BestAttrToSplitOn + " at " + m_AttrSplitPoint;
+        return "Tree of splits: \n\n" +
+                (splitTreeRoot == null ? "not-yet-created" : splitTreeRoot.toString());
     }
 
     @Override /** @inheritDoc */
     public double[] distributionForInstance(Instance newBag) throws Exception
     {
-        // propositionalise the bag using the attribute and it's split point.
-        final Instance propositionalisedBag = propositionaliseBag(
-                newBag.relationalValue(REL_INDEX),
-                m_BestAttrToSplitOn,
-                m_AttrSplitPoint,
-                newBag.classValue(),
-                m_propositionalisedDataset);
+        // propositionalise the bag
+        Instance propositionalisedTrainingData =
+                SplitNode.propositionaliseBag(newBag, splitTreeRoot, m_propositionalisedDataset);
 
         // use the base classifier for prediction.
-        return m_Classifier.distributionForInstance(propositionalisedBag);
+        return m_Classifier.distributionForInstance(propositionalisedTrainingData);
     }
 
     @Override /** @inheritDoc */
@@ -277,13 +287,11 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
         Instances trainingBags = new Instances(trainingDataBags);
         trainingBags.deleteWithMissingClass();
 
-        // TODO create a single-instance table? (unnecessary?)
-
         final int numAttr = trainingBags.instance(0).relationalValue(1).numAttributes();
         double minErr = Double.MAX_VALUE;
 
-        // find the split & evaluate strategies
-        // TODO switch on m_Split
+        // find the split & evaluate strategies:
+        SplitPointEvaluator spe = null; // TODO
         SplitStrategy splitStrategy = null;
         switch (m_SplitStrategy)
         {
@@ -298,133 +306,16 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
                 break;
         }
 
-        SplitPointEvaluator spe = null; // TODO
+        // create the tree of splits:
+        splitTreeRoot = SplitNode.buildTree(
+                trainingBags, splitStrategy, m_MaxDepth, m_MinOccupancy, m_Classifier);
 
-        // get the set of candidate splits
-        // first: count the number of instances
-        int numInstances = 0;
-        for (Instance bag : trainingBags)
-        {
-            numInstances += bag.relationalValue(REL_INDEX).numInstances();
-        }
+        // retrain m_classifier with the best attribute:
+        Instances propositionalisedTrainingData =
+                SplitNode.propositionaliseDataset(trainingBags, splitTreeRoot);
+        m_propositionalisedDataset = new Instances(propositionalisedTrainingData, 0);
+        m_Classifier.buildClassifier(propositionalisedTrainingData);
 
-        List<Pair<Integer, Double>> splits
-                = splitStrategy.generateSplitPoints(trainingBags, new BitSet(numInstances));
-
-        // find the best
-        for (Pair<Integer, Double> kv : splits)
-        {
-            double err = evaluateSplit(trainingBags, kv.key, kv.value);
-            if (err < minErr)
-            {
-                minErr = err;
-                m_BestAttrToSplitOn = kv.key;
-                m_AttrSplitPoint = kv.value;
-            }
-        }
-
-        // TODO repeat recursively?
-
-        // TODO can we avoid re-training classifier with best-attr-to-split-on
-        // retrain m_classifier with the best attribute.
-        evaluateSplit(trainingBags, m_BestAttrToSplitOn, m_AttrSplitPoint);
-    }
-
-    /**
-     *  Use this at test time.
-     *  It is possible to be more efficient at train time.
-     */
-    static Instance propositionaliseBag(Instances bagInstances,
-                    int attrIndex, double splitPoint, double classVal,
-                    Instances propositionalisedDataset)
-    {
-        // TODO support NOM splitting attr, missing vals
-
-        // count the number of instances with less than and geq value for the
-        //  split attribute.
-        int countLessThan = 0;
-        int countGeq = 0;
-        for(Instance inst : bagInstances)
-        {
-            if (inst.value(attrIndex) < splitPoint)
-            {
-                countLessThan++;
-            }
-            else
-            {
-                countGeq++;
-            }
-        }
-
-        final double[] attValues = {countLessThan, countGeq, classVal};
-        Instance i = new DenseInstance(1.0, attValues);
-        i.setDataset(propositionalisedDataset);
-
-        return i;
-    }
-
-    /**
-     * A way to evaluate each split point
-     */
-    public double evaluateSplit(Instances trainingData, int splitAttrIndex, double splitPoint)
-    {
-        // TODO efficiency concerns
-        // setup attr
-        final ArrayList<Attribute> attInfo = new ArrayList<Attribute>();
-        attInfo.add(new Attribute("less-than"));
-        attInfo.add(new Attribute("greater-than"));
-        attInfo.add((Attribute) trainingData.classAttribute().copy()); // class
-
-        // create propositionalised dataset
-        final int numBags = trainingData.numInstances();
-        m_propositionalisedDataset = new Instances("prop", attInfo, numBags);
-
-        // TODO update this or make a const
-        m_propositionalisedDataset.setClassIndex(2);
-
-//            // find the split point // TODO make this more generic.
-//            double splitPoint = m_SplitStrategy == SPLIT_MEAN ?
-//                    findMean(trainingData, splitAttrIndex) :
-//                    findMedian(trainingData, splitAttrIndex);
-
-        for (Instance bag : trainingData)
-        {
-            // propositionalise the bag and add it to the set
-            // TODO efficiency concerns
-            Instance propositionalisedBag = propositionaliseBag(
-                    bag.relationalValue(REL_INDEX),
-                    splitAttrIndex,
-                    splitPoint,
-                    bag.classValue(),
-                    m_propositionalisedDataset);
-
-            m_propositionalisedDataset.add(propositionalisedBag);
-        }
-
-        // eval on propositionalised dataset
-        // TODO, not sure if the following works...
-        // TODO efficiency reasons.. is it better to compute non-cv error rate?
-        try
-        {
-            m_Classifier.buildClassifier(m_propositionalisedDataset);
-
-            // count num errors
-            int numErr = 0;
-            for (Instance inst : m_propositionalisedDataset)
-            {
-                if (m_Classifier.classifyInstance(inst) != inst.classValue())
-                {
-                    numErr++;
-                }
-            }
-
-            return ((double) numErr); // TODO no need to divide by numInst?
-        }
-        catch (Exception e)
-        {
-            // TODO what to do?
-            throw new RuntimeException(e);
-        }
     }
 }
 
@@ -707,8 +598,10 @@ interface SplitPointEvaluator
  *      (may have empty slots, but that shouldn't be a problem)
  *      Better yet: serialise the process with a queue --> solves pre-order problem.
  */
-class SplitNode
+class SplitNode implements Serializable
 {
+    static final long serialVersionUID = AdaptiveSplit.serialVersionUID + 1000L;
+
     /** The attribute to split on */
     private final int splitAttrIndex;
 
@@ -731,7 +624,8 @@ class SplitNode
      * Find the best split point on the given dataset.
      */
     public SplitNode(SplitStrategy splitStrategy, Instances bags, int maxDepth,
-                     int minOccupancy, BitSet ignore, int flattenedCount)
+                     int minOccupancy, BitSet ignore, int flattenedCount,
+                     Classifier classifier )
     {
         // stopping condition:
         if (maxDepth <= 0 || flattenedCount - ignore.cardinality() < minOccupancy)
@@ -752,8 +646,7 @@ class SplitNode
             Pair<Integer, Double> bestSplit = null;
             for (Pair<Integer, Double> curSplit : candidateSplits)
             {
-                // TODO - evalute split
-                double err = 0 ; // evaluateSplit(bags, curSplit.key, curSplit.value);
+                double err = evaluateSplit(bags, curSplit.key, curSplit.value, classifier);
 
                 if (err < minErr)
                 {
@@ -772,8 +665,10 @@ class SplitNode
             BitSet rightIgnore = new BitSet(flattenedCount);
             partitionDataset(bags, ignore, leftIgnore, rightIgnore);
 
-            left = new SplitNode(splitStrategy, bags, maxDepth - 1, minOccupancy, leftIgnore, flattenedCount);
-            right = new SplitNode(splitStrategy, bags, maxDepth - 1, minOccupancy, rightIgnore, flattenedCount);
+            left = new SplitNode(splitStrategy, bags, maxDepth - 1, minOccupancy,
+                    leftIgnore, flattenedCount, classifier);
+            right = new SplitNode(splitStrategy, bags, maxDepth - 1, minOccupancy,
+                    rightIgnore, flattenedCount, classifier);
             nodeCount = left.nodeCount + right.nodeCount + 1;
         }
     }
@@ -844,8 +739,10 @@ class SplitNode
      * places the results (incl subtrees) in the appropriate slot in the attrVals.
      * Thus this fn is recursive.
      *
+     * can only be used at test time (not training time)
+     *
      */
-    private void propositionaliseBag(Instance bag, double[] attrVals, BitSet ignore)
+    private void nodePropositionaliseBag(Instance bag, double[] attrVals, BitSet ignore)
     {
         final int numInstances = bag.relationalValue(AdaptiveSplit.REL_INDEX).size();
         if (this.nodeCount == 1) // is leaf
@@ -872,8 +769,9 @@ class SplitNode
      * @param minOccupancy
      * @return The root of the split-tree
      */
-    public static ArrayList<SplitNode> buildTree(Instances trainingBags,
-        final SplitStrategy splitStrategy, final int maxDepth, final int minOccupancy)
+    public static SplitNode buildTree(Instances trainingBags,
+        final SplitStrategy splitStrategy, final int maxDepth, final int minOccupancy,
+        final Classifier classifier)
     {
         // count the number of instances:
         int flattenedCount = 0;
@@ -886,10 +784,9 @@ class SplitNode
 
         // build the entire tree
         SplitNode root = new SplitNode(splitStrategy, trainingBags, maxDepth,
-                minOccupancy, ignore, flattenedCount);
+                minOccupancy, ignore, flattenedCount, classifier);
 
         // structure the tree into an arraylist via bfs:
-        ArrayList<SplitNode> nodes = new ArrayList<SplitNode>(root.nodeCount);
         int index = 0;
         Queue<SplitNode> nodeQueue = new LinkedList<SplitNode>();
         nodeQueue.add(root);
@@ -897,19 +794,18 @@ class SplitNode
         while(!nodeQueue.isEmpty())
         {
             SplitNode node = nodeQueue.remove();
-            nodes.add(node);
             node.propositionalisedAttributeIndex = index++;
 
             if (node.left != null) nodeQueue.add(node.left);
             if (node.right != null) nodeQueue.add(node.right);
         }
 
-        return nodes;
+        return root;
     }
 
-    public Instances propositionaliseDataset(Instance bags, SplitNode root)
+    public static Instances propositionaliseDataset(Instances bags, SplitNode root)
     {
-        // construct attribute header:
+        // construct attribute header (and instances header):
         // TODO this should only be done once (after training is complete)
         final ArrayList<Attribute> attInfo = new ArrayList<Attribute>();
         for (int i=0;i<root.nodeCount;i++)
@@ -917,75 +813,137 @@ class SplitNode
             attInfo.add(new Attribute("region " + i)); // TODO better names for attr
         }
         attInfo.add((Attribute) bags.classAttribute().copy()); // class
+        Instances propositionalisedDataset = new Instances("prop", attInfo, bags.numInstances());
+        propositionalisedDataset.setClassIndex(root.nodeCount);
 
-        // TODO
+        // propositionalise each bag and add it to the set
+        for (Instance bag : bags)
+        {
+            propositionalisedDataset.add(propositionaliseBag(bag, root, propositionalisedDataset));
+        }
 
-        return null;
+        return propositionalisedDataset;
+    }
+
+    public static Instance propositionaliseBag(final Instance bag, final SplitNode root,
+                                               final Instances propositionalisedDataset)
+    {
+        int numInst = bag.relationalValue(AdaptiveSplit.REL_INDEX).size();
+
+        final double[] attValues = new double[root.nodeCount+1];
+        root.nodePropositionaliseBag(bag,attValues, new BitSet(numInst));
+        attValues[root.nodeCount] = bag.classValue(); // set class val
+
+        Instance prop = new DenseInstance(1.0, attValues);
+        prop.setDataset(propositionalisedDataset);
+        return prop;
     }
 
     /**
      * A way to evaluate each split point
      */
-//    public static double evaluateSplit(Instances trainingData, int splitAttrIndex,
-//                                 double splitPoint)
-//    {
-//        // TODO efficiency concerns
-//        // setup attr
-//        final ArrayList<Attribute> attInfo = new ArrayList<Attribute>();
-//        attInfo.add(new Attribute("less-than"));
-//        attInfo.add(new Attribute("greater-than"));
-//        attInfo.add((Attribute) trainingData.classAttribute().copy()); // class
-//
-//        // create propositionalised dataset
-//        final int numBags = trainingData.numInstances();
-//        m_propositionalisedDataset = new Instances("prop", attInfo, numBags);
-//
-//        // TODO update this or make a const
-//        m_propositionalisedDataset.setClassIndex(2);
-//
-////            // find the split point // TODO make this more generic.
-////            double splitPoint = m_SplitStrategy == SPLIT_MEAN ?
-////                    findMean(trainingData, splitAttrIndex) :
-////                    findMedian(trainingData, splitAttrIndex);
-//
-//        for (Instance bag : trainingData)
-//        {
-//            // propositionalise the bag and add it to the set
-//            // TODO efficiency concerns
-//            Instance propositionalisedBag = propositionaliseBag(
-//                    bag.relationalValue(REL_INDEX),
-//                    splitAttrIndex,
-//                    splitPoint,
-//                    bag.classValue(),
-//                    m_propositionalisedDataset);
-//
-//            m_propositionalisedDataset.add(propositionalisedBag);
-//        }
-//
-//        // eval on propositionalised dataset
-//        // TODO, not sure if the following works...
-//        // TODO efficiency reasons.. is it better to compute non-cv error rate?
-//        try
-//        {
-//            m_Classifier.buildClassifier(m_propositionalisedDataset);
-//
-//            // count num errors
-//            int numErr = 0;
-//            for (Instance inst : m_propositionalisedDataset)
-//            {
-//                if (m_Classifier.classifyInstance(inst) != inst.classValue())
-//                {
-//                    numErr++;
-//                }
-//            }
-//
-//            return ((double) numErr); // TODO no need to divide by numInst?
-//        }
-//        catch (Exception e)
-//        {
-//            // TODO what to do?
-//            throw new RuntimeException(e);
-//        }
-//    }
-//}
+    public static double evaluateSplit(Instances trainingData, int splitAttrIndex,
+                                 double splitPoint, Classifier classifier)
+    {
+        // TODO efficiency concerns
+        // setup attr
+        final ArrayList<Attribute> attInfo = new ArrayList<Attribute>();
+        attInfo.add(new Attribute("less-than"));
+        attInfo.add(new Attribute("greater-than"));
+        attInfo.add((Attribute) trainingData.classAttribute().copy()); // class
+
+        // create propositionalised dataset
+        final int numBags = trainingData.numInstances();
+        Instances propositionalisedDataset = new Instances("prop", attInfo, numBags);
+
+        // TODO update this or make a const
+        propositionalisedDataset.setClassIndex(2);
+
+        for (Instance bag : trainingData)
+        {
+            // propositionalise the bag and add it to the set
+            // TODO efficiency concerns
+            Instance propositionalisedBag = propositionaliseBagViaOneSplit(bag.relationalValue(AdaptiveSplit.REL_INDEX), splitAttrIndex, splitPoint, bag.classValue(), propositionalisedDataset);
+
+            propositionalisedDataset.add(propositionalisedBag);
+        }
+
+        // eval on propositionalised dataset
+        // TODO, not sure if the following works...
+        // TODO efficiency reasons.. is it better to compute non-cv error rate?
+        try
+        {
+            classifier.buildClassifier(propositionalisedDataset);
+
+            // count num errors
+            int numErr = 0;
+            for (Instance inst : propositionalisedDataset)
+            {
+                if (classifier.classifyInstance(inst) != inst.classValue())
+                {
+                    numErr++;
+                }
+            }
+
+            return ((double) numErr); // TODO no need to divide by numInst?
+        }
+        catch (Exception e)
+        {
+            // TODO what to do?
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     *  Use this at test time.
+     *  It is possible to be more efficient at train time.
+     */
+    static Instance propositionaliseBagViaOneSplit(Instances bagInstances, int attrIndex,
+                                                   double splitPoint, double classVal,
+                                                   Instances propositionalisedDataset)
+    {
+        // TODO support NOM splitting attr, missing vals
+
+        // count the number of instances with less than and geq value for the
+        //  split attribute.
+        int countLessThan = 0;
+        int countGeq = 0;
+        for(Instance inst : bagInstances)
+        {
+            if (inst.value(attrIndex) < splitPoint)
+            {
+                countLessThan++;
+            }
+            else
+            {
+                countGeq++;
+            }
+        }
+
+        final double[] attValues = {countLessThan, countGeq, classVal};
+        Instance i = new DenseInstance(1.0, attValues);
+        i.setDataset(propositionalisedDataset);
+
+        return i;
+    }
+
+    @Override
+    public String toString()
+    {
+        if (left == null)
+        {
+            // this is a leaf:
+            return "\t["+ propositionalisedAttributeIndex + "] leaf.\n";
+        }
+        else
+        {
+            return "\t[" + propositionalisedAttributeIndex + "] Split on attr" +
+                    splitAttrIndex + " at " + splitPoint + ". left=" +
+                    left.propositionalisedAttributeIndex + ", right=" +
+                    right.propositionalisedAttributeIndex + ".\n" +
+                    left.toString() + right.toString();
+        }
+
+
+    }
 }
