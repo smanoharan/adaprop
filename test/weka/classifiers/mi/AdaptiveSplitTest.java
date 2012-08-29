@@ -10,10 +10,7 @@ import weka.classifiers.rules.ZeroR;
 import weka.classifiers.trees.J48;
 import weka.core.*;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Enumeration;
-import java.util.List;
+import java.util.*;
 
 import static org.junit.Assert.*;
 
@@ -281,7 +278,8 @@ public class AdaptiveSplitTest
         for (int attrIndex = 0; attrIndex < NUM_ATTR; attrIndex++)
         {
             final double expectedMean = attrIndex + (NUM_ATTR*(numInst-1)/2.0);
-            final double actualMean = MeanSplitStrategy.findMean(miData, attrIndex);
+            final double actualMean
+                    = MeanSplitStrategy.findMean(miData, attrIndex, new BitSet(numInst));
             final String msg = "Mean for attribute " + attrIndex;
             assertEquals(msg, expectedMean, actualMean, TOLERANCE);
         }
@@ -298,7 +296,8 @@ public class AdaptiveSplitTest
         for (int attrIndex = 0; attrIndex < NUM_ATTR; attrIndex++)
         {
             final double expectedMedian = 27.5 + attrIndex;
-            final double actualMedian = MedianSplitStrategy.findMedian(miData, attrIndex);
+            final double actualMedian
+                    = MedianSplitStrategy.findMedian(miData, attrIndex, new BitSet(numInst));
             final String msg = "Median for attribute " + attrIndex;
             assertEquals(msg, expectedMedian, actualMedian, TOLERANCE);
         }
@@ -315,7 +314,8 @@ public class AdaptiveSplitTest
         for (int attrIndex = 0; attrIndex < NUM_ATTR; attrIndex++)
         {
             final List<Double> exp = Arrays.asList(37.5+attrIndex);
-            final ArrayList<Double> act = DiscretizedSplitStrategy.findDiscretizedSplits(miData, attrIndex);
+            final ArrayList<Double> act
+                    = DiscretizedSplitStrategy.findDiscretizedSplits(miData, attrIndex, new BitSet(numInst));
             assertListEquals("Split points for attribute " + attrIndex, exp, act);
         }
     }
@@ -339,7 +339,8 @@ public class AdaptiveSplitTest
         adaptiveSplit.setClassifier(classifier);
 
         final int attrIndex = 2;
-        final double splitPt = new MeanSplitStrategy(NUM_ATTR).findCenter(miData, attrIndex);
+        final double splitPt = new MeanSplitStrategy(NUM_ATTR)
+                .findCenter(miData, attrIndex, new BitSet(NUM_BAGS * NUM_INST_PER_BAG));
         final double act = adaptiveSplit.evaluateSplit(miData, attrIndex, splitPt);
         assertEquals(classifier.getClass().getName(), exp, act, TOLERANCE);
     }

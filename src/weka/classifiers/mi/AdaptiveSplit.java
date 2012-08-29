@@ -4,6 +4,7 @@ import weka.classifiers.SingleClassifierEnhancer;
 import weka.core.*;
 
 import java.util.*;
+import java.util.Queue;
 
 /**
  * An adaptive propositionalization algorithm. Uses the base learner to decide
@@ -300,7 +301,15 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
         SplitPointEvaluator spe = null; // TODO
 
         // get the set of candidate splits
-        List<Pair<Integer, Double>> splits = splitStrategy.generateSplitPoints(trainingBags);
+        // first: count the number of instances
+        int numInstances = 0;
+        for (Instance bag : trainingBags)
+        {
+            numInstances += bag.relationalValue(REL_INDEX).numInstances();
+        }
+
+        List<Pair<Integer, Double>> splits
+                = splitStrategy.generateSplitPoints(trainingBags, new BitSet(numInstances));
 
         // find the best
         for (Pair<Integer, Double> kv : splits)
@@ -315,8 +324,10 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
         }
 
         // TODO repeat recursively?
-        // TODO retrain m_classifier with the best attribute.
+
         // TODO can we avoid re-training classifier with best-attr-to-split-on
+        // retrain m_classifier with the best attribute.
+        evaluateSplit(trainingBags, m_BestAttrToSplitOn, m_AttrSplitPoint);
     }
 
     /**
@@ -452,9 +463,11 @@ interface SplitStrategy
     /**
      * Generate all candidate splits using the current split strategy
      * @param trainingData The training data (as bags)
+     * @param ignore The bitSet of instances to ignore.
      * @return A list of candidate splits
      */
-    List<Pair<Integer, Double>> generateSplitPoints(final Instances trainingData);
+    List<Pair<Integer, Double>> generateSplitPoints(final Instances trainingData,
+                                                    final BitSet ignore);
 }
 
 abstract class CenterSplitStrategy implements SplitStrategy
@@ -471,19 +484,21 @@ abstract class CenterSplitStrategy implements SplitStrategy
      * Find the center of the instances in trainingData along the attrIndex axis.
      * @param trainingData The bags of training instances.
      * @param attrIndex The attribute to find the center for.
+     * @param ignore bitset of instances to ignore.
      * @return the center value of the instances along the attribute.
      */
-    abstract double findCenter(Instances trainingData, int attrIndex);
+    abstract double findCenter(Instances trainingData, int attrIndex, BitSet ignore);
 
     /** @inheritDoc */
     @Override
-    public List<Pair<Integer, Double>> generateSplitPoints(final Instances trainingData)
+    public List<Pair<Integer, Double>> generateSplitPoints(
+            final Instances trainingData, final BitSet ignore)
     {
         List<Pair<Integer, Double>> splits = new ArrayList<Pair<Integer, Double>>(numAttr);
 
         for(int attr=0; attr<numAttr; attr++)
         {
-            splits.add(new Pair<Integer, Double>(attr, findCenter(trainingData, attr)));
+            splits.add(new Pair<Integer, Double>(attr, findCenter(trainingData, attr, ignore)));
         }
 
         return splits;
@@ -507,10 +522,11 @@ class MeanSplitStrategy extends CenterSplitStrategy
      * @param attrIndex The index of the attribute to find the mean for
      * @return The mean for the attribute over all instances in all bags
      */
-    static double findMean(Instances trainingData, int attrIndex)
+    static double findMean(Instances trainingData, int attrIndex, BitSet ignore)
     {
         double sum = 0;
         int count = 0;
+        int index = 0;
 
         // check in each bag
         for (Instance bag : trainingData)
@@ -518,8 +534,11 @@ class MeanSplitStrategy extends CenterSplitStrategy
             // consider each instance in each bag
             for (Instance inst : bag.relationalValue(AdaptiveSplit.REL_INDEX))
             {
-                sum += inst.value(attrIndex);
-                count++;
+                if (!ignore.get(index++))
+                {
+                    sum += inst.value(attrIndex);
+                    count++;
+                }
             }
         }
 
@@ -527,9 +546,10 @@ class MeanSplitStrategy extends CenterSplitStrategy
     }
 
     /** @inheritDoc */
-    double findCenter(Instances trainingData, int attrIndex)
+    @Override
+    double findCenter(Instances trainingData, int attrIndex, BitSet ignore)
     {
-        return findMean(trainingData, attrIndex);
+        return findMean(trainingData, attrIndex, ignore);
     }
 }
 
@@ -548,18 +568,23 @@ class MedianSplitStrategy extends CenterSplitStrategy
      *
      * @param trainingData The dataset of mi-bags
      * @param attrIndex The index of the attribute to find the mean for
+     * @param ignore bitset of instances to ignore
      * @return The mean for the attribute over all instances in all bags
      */
-    static double findMedian(final Instances trainingData, final int attrIndex)
+    static double findMedian(final Instances trainingData, final int attrIndex, BitSet ignore)
     {
         // for now:
         //  copy all values into a collection then sort
         List<Double> vals = new ArrayList<Double>();
+        int index = 0;
         for (Instance bag : trainingData)
         {
             for (Instance inst : bag.relationalValue(AdaptiveSplit.REL_INDEX))
             {
-                vals.add(inst.value(attrIndex));
+                if (!ignore.get(index++))
+                {
+                    vals.add(inst.value(attrIndex));
+                }
             }
         }
 
@@ -574,9 +599,10 @@ class MedianSplitStrategy extends CenterSplitStrategy
     }
 
     /** @inheritDoc */
-    double findCenter(Instances trainingData, int attrIndex)
+    @Override
+    double findCenter(Instances trainingData, int attrIndex, BitSet ignore)
     {
-        return findMedian(trainingData, attrIndex);
+        return findMedian(trainingData, attrIndex, ignore);
     }
 }
 
@@ -596,17 +622,22 @@ class DiscretizedSplitStrategy implements SplitStrategy
      *  dataset is sorted by the specified attribute.
      * @param trainingData The training data bags
      * @param attrIndex The attribute to order by
+     * @param ignore the bitset of instances to ignore.
      * @return The points representing the class boundaries
      */
-    static ArrayList<Double> findDiscretizedSplits(final Instances trainingData,
-                                                   final int attrIndex)
+    static ArrayList<Double> findDiscretizedSplits(
+            final Instances trainingData, final int attrIndex, final BitSet ignore)
     {
         List<Pair<Double,Double>> vals = new ArrayList<Pair<Double,Double>>();
+        int index = 0;
         for (Instance bag : trainingData)
         {
             for (Instance inst : bag.relationalValue(AdaptiveSplit.REL_INDEX))
             {
-                vals.add(new Pair(inst.value(attrIndex), bag.classValue()));
+                if (!ignore.get(index++))
+                {
+                    vals.add(new Pair(inst.value(attrIndex), bag.classValue()));
+                }
             }
         }
 
@@ -632,13 +663,14 @@ class DiscretizedSplitStrategy implements SplitStrategy
 
     /** @inheritDoc */
     @Override
-    public List<Pair<Integer, Double>> generateSplitPoints(final Instances trainingData)
+    public List<Pair<Integer, Double>> generateSplitPoints(
+            final Instances trainingData, final BitSet ignore)
     {
         List<Pair<Integer, Double>> splits = new ArrayList<Pair<Integer, Double>>(numAttr);
 
         for(int attr=0; attr<numAttr; attr++)
         {
-            for (double split : findDiscretizedSplits(trainingData, attr))
+            for (double split : findDiscretizedSplits(trainingData, attr, ignore))
             {
                 splits.add(new Pair<Integer, Double>(attr, split));
             }
@@ -669,43 +701,291 @@ interface SplitPointEvaluator
  * Represents a single split point (a node in the adaSplitTree).
  * This Node is either a leaf (left=right=null) or a branch (both left and right are
  *  not null).
+ *
+ *  TODO - represent using array instead (instead of linked-tree)
+ *      similar to min-heap array representation
+ *      (may have empty slots, but that shouldn't be a problem)
+ *      Better yet: serialise the process with a queue --> solves pre-order problem.
  */
 class SplitNode
 {
     /** The attribute to split on */
-    private int splitAttrIndex;
+    private final int splitAttrIndex;
 
     /** The value of the attribute */
-    private double splitPoint;
+    private final double splitPoint;
 
     /** node for handling values less than the split point */
-    private SplitNode left;
+    private final SplitNode left;
 
     /** greater than or equal to the split point */
-    private SplitNode right;
+    private final SplitNode right;
+
+    /** The number of nodes in this tree and it's subtrees */
+    private final int nodeCount;
+
+    /** The index of the attribute to which node corresponds */
+    private int propositionalisedAttributeIndex;
 
     /**
      * Find the best split point on the given dataset.
      */
-    public SplitNode(SplitStrategy splitStrategy, Instances bags)
+    public SplitNode(SplitStrategy splitStrategy, Instances bags, int maxDepth,
+                     int minOccupancy, BitSet ignore, int flattenedCount)
     {
-        double minErr = Double.MAX_VALUE;
-
-        List<Pair<Integer, Double>> candidateSplits = splitStrategy.generateSplitPoints(bags);
-
-        // find the best split (least err)
-        for (Pair<Integer, Double> kv : candidateSplits)
+        // stopping condition:
+        if (maxDepth <= 0 || flattenedCount - ignore.cardinality() < minOccupancy)
         {
-            // TODO - evalute split
-            double err = 0 ; // evaluateSplit(bags, kv.key, kv.value);
+            splitAttrIndex = -1;
+            splitPoint = 0;
+            left = null;
+            right = null;
+            nodeCount = 1;
+        }
+        else
+        {
+            List<Pair<Integer, Double>> candidateSplits
+                    = splitStrategy.generateSplitPoints(bags, ignore);
 
-            if (err < minErr)
+            // find the best split (least err)
+            double minErr = Double.MAX_VALUE;
+            Pair<Integer, Double> bestSplit = null;
+            for (Pair<Integer, Double> curSplit : candidateSplits)
             {
-                minErr = err;
-                splitAttrIndex = kv.key;
-                splitPoint = kv.value;
+                // TODO - evalute split
+                double err = 0 ; // evaluateSplit(bags, curSplit.key, curSplit.value);
+
+                if (err < minErr)
+                {
+                    minErr = err;
+                    bestSplit = curSplit;
+                }
             }
+
+            // assign best values
+            splitAttrIndex = bestSplit.key;
+            splitPoint = bestSplit.value;
+
+            // recursive split:
+            //  partition into left & right
+            BitSet leftIgnore = new BitSet(flattenedCount);
+            BitSet rightIgnore = new BitSet(flattenedCount);
+            partitionDataset(bags, ignore, leftIgnore, rightIgnore);
+
+            left = new SplitNode(splitStrategy, bags, maxDepth - 1, minOccupancy, leftIgnore, flattenedCount);
+            right = new SplitNode(splitStrategy, bags, maxDepth - 1, minOccupancy, rightIgnore, flattenedCount);
+            nodeCount = left.nodeCount + right.nodeCount + 1;
         }
     }
 
+    // returns true if not a leaf
+    private boolean navigateSplit(Instance inst, BitSet ignore, BitSet leftIgnore,
+                                  BitSet rightIgnore, int index)
+    {
+        if (ignore.get(index))
+        {
+            leftIgnore.set(index);
+            rightIgnore.set(index);
+            return false;
+        }
+        else
+        {
+            // check which partition this instance falls into:
+            if (inst.value(splitAttrIndex) <= splitPoint)
+            {
+                rightIgnore.set(index);
+            }
+            else
+            {
+                leftIgnore.set(index);
+            }
+            return true;
+        }
+    }
+
+    /** Places the result into left/right ignore bitsets. Returns num instances */
+    int partitionDataset(Instances bags, BitSet ignore, BitSet leftIgnore,
+                         BitSet rightIgnore)
+    {
+        int index = 0;
+        int count = 0;
+        for (Instance bag : bags)
+        {
+            for (Instance inst : bag.relationalValue(AdaptiveSplit.REL_INDEX))
+            {
+                if (navigateSplit(inst, ignore, leftIgnore, rightIgnore, index++))
+                {
+                    count++;
+                }
+            }
+        }
+
+        return count;
+    }
+
+    // TODO
+    int partitionBag(Instance bag, BitSet ignore, BitSet leftIgnore, BitSet rightIgnore)
+    {
+        int index = 0;
+        int count = 0;
+        for (Instance inst : bag.relationalValue(AdaptiveSplit.REL_INDEX))
+        {
+            if (navigateSplit(inst, ignore, leftIgnore, rightIgnore, index++))
+            {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * TODO
+     *
+     * places the results (incl subtrees) in the appropriate slot in the attrVals.
+     * Thus this fn is recursive.
+     *
+     */
+    private void propositionaliseBag(Instance bag, double[] attrVals, BitSet ignore)
+    {
+        final int numInstances = bag.relationalValue(AdaptiveSplit.REL_INDEX).size();
+        if (this.nodeCount == 1) // is leaf
+        {
+            attrVals[propositionalisedAttributeIndex] = numInstances - ignore.cardinality();
+        }
+        else
+        {
+            BitSet leftIgnore = new BitSet(numInstances);
+            BitSet rightIgnore = new BitSet(numInstances);
+            attrVals[propositionalisedAttributeIndex] =
+                    partitionBag(bag, ignore, leftIgnore, rightIgnore);
+        }
+    }
+
+    /**
+     * Build up the tree of splits, using the given training bags.
+     *
+     * TODO
+     *
+     * @param trainingBags the MI bags for use as training data. Must be Non-empty.
+     * @param splitStrategy
+     * @param maxDepth
+     * @param minOccupancy
+     * @return The root of the split-tree
+     */
+    public static ArrayList<SplitNode> buildTree(Instances trainingBags,
+        final SplitStrategy splitStrategy, final int maxDepth, final int minOccupancy)
+    {
+        // count the number of instances:
+        int flattenedCount = 0;
+        for (Instance bag : trainingBags)
+        {
+            flattenedCount += bag.relationalValue(AdaptiveSplit.REL_INDEX).size();
+        }
+
+        BitSet ignore = new BitSet(flattenedCount);
+
+        // build the entire tree
+        SplitNode root = new SplitNode(splitStrategy, trainingBags, maxDepth,
+                minOccupancy, ignore, flattenedCount);
+
+        // structure the tree into an arraylist via bfs:
+        ArrayList<SplitNode> nodes = new ArrayList<SplitNode>(root.nodeCount);
+        int index = 0;
+        Queue<SplitNode> nodeQueue = new LinkedList<SplitNode>();
+        nodeQueue.add(root);
+
+        while(!nodeQueue.isEmpty())
+        {
+            SplitNode node = nodeQueue.remove();
+            nodes.add(node);
+            node.propositionalisedAttributeIndex = index++;
+
+            if (node.left != null) nodeQueue.add(node.left);
+            if (node.right != null) nodeQueue.add(node.right);
+        }
+
+        return nodes;
+    }
+
+    public Instances propositionaliseDataset(Instance bags, SplitNode root)
+    {
+        // construct attribute header:
+        // TODO this should only be done once (after training is complete)
+        final ArrayList<Attribute> attInfo = new ArrayList<Attribute>();
+        for (int i=0;i<root.nodeCount;i++)
+        {
+            attInfo.add(new Attribute("region " + i)); // TODO better names for attr
+        }
+        attInfo.add((Attribute) bags.classAttribute().copy()); // class
+
+        // TODO
+
+        return null;
+    }
+
+    /**
+     * A way to evaluate each split point
+     */
+//    public static double evaluateSplit(Instances trainingData, int splitAttrIndex,
+//                                 double splitPoint)
+//    {
+//        // TODO efficiency concerns
+//        // setup attr
+//        final ArrayList<Attribute> attInfo = new ArrayList<Attribute>();
+//        attInfo.add(new Attribute("less-than"));
+//        attInfo.add(new Attribute("greater-than"));
+//        attInfo.add((Attribute) trainingData.classAttribute().copy()); // class
+//
+//        // create propositionalised dataset
+//        final int numBags = trainingData.numInstances();
+//        m_propositionalisedDataset = new Instances("prop", attInfo, numBags);
+//
+//        // TODO update this or make a const
+//        m_propositionalisedDataset.setClassIndex(2);
+//
+////            // find the split point // TODO make this more generic.
+////            double splitPoint = m_SplitStrategy == SPLIT_MEAN ?
+////                    findMean(trainingData, splitAttrIndex) :
+////                    findMedian(trainingData, splitAttrIndex);
+//
+//        for (Instance bag : trainingData)
+//        {
+//            // propositionalise the bag and add it to the set
+//            // TODO efficiency concerns
+//            Instance propositionalisedBag = propositionaliseBag(
+//                    bag.relationalValue(REL_INDEX),
+//                    splitAttrIndex,
+//                    splitPoint,
+//                    bag.classValue(),
+//                    m_propositionalisedDataset);
+//
+//            m_propositionalisedDataset.add(propositionalisedBag);
+//        }
+//
+//        // eval on propositionalised dataset
+//        // TODO, not sure if the following works...
+//        // TODO efficiency reasons.. is it better to compute non-cv error rate?
+//        try
+//        {
+//            m_Classifier.buildClassifier(m_propositionalisedDataset);
+//
+//            // count num errors
+//            int numErr = 0;
+//            for (Instance inst : m_propositionalisedDataset)
+//            {
+//                if (m_Classifier.classifyInstance(inst) != inst.classValue())
+//                {
+//                    numErr++;
+//                }
+//            }
+//
+//            return ((double) numErr); // TODO no need to divide by numInst?
+//        }
+//        catch (Exception e)
+//        {
+//            // TODO what to do?
+//            throw new RuntimeException(e);
+//        }
+//    }
+//}
 }
