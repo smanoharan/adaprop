@@ -36,7 +36,7 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
     private static final int SPLIT_MEDIAN = 2;
     private static final int SPLIT_DISCRETIZED = 3;
     private static final int DEFAULT_SPLIT_STRATEGY = SPLIT_MEAN;
-    private static final int DEFAULT_MAX_DEPTH = 5;
+    private static final int DEFAULT_MAX_DEPTH = 3;
     private static final int DEFAULT_MIN_OCCUPANCY = 2;
 
     public static final Tag [] SPLIT_STRATEGIES =
@@ -245,20 +245,18 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
         result.add("-minOcc");
         result.add("" + m_MinOccupancy);
 
-        String[] options = super.getOptions();
-        for (int i = 0; i < options.length; i++)
-            result.add(options[i]);
+        result.addAll(Arrays.asList(super.getOptions()));
 
         return (String[]) result.toArray(new String[result.size()]);
     }
-
 
     /** @return A string representation of this model. */
     @Override
     public String toString()
     {
         return "Tree of splits: \n\n" +
-                (splitTreeRoot == null ? "not-yet-created" : splitTreeRoot.toString());
+                (splitTreeRoot == null ? "not-yet-created." : splitTreeRoot.toString()) + "\n\n" +
+                (m_Classifier == null ? "no classifier model." : m_Classifier.toString());
     }
 
     @Override /** @inheritDoc */
@@ -288,7 +286,6 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
         trainingBags.deleteWithMissingClass();
 
         final int numAttr = trainingBags.instance(0).relationalValue(1).numAttributes();
-        double minErr = Double.MAX_VALUE;
 
         // find the split & evaluate strategies:
         SplitPointEvaluator spe = null; // TODO
@@ -313,9 +310,8 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
         // retrain m_classifier with the best attribute:
         Instances propositionalisedTrainingData =
                 SplitNode.propositionaliseDataset(trainingBags, splitTreeRoot);
-        m_propositionalisedDataset = new Instances(propositionalisedTrainingData, 0);
         m_Classifier.buildClassifier(propositionalisedTrainingData);
-
+        m_propositionalisedDataset = new Instances(propositionalisedTrainingData, 0);
     }
 }
 
@@ -755,6 +751,8 @@ class SplitNode implements Serializable
             BitSet rightIgnore = new BitSet(numInstances);
             attrVals[propositionalisedAttributeIndex] =
                     partitionBag(bag, ignore, leftIgnore, rightIgnore);
+            left.nodePropositionaliseBag(bag, attrVals, leftIgnore);
+            right.nodePropositionaliseBag(bag, attrVals,  rightIgnore);
         }
     }
 
@@ -831,7 +829,11 @@ class SplitNode implements Serializable
         int numInst = bag.relationalValue(AdaptiveSplit.REL_INDEX).size();
 
         final double[] attValues = new double[root.nodeCount+1];
-        root.nodePropositionaliseBag(bag,attValues, new BitSet(numInst));
+        for (int i=0;i<root.nodeCount;i++)
+        {
+            attValues[i]=1;
+        }
+        root.nodePropositionaliseBag(bag, attValues, new BitSet(numInst));
         attValues[root.nodeCount] = bag.classValue(); // set class val
 
         Instance prop = new DenseInstance(1.0, attValues);
@@ -943,7 +945,5 @@ class SplitNode implements Serializable
                     right.propositionalisedAttributeIndex + ".\n" +
                     left.toString() + right.toString();
         }
-
-
     }
 }
