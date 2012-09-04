@@ -26,16 +26,16 @@ public class AdaptiveSplitTest
     private AdaptiveSplit adaptiveSplit;
 
     /** Contains the mi bags for testing */
-    private static Instances miData;
+    protected static Instances miData;
 
     /** Header for the single-instance relation */
-    private static Instances siHeader;
+    protected static Instances siHeader;
 
     /** Header for the resultant propositionalised dataset */
-    private static Instances propHeader;
+    protected static Instances propHeader;
 
     /** For comparing doubles */
-    private static final double TOLERANCE = 0.000001;
+    static final double TOLERANCE = 0.000001;
 
     /* TODO Tests:
     *  - GetCapabilities
@@ -123,7 +123,7 @@ public class AdaptiveSplitTest
         return attr;
     }
 
-    private static Attribute createClassAttribute()
+    protected static Attribute createClassAttribute()
     {
         final List<String> attributeValues = new ArrayList<String>(2);
         attributeValues.add("class-0");
@@ -150,7 +150,7 @@ public class AdaptiveSplitTest
             bag.setValue(0, bagIndex);
             bag.setValue(1, bagIndex);
             int bagClass = bagIndex < 2 ? 0 : 1;
-            bag.setValue(2, bagClass); // alternate between class=0 and 1.
+            bag.setValue(2, bagClass);
 
             // add bag to dataset
             bag.setDataset(miData);
@@ -393,17 +393,21 @@ public class AdaptiveSplitTest
      * @param exp Expected
      * @param act Actual
      */
-    private static void assertDatasetEquals(Instances exp, Instances act)
+    protected static void assertDatasetEquals(Instances exp, Instances act)
     {
         // check num of instances is the same
-        int actNumInst = act.numAttributes();
-        assertEquals("Number of instances", exp.numInstances(), actNumInst);
+        int actNumInst = act.numInstances();
+        assertEquals("Number of instances \n\n" + exp.toString() + "\n\n" + act.toString() + "\n\n",
+                exp.numInstances(), actNumInst);
 
         // check each instance is equal
         for (int instIndex = 0; instIndex < actNumInst; instIndex++)
         {
-            final String msg = "Instance: " + instIndex;
-            assertInstanceEquals(msg, exp.get(instIndex), act.get(instIndex));
+            final Instance expInst = exp.get(instIndex);
+            final Instance actInst = act.get(instIndex);
+            final String msg = "Instance: [" + instIndex + "] -- " + expInst.toString() + " -- " + actInst.toString();
+
+            assertInstanceEquals(msg, expInst, actInst);
         }
     }
 

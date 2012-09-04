@@ -599,22 +599,36 @@ class SplitNode implements Serializable
     static final long serialVersionUID = AdaptiveSplit.serialVersionUID + 1000L;
 
     /** The attribute to split on */
-    private final int splitAttrIndex;
+    final int splitAttrIndex;
 
     /** The value of the attribute */
-    private final double splitPoint;
+    final double splitPoint;
 
     /** node for handling values less than the split point */
-    private final SplitNode left;
+    final SplitNode left;
 
     /** greater than or equal to the split point */
-    private final SplitNode right;
+    final SplitNode right;
 
     /** The number of nodes in this tree and it's subtrees */
-    private final int nodeCount;
+    final int nodeCount;
 
     /** The index of the attribute to which node corresponds */
-    private int propositionalisedAttributeIndex;
+    int propositionalisedAttributeIndex;
+
+    /**
+     * Initialisation via known values
+     */
+    SplitNode(final int propositionalisedAttributeIndex, final int splitAttrIndex, final double splitPoint,
+              final SplitNode left, final SplitNode right, final int nodeCount)
+    {
+        this.propositionalisedAttributeIndex = propositionalisedAttributeIndex;
+        this.splitAttrIndex = splitAttrIndex;
+        this.splitPoint = splitPoint;
+        this.left = left;
+        this.right = right;
+        this.nodeCount = nodeCount;
+    }
 
     /**
      * Find the best split point on the given dataset.
@@ -634,8 +648,7 @@ class SplitNode implements Serializable
         }
         else
         {
-            List<Pair<Integer, Double>> candidateSplits
-                    = splitStrategy.generateSplitPoints(bags, ignore);
+            List<Pair<Integer, Double>> candidateSplits = splitStrategy.generateSplitPoints(bags, ignore);
 
             // find the best split (least err)
             double minErr = Double.MAX_VALUE;
@@ -661,17 +674,14 @@ class SplitNode implements Serializable
             BitSet rightIgnore = new BitSet(flattenedCount);
             partitionDataset(bags, ignore, leftIgnore, rightIgnore);
 
-            left = new SplitNode(splitStrategy, bags, maxDepth - 1, minOccupancy,
-                    leftIgnore, flattenedCount, classifier);
-            right = new SplitNode(splitStrategy, bags, maxDepth - 1, minOccupancy,
-                    rightIgnore, flattenedCount, classifier);
+            left = new SplitNode(splitStrategy, bags, maxDepth - 1, minOccupancy, leftIgnore, flattenedCount, classifier);
+            right = new SplitNode(splitStrategy, bags, maxDepth - 1, minOccupancy, rightIgnore, flattenedCount, classifier);
             nodeCount = left.nodeCount + right.nodeCount + 1;
         }
     }
 
     // returns true if not a leaf
-    private boolean navigateSplit(Instance inst, BitSet ignore, BitSet leftIgnore,
-                                  BitSet rightIgnore, int index)
+    private boolean navigateSplit(Instance inst, BitSet ignore, BitSet leftIgnore, BitSet rightIgnore, int index)
     {
         if (ignore.get(index))
         {
@@ -695,8 +705,7 @@ class SplitNode implements Serializable
     }
 
     /** Places the result into left/right ignore bitsets. Returns num instances */
-    int partitionDataset(Instances bags, BitSet ignore, BitSet leftIgnore,
-                         BitSet rightIgnore)
+    int partitionDataset(Instances bags, BitSet ignore, BitSet leftIgnore, BitSet rightIgnore)
     {
         int index = 0;
         int count = 0;
