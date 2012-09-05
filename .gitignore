@@ -16,6 +16,7 @@
 # IntelliJ IDEA
 .idea/*
 
-# Folders for libraries and data
+# Folders for libraries, data etc
 lib/*
 data/*
+presentation/*

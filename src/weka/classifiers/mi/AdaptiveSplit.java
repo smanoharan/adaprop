@@ -22,7 +22,7 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
      * For serialization:
      *  format: 1[dd][mm][yyyy]00..0[digit revision number]L
      */
-    static final long serialVersionUID = 1280820120000009L;
+    static final long serialVersionUID = 1280820120000010L;
 
     /** The index of the relational attribute in the bag instance */
     public static final int REL_INDEX = 1;
@@ -35,6 +35,7 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
     private static final int SPLIT_MEAN = 1;
     private static final int SPLIT_MEDIAN = 2;
     private static final int SPLIT_DISCRETIZED = 3;
+    private static final int SPLIT_RANGE = 4;
     private static final int DEFAULT_SPLIT_STRATEGY = SPLIT_MEAN;
     private static final int DEFAULT_MAX_DEPTH = 3;
     private static final int DEFAULT_MIN_OCCUPANCY = 2;
@@ -43,7 +44,8 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
     {
         new Tag(SPLIT_MEAN, "Split by the mean value of an attribute"),
         new Tag(SPLIT_MEDIAN, "Split by the median value of an attribute"),
-        new Tag(SPLIT_DISCRETIZED, "Split by any value of an attribute where class value changes")
+        new Tag(SPLIT_DISCRETIZED, "Split by any value of an attribute where class value changes"),
+        new Tag(SPLIT_RANGE, "Split by the midpoint of the range of the values of an attribute")
     };
 
     /** The id of the instance-space splitting strategy to use */
@@ -178,7 +180,7 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
 
         // split point choice
         result.addElement(new Option(
-            "\tSplit point criterion: 1=mean (default), 2=median, 3=discretized",
+            "\tSplit point criterion: 1=mean (default), 2=median, 3=discretized, 4=range",
             "S", 1, "-S <num>"));
 
         // max depth
@@ -298,18 +300,18 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
             case SPLIT_DISCRETIZED:
                 splitStrategy = new DiscretizedSplitStrategy(numAttr);
                 break;
+            case SPLIT_RANGE:
+                splitStrategy = new RangeSplitStrategy(numAttr);
             default:
                 splitStrategy = new MeanSplitStrategy(numAttr);
                 break;
         }
 
         // create the tree of splits:
-        splitTreeRoot = SplitNode.buildTree(
-                trainingBags, splitStrategy, m_MaxDepth, m_MinOccupancy, m_Classifier);
+        splitTreeRoot = SplitNode.buildTree(trainingBags, splitStrategy, m_MaxDepth, m_MinOccupancy, m_Classifier);
 
         // retrain m_classifier with the best attribute:
-        Instances propositionalisedTrainingData =
-                SplitNode.propositionaliseDataset(trainingBags, splitTreeRoot);
+        Instances propositionalisedTrainingData = SplitNode.propositionaliseDataset(trainingBags, splitTreeRoot);
         m_Classifier.buildClassifier(propositionalisedTrainingData);
         m_propositionalisedDataset = new Instances(propositionalisedTrainingData, 0);
     }
@@ -490,6 +492,56 @@ class MedianSplitStrategy extends CenterSplitStrategy
     double findCenter(Instances trainingData, int attrIndex, BitSet ignore)
     {
         return findMedian(trainingData, attrIndex, ignore);
+    }
+}
+
+/** Each candidate is the midpt of the range of each attribute */
+class RangeSplitStrategy extends CenterSplitStrategy
+{
+    /** @param numAttr Number of attributes in the single-instance dataset. */
+    protected RangeSplitStrategy(final int numAttr)
+    {
+        super(numAttr);
+    }
+
+    /**
+     * Find the midpoint of the range of all instances in trainingData for the attribute at index=attrIndex.
+     * Assumes that the attribute is numeric. <== TODO may cause problems
+     *
+     * @param trainingData The dataset of mi-bags
+     * @param attrIndex The index of the attribute to find the mean for
+     * @param ignore bitset of instances to ignore
+     * @return The mean for the attribute over all instances in all bags
+     */
+    static double findMidpt(final Instances trainingData, final int attrIndex, BitSet ignore)
+    {
+        double min = Double.MAX_VALUE;
+        double max = -Double.MIN_VALUE;
+
+        //  copy all values into a collection then sort
+        int index = 0;
+        for (Instance bag : trainingData)
+        {
+            for (Instance inst : bag.relationalValue(AdaptiveSplit.REL_INDEX))
+            {
+                if (!ignore.get(index++))
+                {
+                    double iVal = inst.value(attrIndex);
+                    if (iVal < min) { min = iVal; }
+                    if (iVal > max) { max = iVal; }
+                }
+            }
+        }
+
+        // return the midpoint of the range
+        return ((max - min) / 2) + min;
+    }
+
+    /** @inheritDoc */
+    @Override
+    double findCenter(Instances trainingData, int attrIndex, BitSet ignore)
+    {
+        return findMidpt(trainingData, attrIndex, ignore);
     }
 }
 
