@@ -22,9 +22,9 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
      * For serialization:
      *  format: 1[dd][mm][yyyy]00..0[digit revision number]L
      */
-    static final long serialVersionUID = 1280820120000010L;
+    static final long serialVersionUID = 1280820120000011L;
 
-    /** The index of the relational attribute in the bag instance */
+    /** The instIndex of the relational attribute in the bag instance */
     public static final int REL_INDEX = 1;
 
     // ==================================================================================
@@ -118,7 +118,7 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
     // ==================================================================================
 
     /** The tree of splits */
-    protected SplitNode splitTreeRoot;
+    protected RootSplitNode splitTreeRoot;
 
     /** Contains the bags as propositionalised instances */
     protected Instances m_propositionalisedDataset;
@@ -215,13 +215,6 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
     @Override
     public void setOptions(String[] options) throws Exception
     {
-//            String valString = Utils.getOption('M', options);
-//            Type newValue = isValid(valString) ? parse(valString) : defaultValue;
-//            setProperty(newValue);
-//            OR
-//            setB(Utils.getFlag('B', options));
-
-        // split strategy
         String splitStrategyStr = Utils.getOption('S', options);
         this.setSplitStrategy(new SelectedTag(Integer.parseInt(splitStrategyStr), SPLIT_STRATEGIES));
 
@@ -404,11 +397,11 @@ class MeanSplitStrategy extends CenterSplitStrategy
     }
 
     /**
-     * Find the mean of all instances in trainingData for the attribute at index=attrIndex.
+     * Find the mean of all instances in trainingData for the attribute at instIndex=attrIndex.
      * Assumes that the attribute is numeric. <== TODO may cause problems
      *
      * @param trainingData The dataset of mi-bags
-     * @param attrIndex The index of the attribute to find the mean for
+     * @param attrIndex The instIndex of the attribute to find the mean for
      * @return The mean for the attribute over all instances in all bags
      */
     static double findMean(Instances trainingData, int attrIndex, BitSet ignore)
@@ -452,11 +445,11 @@ class MedianSplitStrategy extends CenterSplitStrategy
     }
 
     /**
-     * Find the median of all instances in trainingData for the attribute at index=attrIndex.
+     * Find the median of all instances in trainingData for the attribute at instIndex=attrIndex.
      * Assumes that the attribute is numeric. <== TODO may cause problems
      *
      * @param trainingData The dataset of mi-bags
-     * @param attrIndex The index of the attribute to find the mean for
+     * @param attrIndex The instIndex of the attribute to find the mean for
      * @param ignore bitset of instances to ignore
      * @return The mean for the attribute over all instances in all bags
      */
@@ -505,11 +498,11 @@ class RangeSplitStrategy extends CenterSplitStrategy
     }
 
     /**
-     * Find the midpoint of the range of all instances in trainingData for the attribute at index=attrIndex.
+     * Find the midpoint of the range of all instances in trainingData for the attribute at instIndex=attrIndex.
      * Assumes that the attribute is numeric. <== TODO may cause problems
      *
      * @param trainingData The dataset of mi-bags
-     * @param attrIndex The index of the attribute to find the mean for
+     * @param attrIndex The instIndex of the attribute to find the mean for
      * @param ignore bitset of instances to ignore
      * @return The mean for the attribute over all instances in all bags
      */
@@ -640,240 +633,231 @@ interface SplitPointEvaluator
  * Represents a single split point (a node in the adaSplitTree).
  * This Node is either a leaf (left=right=null) or a branch (both left and right are
  *  not null).
- *
- *  TODO - represent using array instead (instead of linked-tree)
- *      similar to min-heap array representation
- *      (may have empty slots, but that shouldn't be a problem)
- *      Better yet: serialise the process with a queue --> solves pre-order problem.
  */
 class SplitNode implements Serializable
 {
+    //<editor-fold defaultstate="collapsed" desc="===Init===" >
     static final long serialVersionUID = AdaptiveSplit.serialVersionUID + 1000L;
 
     /** The attribute to split on */
-    final int splitAttrIndex;
+    int splitAttrIndex;
 
     /** The value of the attribute */
-    final double splitPoint;
+    double splitPoint;
 
     /** node for handling values less than the split point */
-    final SplitNode left;
+    SplitNode left;
 
     /** greater than or equal to the split point */
-    final SplitNode right;
+    SplitNode right;
 
-    /** The number of nodes in this tree and it's subtrees */
-    final int nodeCount;
+    /** The depth of the current node (from the root) */
+    final int curDepth;
 
-    /** The index of the attribute to which node corresponds */
-    int propositionalisedAttributeIndex;
+    /** The instIndex of the attribute to which node corresponds */
+    int propAttributeIndex;
 
-    /**
-     * Initialisation via known values
-     */
-    SplitNode(final int propositionalisedAttributeIndex, final int splitAttrIndex, final double splitPoint,
-              final SplitNode left, final SplitNode right, final int nodeCount)
+    /** Data structure for storing the tree-building param */
+    final static class TreeBuildingParams
     {
-        this.propositionalisedAttributeIndex = propositionalisedAttributeIndex;
+        public final int maxDepth;
+        public final int minOccupancy;
+        public final Instances trainingBags;
+        public final int instCount;
+        public final SplitStrategy splitStrategy;
+        public final Classifier classifier;
+
+        TreeBuildingParams(final int maxDepth, final int minOccupancy, final Instances trainingBags,
+                           final int instCount, final SplitStrategy splitStrategy, final Classifier classifier)
+        {
+            this.maxDepth = maxDepth;
+            this.minOccupancy = minOccupancy;
+            this.classifier = classifier;
+            this.trainingBags = trainingBags;
+            this.instCount = instCount;
+            this.splitStrategy = splitStrategy;
+        }
+    }
+
+    SplitNode(final int propositionalisedAttributeIndex, final int splitAttrIndex, final double splitPoint,
+              final SplitNode left, final SplitNode right, final int curDepth)
+    {
+        this.propAttributeIndex = propositionalisedAttributeIndex;
         this.splitAttrIndex = splitAttrIndex;
         this.splitPoint = splitPoint;
         this.left = left;
         this.right = right;
-        this.nodeCount = nodeCount;
+        this.curDepth = curDepth;
+    }
+    //</editor-fold>
+
+    //<editor-fold defaultstate="collapsed" desc="===Tree-building===" >
+    /**
+     * Creates a new (placeholder) leaf node.
+     * @param curDepth depth of this leaf node.
+     * @return A leaf node.
+     */
+    static SplitNode newLeafNode(int curDepth)
+    {
+        return newLeafNode(-1, curDepth);
     }
 
     /**
-     * Find the best split point on the given dataset.
+     * Creates a new leaf node.
+     *
+     * @param propAttrIndex The propositionalisedAttributeIndex
+     * @param curDepth depth of this leaf node.
+     * @return A leaf node.
      */
-    public SplitNode(SplitStrategy splitStrategy, Instances bags, int maxDepth,
-                     int minOccupancy, BitSet ignore, int flattenedCount,
-                     Classifier classifier )
+    static SplitNode newLeafNode(int propAttrIndex, int curDepth)
     {
-        // stopping condition:
-        if (maxDepth <= 0 || flattenedCount - ignore.cardinality() < minOccupancy)
-        {
-            splitAttrIndex = -1;
-            splitPoint = 0;
-            left = null;
-            right = null;
-            nodeCount = 1;
-        }
-        else
-        {
-            List<Pair<Integer, Double>> candidateSplits = splitStrategy.generateSplitPoints(bags, ignore);
-
-            // find the best split (least err)
-            double minErr = Double.MAX_VALUE;
-            Pair<Integer, Double> bestSplit = null;
-            for (Pair<Integer, Double> curSplit : candidateSplits)
-            {
-                double err = evaluateSplit(bags, curSplit.key, curSplit.value, classifier);
-
-                if (err < minErr)
-                {
-                    minErr = err;
-                    bestSplit = curSplit;
-                }
-            }
-
-            // assign best values
-            splitAttrIndex = bestSplit.key;
-            splitPoint = bestSplit.value;
-
-            // recursive split:
-            //  partition into left & right
-            BitSet leftIgnore = new BitSet(flattenedCount);
-            BitSet rightIgnore = new BitSet(flattenedCount);
-            partitionDataset(bags, ignore, leftIgnore, rightIgnore);
-
-            left = new SplitNode(splitStrategy, bags, maxDepth - 1, minOccupancy, leftIgnore, flattenedCount, classifier);
-            right = new SplitNode(splitStrategy, bags, maxDepth - 1, minOccupancy, rightIgnore, flattenedCount, classifier);
-            nodeCount = left.nodeCount + right.nodeCount + 1;
-        }
+        return new SplitNode(propAttrIndex, -1, 0, null, null, curDepth);
     }
 
-    // returns true if not a leaf
-    private boolean navigateSplit(Instance inst, BitSet ignore, BitSet leftIgnore, BitSet rightIgnore, int index)
+    /**
+     * Out of the set of candidate splits, find the split which results in the least (training-set) error and set it
+     *  in the current node.
+     *
+     * @param candidateSplits The set of splits to try.
+     * @param bags The training data.
+     * @param classifier The classifier to evaluate with.
+     */
+    private void setBestSplit(final List<Pair<Integer, Double>> candidateSplits, final Instances bags,
+                              final Classifier classifier, final RootSplitNode root) throws Exception
     {
-        if (ignore.get(index))
+        double minErr = Double.MAX_VALUE;
+        Pair<Integer, Double> bestSplit = null;
+        for (Pair<Integer, Double> curSplit : candidateSplits)
         {
-            leftIgnore.set(index);
-            rightIgnore.set(index);
-            return false;
+            this.splitAttrIndex = curSplit.key;
+            this.splitPoint = curSplit.value;
+            double err = evaluateCurSplit(bags, classifier, root);
+            if (err < minErr)
+            {
+                minErr = err;
+                bestSplit = curSplit;
+            }
         }
-        else
+
+        // set the best split:
+        this.splitAttrIndex = bestSplit.key;
+        this.splitPoint = bestSplit.value;
+    }
+
+    /**
+     * Attempt to expand this leaf node.
+     *
+     * @param params The tree building parameters.
+     * @param ignore The instances in the dataset to ignore (because they fall outside the current node).
+     * @param root The root of this tree.
+     * @return Whether this node was expanded (false iff this node remains a leaf).
+     * @throws Exception
+     */
+    boolean expand(final TreeBuildingParams params, final BitSet ignore, final RootSplitNode root,
+                   final int propIndex) throws Exception
+    {
+        // only expand if the stopping condition is not met
+        if (this.curDepth < params.maxDepth && params.instCount - ignore.cardinality() >= params.minOccupancy)
         {
-            // check which partition this instance falls into:
-            if (inst.value(splitAttrIndex) <= splitPoint)
-            {
-                rightIgnore.set(index);
-            }
-            else
-            {
-                leftIgnore.set(index);
-            }
+            this.left = newLeafNode(propIndex, this.curDepth + 1);
+            this.right = newLeafNode(propIndex+1, this.curDepth + 1);
+            root.setNodeCount(root.getNodeCount()+2);
+            List<Pair<Integer, Double>> candidateSplits = params.splitStrategy.generateSplitPoints(params.trainingBags, ignore);
+            this.setBestSplit(candidateSplits, params.trainingBags, params.classifier, root);
             return true;
         }
-    }
-
-    /** Places the result into left/right ignore bitsets. Returns num instances */
-    int partitionDataset(Instances bags, BitSet ignore, BitSet leftIgnore, BitSet rightIgnore)
-    {
-        int index = 0;
-        int count = 0;
-        for (Instance bag : bags)
-        {
-            for (Instance inst : bag.relationalValue(AdaptiveSplit.REL_INDEX))
-            {
-                if (navigateSplit(inst, ignore, leftIgnore, rightIgnore, index++))
-                {
-                    count++;
-                }
-            }
-        }
-
-        return count;
-    }
-
-    // TODO
-    int partitionBag(Instance bag, BitSet ignore, BitSet leftIgnore, BitSet rightIgnore)
-    {
-        int index = 0;
-        int count = 0;
-        for (Instance inst : bag.relationalValue(AdaptiveSplit.REL_INDEX))
-        {
-            if (navigateSplit(inst, ignore, leftIgnore, rightIgnore, index++))
-            {
-                count++;
-            }
-        }
-        return count;
+        else return false;
     }
 
     /**
-     * TODO
-     *
-     * places the results (incl subtrees) in the appropriate slot in the attrVals.
-     * Thus this fn is recursive.
-     *
-     * can only be used at test time (not training time)
-     *
-     */
-    private void nodePropositionaliseBag(Instance bag, double[] attrVals, BitSet ignore)
-    {
-        final int numInstances = bag.relationalValue(AdaptiveSplit.REL_INDEX).size();
-        if (this.nodeCount == 1) // is leaf
-        {
-            attrVals[propositionalisedAttributeIndex] = numInstances - ignore.cardinality();
-        }
-        else
-        {
-            BitSet leftIgnore = new BitSet(numInstances);
-            BitSet rightIgnore = new BitSet(numInstances);
-            attrVals[propositionalisedAttributeIndex] =
-                    partitionBag(bag, ignore, leftIgnore, rightIgnore);
-            left.nodePropositionaliseBag(bag, attrVals, leftIgnore);
-            right.nodePropositionaliseBag(bag, attrVals,  rightIgnore);
-        }
-    }
-
-    /**
-     * Build up the tree of splits, using the given training bags.
-     *
-     * TODO
+     * Build up the tree of splits.
      *
      * @param trainingBags the MI bags for use as training data. Must be Non-empty.
-     * @param splitStrategy
-     * @param maxDepth
-     * @param minOccupancy
+     * @param splitStrategy The strategy to split each node.
+     * @param maxDepth The maximum depth of the tree.
+     * @param minOccupancy The minimum occupancy of each node.
      * @return The root of the split-tree
      */
-    public static SplitNode buildTree(Instances trainingBags,
-        final SplitStrategy splitStrategy, final int maxDepth, final int minOccupancy,
-        final Classifier classifier)
+    public static RootSplitNode buildTree(Instances trainingBags, final SplitStrategy splitStrategy, final int maxDepth,
+                                      final int minOccupancy, final Classifier classifier) throws Exception
     {
-        // count the number of instances:
-        int flattenedCount = 0;
+        // count the number of instances in all the bags:
+        int instCount = 0;
         for (Instance bag : trainingBags)
         {
-            flattenedCount += bag.relationalValue(AdaptiveSplit.REL_INDEX).size();
+            instCount += bag.relationalValue(AdaptiveSplit.REL_INDEX).size();
         }
 
-        BitSet ignore = new BitSet(flattenedCount);
+        TreeBuildingParams params = new TreeBuildingParams(maxDepth, minOccupancy, trainingBags, instCount, splitStrategy, classifier);
 
-        // build the entire tree
-        SplitNode root = new SplitNode(splitStrategy, trainingBags, maxDepth,
-                minOccupancy, ignore, flattenedCount, classifier);
+        // build the root:
+        int propIndex = 0;
+        RootSplitNode root = RootSplitNode.toRootNode(newLeafNode(propIndex++, 0));
+        root.setNodeCount(1);
+        root.expand(params, new BitSet(instCount), root, propIndex);
+        propIndex += 2;
 
-        // structure the tree into an arraylist via bfs:
-        int index = 0;
+        // structure the tree into an arraylist via breadth-first-search:
         Queue<SplitNode> nodeQueue = new LinkedList<SplitNode>();
+        ArrayList<BitSet> ignoreList = new ArrayList<BitSet>(); // for storing the ignore-bitsets.
+        ignoreList.add(new BitSet(instCount));
+        ignoreList.add(null);
+        ignoreList.add(null);
         nodeQueue.add(root);
 
         while(!nodeQueue.isEmpty())
         {
+            // take the first node, check if it's children require further splitting:
             SplitNode node = nodeQueue.remove();
-            node.propositionalisedAttributeIndex = index++;
+            if ( !node.isLeaf() )
+            {
+                // partition the dataset into left and right sets:
+                BitSet leftIgnore = new BitSet(instCount);
+                BitSet rightIgnore = new BitSet(instCount);
+                LeftRightCounter counter = new LeftRightCounter();
+                node.filterDataset(trainingBags, ignoreList.get(node.propAttributeIndex), leftIgnore, rightIgnore, counter);
 
-            if (node.left != null) nodeQueue.add(node.left);
-            if (node.right != null) nodeQueue.add(node.right);
+                // build the left and right nodes
+                if (node.left.expand(params, leftIgnore, root, propIndex))
+                {
+                    propIndex += 2;
+                    ignoreList.add(null);
+                    ignoreList.add(null);
+                    nodeQueue.add(node.left);
+                    ignoreList.set(node.left.propAttributeIndex, leftIgnore);
+                }
+
+                if (node.right.expand(params, rightIgnore, root, propIndex))
+                {
+                    propIndex += 2;
+                    ignoreList.add(null);
+                    ignoreList.add(null);
+                    nodeQueue.add(node.right);
+                    ignoreList.set(node.right.propAttributeIndex, rightIgnore);
+                }
+            }
         }
 
         return root;
     }
+    //</editor-fold>
 
-    public static Instances propositionaliseDataset(Instances bags, SplitNode root)
+    //<editor-fold defaultstate="collapsed" desc="===Propositionalisation===">
+    /**
+     * Propositionalise the set of bags into a set of instances.
+     * @param bags The MI dataset.
+     * @param root The root node of the tree to propositionalise with.
+     * @return The propositionalised version of the dataset.
+     */
+    public static Instances propositionaliseDataset(Instances bags, RootSplitNode root)
     {
-        // construct attribute header (and instances header):
-        // TODO this should only be done once (after training is complete)
-        final ArrayList<Attribute> attInfo = new ArrayList<Attribute>();
-        for (int i=0;i<root.nodeCount;i++)
-        {
-            attInfo.add(new Attribute("region " + i)); // TODO better names for attr
-        }
-        attInfo.add((Attribute) bags.classAttribute().copy()); // class
-        Instances propositionalisedDataset = new Instances("prop", attInfo, bags.numInstances());
-        propositionalisedDataset.setClassIndex(root.nodeCount);
+        // build up instance header
+        final int numAttr = root.getNodeCount();
+        final ArrayList<Attribute> attrInfo = new ArrayList<Attribute>(root.getAttrInfo()); // shallow copy
+        attrInfo.add((Attribute) bags.classAttribute().copy()); // class
+
+        Instances propositionalisedDataset = new Instances(bags.relationName() +"-prop", attrInfo, bags.numInstances());
+        propositionalisedDataset.setClassIndex(numAttr);
 
         // propositionalise each bag and add it to the set
         for (Instance bag : bags)
@@ -884,110 +868,185 @@ class SplitNode implements Serializable
         return propositionalisedDataset;
     }
 
-    public static Instance propositionaliseBag(final Instance bag, final SplitNode root,
+    /**
+     * Propositionalise the bag into a single instance.
+     *
+     * @param bag The (MI) bag to propositionalise.
+     * @param root The root of the tree of splits.
+     * @param propositionalisedDataset The header for the data-instances.
+     * @return The propositionalised instance.
+     */
+    public static Instance propositionaliseBag(final Instance bag, final RootSplitNode root,
                                                final Instances propositionalisedDataset)
     {
         int numInst = bag.relationalValue(AdaptiveSplit.REL_INDEX).size();
+        final double[] attrValues = new double[root.getNodeCount()+1];
+        attrValues[0] = numInst; // set root count
+        attrValues[root.getNodeCount()] = bag.classValue(); // set class val
 
-        final double[] attValues = new double[root.nodeCount+1];
-        for (int i=0;i<root.nodeCount;i++)
-        {
-            attValues[i]=1;
-        }
-        root.nodePropositionaliseBag(bag, attValues, new BitSet(numInst));
-        attValues[root.nodeCount] = bag.classValue(); // set class val
+        // recursively fill in all the attribute values
+        root.propositionaliseBag(bag, attrValues, new BitSet(numInst));
 
-        Instance prop = new DenseInstance(1.0, attValues);
+        Instance prop = new DenseInstance(1.0, attrValues);
         prop.setDataset(propositionalisedDataset);
         return prop;
     }
 
-    /**
-     * A way to evaluate each split point
-     */
-    public static double evaluateSplit(Instances trainingData, int splitAttrIndex,
-                                 double splitPoint, Classifier classifier)
+    /** A (mutable) data structure for keeping track of two counters and an instIndex. */
+    static class LeftRightCounter
     {
-        // TODO efficiency concerns
-        // setup attr
-        final ArrayList<Attribute> attInfo = new ArrayList<Attribute>();
-        attInfo.add(new Attribute("less-than"));
-        attInfo.add(new Attribute("greater-than"));
-        attInfo.add((Attribute) trainingData.classAttribute().copy()); // class
+        public int leftCount;
+        public int rightCount;
+        public int instIndex;
 
-        // create propositionalised dataset
-        final int numBags = trainingData.numInstances();
-        Instances propositionalisedDataset = new Instances("prop", attInfo, numBags);
-
-        // TODO update this or make a const
-        propositionalisedDataset.setClassIndex(2);
-
-        for (Instance bag : trainingData)
+        LeftRightCounter()
         {
-            // propositionalise the bag and add it to the set
-            // TODO efficiency concerns
-            Instance propositionalisedBag = propositionaliseBagViaOneSplit(bag.relationalValue(AdaptiveSplit.REL_INDEX), splitAttrIndex, splitPoint, bag.classValue(), propositionalisedDataset);
-
-            propositionalisedDataset.add(propositionalisedBag);
-        }
-
-        // eval on propositionalised dataset
-        // TODO, not sure if the following works...
-        // TODO efficiency reasons.. is it better to compute non-cv error rate?
-        try
-        {
-            classifier.buildClassifier(propositionalisedDataset);
-
-            // count num errors
-            int numErr = 0;
-            for (Instance inst : propositionalisedDataset)
-            {
-                if (classifier.classifyInstance(inst) != inst.classValue())
-                {
-                    numErr++;
-                }
-            }
-
-            return ((double) numErr); // TODO no need to divide by numInst?
-        }
-        catch (Exception e)
-        {
-            // TODO what to do?
-            throw new RuntimeException(e);
+            leftCount = 0;
+            rightCount = 0;
+            instIndex = 0;
         }
     }
 
     /**
-     *  Use this at test time.
-     *  It is possible to be more efficient at train time.
+     * Propositionalise the bag by filtering all instances down the tree and counting the number of instances
+     *   at each node.
+     *
+     * @param bag The (mi) bag to propositionalise.
+     * @param attrVals The array in which to place the results.
+     * @param ignore The bitset of instances (index as per this bag!) to ignore.
      */
-    static Instance propositionaliseBagViaOneSplit(Instances bagInstances, int attrIndex,
-                                                   double splitPoint, double classVal,
-                                                   Instances propositionalisedDataset)
+    void propositionaliseBag(Instance bag, double[] attrVals, BitSet ignore)
     {
-        // TODO support NOM splitting attr, missing vals
+        final int numInstances = bag.relationalValue(AdaptiveSplit.REL_INDEX).size();
 
-        // count the number of instances with less than and geq value for the
-        //  split attribute.
-        int countLessThan = 0;
-        int countGeq = 0;
-        for(Instance inst : bagInstances)
+        if (!this.isLeaf()) // only proceed if not a leaf;
         {
-            if (inst.value(attrIndex) < splitPoint)
+            BitSet leftIgnore = new BitSet(numInstances);
+            BitSet rightIgnore = new BitSet(numInstances);
+
+            LeftRightCounter counter = new LeftRightCounter();
+            filterBag(bag, ignore, leftIgnore, rightIgnore, counter);
+            attrVals[left.propAttributeIndex] = counter.leftCount;
+            attrVals[right.propAttributeIndex] = counter.rightCount;
+
+            // recursively fill in the remaining values:
+            left.propositionaliseBag(bag, attrVals, leftIgnore);
+            right.propositionaliseBag(bag, attrVals,  rightIgnore);
+        }
+    }
+
+    /**
+     * Filter the dataset across the split of this node.
+     *
+     * @param bags The dataset to filter.
+     * @param ignore The bitset of which instances to ignore entirely (i.e. those which lie outside this node).
+     * @param leftIgnore The resultant bitset of the left subtree.
+     * @param rightIgnore The resultant bitset of the right subtree.
+     * @param counter To keep track of the left and right instance counts.
+     */
+    void filterDataset(Instances bags, BitSet ignore, BitSet leftIgnore, BitSet rightIgnore, LeftRightCounter counter)
+    {
+        for (Instance bag : bags)
+        {
+            filterBag(bag, ignore, leftIgnore, rightIgnore, counter);
+        }
+    }
+
+    /**
+     * Filter the bag across the split of this node.
+     *
+     * @param bag The bag to filter.
+     * @param ignore The bitset of which instances to ignore entirely (i.e. those which lie outside this node).
+     * @param leftIgnore The resultant bitset of the left subtree.
+     * @param rightIgnore The resultant bitset of the right subtree.
+     * @param counter To keep track of the left and right instance counts.
+     */
+    void filterBag(Instance bag, BitSet ignore, BitSet leftIgnore, BitSet rightIgnore, LeftRightCounter counter)
+    {
+        for (Instance inst : bag.relationalValue(AdaptiveSplit.REL_INDEX))
+        {
+            filterInst(inst, ignore, leftIgnore, rightIgnore, counter);
+        }
+    }
+
+    /**
+     * Filter the instance across the split of this node.
+     *
+     * @param inst The instance to filter.
+     * @param ignore The bitset of which instances to ignore entirely (i.e. those which lie outside this node).
+     * @param leftIgnore The resultant bitset of the left subtree.
+     * @param rightIgnore The resultant bitset of the right subtree.
+     * @param counter To keep track of the left and right instance counts.
+     */
+    private void filterInst(Instance inst, BitSet ignore, BitSet leftIgnore, BitSet rightIgnore, LeftRightCounter counter)
+    {
+        if (ignore.get(counter.instIndex))
+        {
+            leftIgnore.set(counter.instIndex);
+            rightIgnore.set(counter.instIndex);
+        }
+        else
+        {
+            // check which partition this instance falls into:
+            if (inst.value(splitAttrIndex) <= splitPoint)
             {
-                countLessThan++;
+                // ignored in the right branch ==> this instance falls in the left-branch.
+                rightIgnore.set(counter.instIndex);
+                counter.leftCount++;
             }
             else
             {
-                countGeq++;
+                leftIgnore.set(counter.instIndex);
+                counter.rightCount++;
             }
         }
+        counter.instIndex++;
+    }
+    //</editor-fold>
 
-        final double[] attValues = {countLessThan, countGeq, classVal};
-        Instance i = new DenseInstance(1.0, attValues);
-        i.setDataset(propositionalisedDataset);
+    //<editor-fold defaultstate="collapsed" desc="===Split Evaulation===">
+    /**
+     * Determine the number of misclassified instances in the dataset.
+     *
+     * @param classifier The trained classifier.
+     * @param dataset The dataset.
+     * @return The number of instances in the dataset misclassified by the classifier.
+     * @throws Exception
+     */
+    private static int countMisclassified(Classifier classifier, Instances dataset) throws Exception
+    {
+        int numErr = 0;
+        for (Instance inst : dataset)
+        {
+            if (classifier.classifyInstance(inst) != inst.classValue())
+            {
+                numErr++;
+            }
+        }
+        return numErr;
+    }
 
-        return i;
+    /**
+     * A way to evaluate each split point -- TODO
+     * NOTE: currently very inefficient - performs the propositionalisation from scratch each time!
+     * TODO A far better way is to keep parent's propositionalised dataset and call propBag from the current node.
+     */
+    public static double evaluateCurSplit(Instances bags, Classifier classifier, RootSplitNode root) throws Exception
+    {
+        Instances propDataset = SplitNode.propositionaliseDataset(bags, root);
+        classifier.buildClassifier(propDataset);
+        return countMisclassified(classifier, propDataset);
+    }
+    //</editor-fold>
+
+    //<editor-fold defaultstate="collapsed" desc="===common member functions====">
+    /**
+     * Returns whether or not this node is a leaf.
+     * @return true iff this node is a leaf.
+     */
+    public boolean isLeaf()
+    {
+        return this.splitAttrIndex == -1;
     }
 
     @Override
@@ -996,15 +1055,64 @@ class SplitNode implements Serializable
         if (left == null)
         {
             // this is a leaf:
-            return "\t["+ propositionalisedAttributeIndex + "] leaf.\n";
+            return "\t["+ propAttributeIndex + "] leaf.\n";
         }
         else
         {
-            return "\t[" + propositionalisedAttributeIndex + "] Split on attr" +
+            return "\t[" + propAttributeIndex + "] Split on attr" +
                     splitAttrIndex + " at " + splitPoint + ". left=" +
-                    left.propositionalisedAttributeIndex + ", right=" +
-                    right.propositionalisedAttributeIndex + ".\n" +
+                    left.propAttributeIndex + ", right=" +
+                    right.propAttributeIndex + ".\n" +
                     left.toString() + right.toString();
         }
+    }
+    //</editor-fold>
+}
+
+class RootSplitNode extends SplitNode
+{
+    /** The number of nodes in the entire tree. */
+    private int nodeCount;
+
+    /** Get the nodeCount */
+    int getNodeCount() { return this.nodeCount; }
+
+    /** Set the nodeCount and update the attribute-information */
+    void setNodeCount(int nodeCount)
+    {
+        this.nodeCount = nodeCount;
+        UpdateAttrInfo();
+    }
+
+    /** A list attributes in the propositionalised dataset. */
+    private ArrayList<Attribute> attrInfo;
+
+    /** Get the list of attributes */
+    ArrayList<Attribute> getAttrInfo() { return this.attrInfo; }
+
+    /** Update the list of attributes, with the new nodeCount */
+    private void UpdateAttrInfo()
+    {
+        attrInfo = new ArrayList<Attribute>();
+        for (int i=0; i<nodeCount; i++)
+        {
+            attrInfo.add(new Attribute("region " + i)); // TODO better names for attr?
+        }
+    }
+
+    RootSplitNode(final int propositionalisedAttributeIndex, final int splitAttrIndex, final double splitPoint,
+                  final SplitNode left, final SplitNode right, final int curDepth)
+    {
+        super(propositionalisedAttributeIndex, splitAttrIndex, splitPoint, left, right, curDepth);
+        attrInfo = new ArrayList<Attribute>();
+    }
+
+    /**
+     * Convert a node to a RootSplitNode
+     */
+    public static RootSplitNode toRootNode(SplitNode node)
+    {
+        return new RootSplitNode(node.propAttributeIndex, node.splitAttrIndex, node.splitPoint,
+                node.left, node.right, node.curDepth);
     }
 }

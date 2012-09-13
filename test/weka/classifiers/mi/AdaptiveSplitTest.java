@@ -62,11 +62,12 @@ public class AdaptiveSplitTest
     private static void setupPropositionalisedHeader()
     {
         final ArrayList<Attribute> attInfo = new ArrayList<Attribute>();
+        attInfo.add(new Attribute("total"));
         attInfo.add(new Attribute("less-than"));
         attInfo.add(new Attribute("greater-than"));
         attInfo.add((Attribute) miData.classAttribute().copy());
         propHeader = new Instances("prop-header", attInfo, 0);
-        propHeader.setClassIndex(2);
+        propHeader.setClassIndex(3);
     }
 
     /** Initialise the siHeader */
@@ -223,7 +224,7 @@ public class AdaptiveSplitTest
         else
         {
             assertOptionEquals(opt,
-                "\tSplit point criterion: 1=mean (default), 2=median, 3=discretized",
+                "\tSplit point criterion: 1=mean (default), 2=median, 3=discretized, 4=range",
                 1, "-S <num>");
         }
     }
@@ -332,17 +333,33 @@ public class AdaptiveSplitTest
         }
     }
 
+    private static RootSplitNode createRootSplit(final int attrIndex, final double splitPt)
+    {
+        SplitNode leftLeaf = SplitNode.newLeafNode(1,1);
+        SplitNode rightLeaf = SplitNode.newLeafNode(2,1);
+        RootSplitNode root = new RootSplitNode(0, attrIndex, splitPt, leftLeaf, rightLeaf, 0);
+        root.setNodeCount(3);
+        return root;
+    }
+
     /** Test evaluation of with the specified classifier gives the correct value */
     private void evalSplitWithClassifier(Classifier classifier, double exp)
     {
-        // init the m_classifier
-        adaptiveSplit.setClassifier(classifier);
+        try
+        {
+            // init the m_classifier
+            adaptiveSplit.setClassifier(classifier);
 
-        final int attrIndex = 2;
-        final double splitPt = new MeanSplitStrategy(NUM_ATTR)
-                .findCenter(miData, attrIndex, new BitSet(NUM_BAGS * NUM_INST_PER_BAG));
-        final double act = SplitNode.evaluateSplit(miData, attrIndex, splitPt, classifier);
-        assertEquals(classifier.getClass().getName(), exp, act, TOLERANCE);
+            // find actual split:
+            final int attrIndex = 2;
+            final BitSet ignore = new BitSet(NUM_BAGS * NUM_INST_PER_BAG);
+            final double splitPt = new MeanSplitStrategy(NUM_ATTR).findCenter(miData, attrIndex, ignore);
+            RootSplitNode root = createRootSplit(attrIndex, splitPt);
+
+            final double act = SplitNode.evaluateCurSplit(miData, classifier, root);
+            assertEquals(classifier.getClass().getName(), exp, act, TOLERANCE);
+        }
+        catch (Exception e) { throw new RuntimeException(e); }
     }
 
     @Test
@@ -415,6 +432,7 @@ public class AdaptiveSplitTest
             final int attrIndex, final double split) throws Exception
     {
         final Instances result = new Instances(propHeader, NUM_BAGS);
+        final RootSplitNode root = createRootSplit(attrIndex, split);
 
         // for each bag
         for (int bagIndex = 0; bagIndex < NUM_BAGS; bagIndex++)
@@ -422,9 +440,7 @@ public class AdaptiveSplitTest
             final Instance bag = miData.get(bagIndex);
 
             // find actual value:
-            result.add(SplitNode.propositionaliseBagViaOneSplit(
-                    bag.relationalValue(REL_INDEX), attrIndex, split,
-                    bag.classValue(), result));
+            result.add(SplitNode.propositionaliseBag(bag, root, result));
         }
 
         return result;
@@ -461,7 +477,7 @@ public class AdaptiveSplitTest
                 countLt = NUM_INST_PER_BAG;
             }
 
-            final double[] attValues = {countLt, countGeq, bag.classValue()};
+            final double[] attValues = {countLt + countGeq, countLt, countGeq, bag.classValue()};
             Instance expInst = new DenseInstance(1.0, attValues);
             expInst.setDataset(result);
             result.add(expInst);
