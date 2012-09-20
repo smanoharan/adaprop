@@ -22,23 +22,25 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
      * For serialization:
      *  format: 1[dd][mm][yyyy]00..0[digit revision number]L
      */
-    static final long serialVersionUID = 1280820120000011L;
+    static final long serialVersionUID = 1200920120000013L;
+
+    /** The tree of splits */
+    protected RootSplitNode splitTreeRoot;
+
+    /** Contains the bags as propositionalised instances */
+    protected Instances m_propositionalisedDataset;
 
     /** The instIndex of the relational attribute in the bag instance */
     public static final int REL_INDEX = 1;
 
-    // ==================================================================================
-    // For Options:
-    // ==================================================================================
-
-    // Split point
+    //<editor-fold defaultstate="collapsed" desc="===Option Handling===">
     private static final int SPLIT_MEAN = 1;
     private static final int SPLIT_MEDIAN = 2;
     private static final int SPLIT_DISCRETIZED = 3;
     private static final int SPLIT_RANGE = 4;
     private static final int DEFAULT_SPLIT_STRATEGY = SPLIT_MEAN;
     private static final int DEFAULT_MAX_DEPTH = 3;
-    private static final int DEFAULT_MIN_OCCUPANCY = 2;
+    private static final int DEFAULT_MIN_OCCUPANCY = 5;
 
     public static final Tag [] SPLIT_STRATEGIES =
     {
@@ -115,25 +117,6 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
     {
         m_MinOccupancy = minOccupancy;
     }
-    // ==================================================================================
-
-    /** The tree of splits */
-    protected RootSplitNode splitTreeRoot;
-
-    /** Contains the bags as propositionalised instances */
-    protected Instances m_propositionalisedDataset;
-
-    /** Allow running from cmd prompt. */
-    public static void main(String[] args)
-    {
-        runClassifier(new AdaptiveSplit(), args);
-    }
-
-    /** @return a String describing this classifier. */
-    public String globalInfo()
-    {
-        return "An adaptive propositionalization algorithm."; // TODO add more
-    }
 
     @Override // TODO Copy over Javadocs
     public Capabilities getCapabilities()
@@ -180,18 +163,18 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
 
         // split point choice
         result.addElement(new Option(
-            "\tSplit point criterion: 1=mean (default), 2=median, 3=discretized, 4=range",
-            "S", 1, "-S <num>"));
+                "\tSplit point criterion: 1=mean (default), 2=median, 3=discretized, 4=range",
+                "S", 1, "-S <num>"));
 
         // max depth
         result.addElement(new Option(
-            "\tMaximum depth of the tree. 0 for unlimited (default).",
-            "maxDepth", 1, "-maxDepth <num>"));
+                "\tMaximum depth of the tree. 0 for unlimited (default).",
+                "maxDepth", 1, "-maxDepth <num>"));
 
         // min occupancy
         result.addElement(new Option(
-            "\tMinimum occupancy of each node of the tree. Default=2",
-            "minOcc", 1, "-minOcc <num>"));
+                "\tMinimum occupancy of each node of the tree. Default=2",
+                "minOcc", 1, "-minOcc <num>"));
 
         Enumeration enu = super.listOptions();
         while (enu.hasMoreElements())
@@ -244,6 +227,19 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
 
         return (String[]) result.toArray(new String[result.size()]);
     }
+    //</editor-fold>
+
+    /** Allow running from CLI. */
+    public static void main(String[] args)
+    {
+        runClassifier(new AdaptiveSplit(), args);
+    }
+
+    /** @return a String describing this classifier. */
+    public String globalInfo()
+    {
+        return "An adaptive propositionalization algorithm."; // TODO add more
+    }
 
     /** @return A string representation of this model. */
     @Override
@@ -282,11 +278,13 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
 
         final int numAttr = trainingBags.instance(0).relationalValue(1).numAttributes();
 
-        // find the split & evaluate strategies:
-        SplitPointEvaluator spe = null; // TODO
-        SplitStrategy splitStrategy = null;
+        // find the split strategy:
+        SplitStrategy splitStrategy;
         switch (m_SplitStrategy)
         {
+            case SPLIT_MEAN:
+                splitStrategy = new MeanSplitStrategy(numAttr);
+                break;
             case SPLIT_MEDIAN:
                 splitStrategy = new MedianSplitStrategy(numAttr);
                 break;
@@ -295,9 +293,9 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
                 break;
             case SPLIT_RANGE:
                 splitStrategy = new RangeSplitStrategy(numAttr);
-            default:
-                splitStrategy = new MeanSplitStrategy(numAttr);
                 break;
+            default:
+                throw new IllegalArgumentException("Unknown split strategy code: " + m_SplitStrategy);
         }
 
         // create the tree of splits:
@@ -1035,6 +1033,9 @@ class SplitNode implements Serializable
     {
         Instances propDataset = SplitNode.propositionaliseDataset(bags, root);
         classifier.buildClassifier(propDataset);
+        //Evaluation evaluation = new Evaluation(propDataset);
+        //evaluation.evaluateModel(classifier, propDataset);
+        //return evaluation.incorrect();
         return countMisclassified(classifier, propDataset);
     }
     //</editor-fold>
