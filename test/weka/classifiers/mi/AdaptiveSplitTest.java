@@ -256,12 +256,29 @@ public class AdaptiveSplitTest
 
         // try setting it to 3 (discretize) & use get to verify
         adaptiveSplit.setOptions(new String[]{"-S", "3"});
+        assertOptionValueEquals(adaptiveSplit.getOptions(), "-S", "3");
+
+        // try setting it to 4 (range) & use get to verify
+        adaptiveSplit.setOptions(new String[]{"-S", "4"});
+        assertOptionValueEquals(adaptiveSplit.getOptions(), "-S", "4");
     }
 
     // ==================================================================================
 
     @Test
-    public void testFindMean() throws Exception
+    public void testFindMeanViaInstance() throws Exception
+    {
+        double[] splits = new double[NUM_ATTR];
+        final int numInst = NUM_INST_PER_BAG * NUM_BAGS;
+        for (int i = 0; i < NUM_ATTR; i++)
+        {
+            splits[i] = i + (NUM_ATTR*(numInst-1)/2.0);
+        }
+        assertSplitPtListEquals(new MeanSplitStrategy(NUM_ATTR), arrayToPairList(splits), "mean");
+    }
+
+    @Test
+    public void testFindMeanViaStatic() throws Exception
     {
         // actual values for mean:
         //      there are 12 instances, 5 attributes
@@ -279,15 +296,27 @@ public class AdaptiveSplitTest
         for (int attrIndex = 0; attrIndex < NUM_ATTR; attrIndex++)
         {
             final double expectedMean = attrIndex + (NUM_ATTR*(numInst-1)/2.0);
-            final double actualMean
-                    = MeanSplitStrategy.findMean(miData, attrIndex, new BitSet(numInst));
             final String msg = "Mean for attribute " + attrIndex;
-            assertEquals(msg, expectedMean, actualMean, TOLERANCE);
+
+            final double actual = MeanSplitStrategy.findMean(miData, attrIndex, new BitSet(numInst));
+            assertEquals(msg, expectedMean, actual, TOLERANCE);
         }
     }
 
     @Test
-    public void testFindMedian() throws Exception
+    public void testFindMedianViaInstance() throws Exception
+    {
+        double[] splits = new double[NUM_ATTR];
+        final int numInst = NUM_INST_PER_BAG * NUM_BAGS;
+        for (int i = 0; i < NUM_ATTR; i++)
+        {
+            splits[i] = i + (NUM_ATTR*(numInst-1)/2.0);
+        }
+        assertSplitPtListEquals(new MedianSplitStrategy(NUM_ATTR), arrayToPairList(splits), "median");
+    }
+
+    @Test
+    public void testFindMedianViaStatic() throws Exception
     {
         // there are 12 instances, with values in increasing order
         // median of attribute i is the average of the 6th and 7th bags
@@ -297,11 +326,21 @@ public class AdaptiveSplitTest
         for (int attrIndex = 0; attrIndex < NUM_ATTR; attrIndex++)
         {
             final double expectedMedian = 27.5 + attrIndex;
-            final double actualMedian
-                    = MedianSplitStrategy.findMedian(miData, attrIndex, new BitSet(numInst));
             final String msg = "Median for attribute " + attrIndex;
-            assertEquals(msg, expectedMedian, actualMedian, TOLERANCE);
+            final double actual = MedianSplitStrategy.findMedian(miData, attrIndex, new BitSet(numInst));
+            assertEquals(msg, expectedMedian, actual, TOLERANCE);
         }
+    }
+
+    @Test
+    public void testFindDiscretizedViaInstance() throws Exception
+    {
+        double[] splits = new double[NUM_ATTR];
+        for (int i = 0; i < NUM_ATTR; i++)
+        {
+            splits[i] = i + 37.5;
+        }
+        assertSplitPtListEquals(new DiscretizedSplitStrategy(NUM_ATTR), arrayToPairList(splits), "discretized");
     }
 
     @Test
@@ -315,10 +354,61 @@ public class AdaptiveSplitTest
         for (int attrIndex = 0; attrIndex < NUM_ATTR; attrIndex++)
         {
             final List<Double> exp = Arrays.asList(37.5+attrIndex);
-            final ArrayList<Double> act
-                    = DiscretizedSplitStrategy.findDiscretizedSplits(miData, attrIndex, new BitSet(numInst));
-            assertListEquals("Split points for attribute " + attrIndex, exp, act);
+            final String msg = "Split points for attribute " + attrIndex;
+
+            final ArrayList<Double> act = DiscretizedSplitStrategy.findDiscretizedSplits(miData, attrIndex, new BitSet(numInst));
+            assertListEquals(msg, exp, act);
         }
+    }
+
+    @Test
+    public void testFindRangeViaInstance() throws Exception
+    {
+        double[] splits = new double[NUM_ATTR];
+        final int numInst = NUM_INST_PER_BAG * NUM_BAGS;
+        for (int i = 0; i < NUM_ATTR; i++)
+        {
+            splits[i] = i + (NUM_ATTR*(numInst-1)/2.0);
+        }
+        assertSplitPtListEquals(new RangeSplitStrategy(NUM_ATTR), arrayToPairList(splits), "range");
+    }
+
+    @Test
+    public void testFindRange() throws Exception
+    {
+        // actual values for mean:
+        //      there are 12 instances, 5 attributes
+        //      the values are the natural numbers in sequence.
+        //      for example, inst1 = {0,1,2,3,4} ; inst2 = {5,6,7,8,9} ; .. ; inst12 = {55,56,57,58,59} ;
+        //      so the midpt is {27.5, 28.5, ... }
+
+        // for each attribute:
+        final int numInst = NUM_INST_PER_BAG * NUM_BAGS;
+        for (int attrIndex = 0; attrIndex < NUM_ATTR; attrIndex++)
+        {
+            final double expected = attrIndex + (NUM_ATTR*(numInst-1)/2.0);
+            final String msg = "Range-MidPt for attribute " + attrIndex;
+            final double actualViaStatic = RangeSplitStrategy.findMidpt(miData, attrIndex, new BitSet(numInst));
+            assertEquals(msg, expected, actualViaStatic, TOLERANCE);
+        }
+    }
+
+    // can be used when there is a unique split point for each attr index
+    private static List<Pair<Integer, Double>> arrayToPairList(double ... splitPts)
+    {
+        List<Pair<Integer, Double>> list = new ArrayList<Pair<Integer, Double>>(splitPts.length);
+        for (int i=0; i<splitPts.length; i++)
+        {
+            list.add(new Pair<Integer, Double>(i, splitPts[i]));
+        }
+        return list;
+    }
+
+    // Test the splitting when invoked via instance methods:
+    private static void assertSplitPtListEquals(SplitStrategy strategy, List<Pair<Integer, Double>> exp, String msg)
+    {
+        List<Pair<Integer, Double>> act = strategy.generateSplitPoints(miData, new BitSet(NUM_INST_PER_BAG*NUM_BAGS));
+        assertPairListEquals(msg, exp, act);
     }
 
     private static void assertListEquals(String msg, List<Double> exp, List<Double> act)
@@ -330,6 +420,20 @@ public class AdaptiveSplitTest
         for (int i=0;i<exp.size();i++)
         {
             assertEquals(msg + " index " + i, exp.get(i), act.get(i), TOLERANCE);
+        }
+    }
+
+    private static void assertPairListEquals(String msg, List<Pair<Integer, Double>> exp, List<Pair<Integer, Double>> act)
+    {
+        // check sizes are equal
+        assertEquals(msg + " size", exp.size(), act.size());
+
+        // check each elem
+        for (int i=0;i<exp.size();i++)
+        {
+            String msgSuffix = exp.get(i).toString() + " != " + act.get(i).toString();
+            assertEquals(msg + " (key) index " + i + msgSuffix, exp.get(i).key, act.get(i).key, TOLERANCE);
+            assertEquals(msg + " (val) index " + i + msgSuffix, exp.get(i).value, act.get(i).value, TOLERANCE);
         }
     }
 

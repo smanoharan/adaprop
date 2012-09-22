@@ -1,6 +1,7 @@
 package weka.classifiers.mi;
 
 import weka.classifiers.Classifier;
+import weka.classifiers.Evaluation;
 import weka.classifiers.SingleClassifierEnhancer;
 import weka.core.*;
 
@@ -691,16 +692,6 @@ class SplitNode implements Serializable
 
     //<editor-fold defaultstate="collapsed" desc="===Tree-building===" >
     /**
-     * Creates a new (placeholder) leaf node.
-     * @param curDepth depth of this leaf node.
-     * @return A leaf node.
-     */
-    static SplitNode newLeafNode(int curDepth)
-    {
-        return newLeafNode(-1, curDepth);
-    }
-
-    /**
      * Creates a new leaf node.
      *
      * @param propAttrIndex The propositionalisedAttributeIndex
@@ -1003,26 +994,6 @@ class SplitNode implements Serializable
     //</editor-fold>
 
     //<editor-fold defaultstate="collapsed" desc="===Split Evaulation===">
-    /**
-     * Determine the number of misclassified instances in the dataset.
-     *
-     * @param classifier The trained classifier.
-     * @param dataset The dataset.
-     * @return The number of instances in the dataset misclassified by the classifier.
-     * @throws Exception
-     */
-    private static int countMisclassified(Classifier classifier, Instances dataset) throws Exception
-    {
-        int numErr = 0;
-        for (Instance inst : dataset)
-        {
-            if (classifier.classifyInstance(inst) != inst.classValue())
-            {
-                numErr++;
-            }
-        }
-        return numErr;
-    }
 
     /**
      * A way to evaluate each split point -- TODO
@@ -1033,10 +1004,9 @@ class SplitNode implements Serializable
     {
         Instances propDataset = SplitNode.propositionaliseDataset(bags, root);
         classifier.buildClassifier(propDataset);
-        //Evaluation evaluation = new Evaluation(propDataset);
-        //evaluation.evaluateModel(classifier, propDataset);
-        //return evaluation.incorrect();
-        return countMisclassified(classifier, propDataset);
+        Evaluation evaluation = new Evaluation(propDataset);
+        evaluation.evaluateModel(classifier, propDataset);
+        return evaluation.incorrect();
     }
     //</editor-fold>
 
