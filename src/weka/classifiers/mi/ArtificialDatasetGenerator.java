@@ -8,7 +8,7 @@ import weka.core.Instances;
 import java.util.*;
 
 /**
- * Generate an artificial dataset, for testing AdaptiveSplit works as expected.
+ * Generate an artificial dataset, for testing AdaProp works as expected.
  *
  * Author: Siva Manoharan, 1117707
  */

@@ -15,15 +15,15 @@ import java.util.*;
 import static org.junit.Assert.*;
 
 /** Author: Siva Manoharan, 1117707 */
-public class AdaptiveSplitTest
+public class AdaPropTest
 {
     public static final int NUM_ATTR = 5; // number of attr in si-dataset
     public static final int NUM_BAGS = 3; // number of mi bags
     public static final int NUM_INST_PER_BAG = 4;
-    public static final int REL_INDEX = AdaptiveSplit.REL_INDEX;
+    public static final int REL_INDEX = AdaProp.REL_INDEX;
 
     /** Instance, under test */
-    private AdaptiveSplit adaptiveSplit;
+    private AdaProp adaProp;
 
     /** Contains the mi bags for testing */
     protected static Instances miData;
@@ -160,10 +160,10 @@ public class AdaptiveSplitTest
     }
 
     @Before
-    /** Create a new instance of AdaptiveSplit */
+    /** Create a new instance of AdaProp */
     public void setUp() throws Exception
     {
-        this.adaptiveSplit = new AdaptiveSplit();
+        this.adaProp = new AdaProp();
     }
 
     // check that the string is not null and is not empty.
@@ -176,13 +176,13 @@ public class AdaptiveSplitTest
     @Test
     public void testGlobalInfoIsNotNullOrEmpty()
     {
-        assertNotNullOrEmpty(adaptiveSplit.globalInfo());
+        assertNotNullOrEmpty(adaProp.globalInfo());
     }
 
     @Test
     public void testToStringIsNotNullOrEmpty() throws Exception
     {
-        assertNotNullOrEmpty(adaptiveSplit.toString());
+        assertNotNullOrEmpty(adaProp.toString());
     }
 
     // ==================================================================================
@@ -216,7 +216,7 @@ public class AdaptiveSplitTest
     public void testSplitPointOptionsAreListed() // in .listOptions();
     {
         // split point is chosen by '-s'. Try to find it:
-        Option opt = findOption(adaptiveSplit.listOptions(), "S");
+        Option opt = findOption(adaProp.listOptions(), "S");
         if (opt == null)
         {
             Assert.fail("Option -S (split point) not found");
@@ -248,19 +248,19 @@ public class AdaptiveSplitTest
     public void testGetAndSetSplitOptions() throws Exception
     {
         // by default: split point should be set to 1;
-        assertOptionValueEquals(adaptiveSplit.getOptions(), "-S", "1");
+        assertOptionValueEquals(adaProp.getOptions(), "-S", "1");
 
         // try setting it to 2 (median) & use get to verify
-        adaptiveSplit.setOptions(new String[]{"-S", "2"});
-        assertOptionValueEquals(adaptiveSplit.getOptions(), "-S", "2");
+        adaProp.setOptions(new String[]{"-S", "2"});
+        assertOptionValueEquals(adaProp.getOptions(), "-S", "2");
 
         // try setting it to 3 (discretize) & use get to verify
-        adaptiveSplit.setOptions(new String[]{"-S", "3"});
-        assertOptionValueEquals(adaptiveSplit.getOptions(), "-S", "3");
+        adaProp.setOptions(new String[]{"-S", "3"});
+        assertOptionValueEquals(adaProp.getOptions(), "-S", "3");
 
         // try setting it to 4 (range) & use get to verify
-        adaptiveSplit.setOptions(new String[]{"-S", "4"});
-        assertOptionValueEquals(adaptiveSplit.getOptions(), "-S", "4");
+        adaProp.setOptions(new String[]{"-S", "4"});
+        assertOptionValueEquals(adaProp.getOptions(), "-S", "4");
     }
 
     // ==================================================================================
@@ -452,7 +452,7 @@ public class AdaptiveSplitTest
         try
         {
             // init the m_classifier
-            adaptiveSplit.setClassifier(classifier);
+            adaProp.setClassifier(classifier);
 
             // find actual split:
             final int attrIndex = 2;

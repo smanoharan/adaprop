@@ -16,7 +16,7 @@ import java.util.Queue;
  *
  * Author: Siva Manoharan
  */
-public class AdaptiveSplit extends SingleClassifierEnhancer
+public class AdaProp extends SingleClassifierEnhancer
         implements MultiInstanceCapabilitiesHandler, OptionHandler
 {
     /**
@@ -233,7 +233,7 @@ public class AdaptiveSplit extends SingleClassifierEnhancer
     /** Allow running from CLI. */
     public static void main(String[] args)
     {
-        runClassifier(new AdaptiveSplit(), args);
+        runClassifier(new AdaProp(), args);
     }
 
     /** @return a String describing this classifier. */
@@ -413,7 +413,7 @@ class MeanSplitStrategy extends CenterSplitStrategy
         for (Instance bag : trainingData)
         {
             // consider each instance in each bag
-            for (Instance inst : bag.relationalValue(AdaptiveSplit.REL_INDEX))
+            for (Instance inst : bag.relationalValue(AdaProp.REL_INDEX))
             {
                 if (!ignore.get(index++))
                 {
@@ -460,7 +460,7 @@ class MedianSplitStrategy extends CenterSplitStrategy
         int index = 0;
         for (Instance bag : trainingData)
         {
-            for (Instance inst : bag.relationalValue(AdaptiveSplit.REL_INDEX))
+            for (Instance inst : bag.relationalValue(AdaProp.REL_INDEX))
             {
                 if (!ignore.get(index++))
                 {
@@ -514,7 +514,7 @@ class RangeSplitStrategy extends CenterSplitStrategy
         int index = 0;
         for (Instance bag : trainingData)
         {
-            for (Instance inst : bag.relationalValue(AdaptiveSplit.REL_INDEX))
+            for (Instance inst : bag.relationalValue(AdaProp.REL_INDEX))
             {
                 if (!ignore.get(index++))
                 {
@@ -563,7 +563,7 @@ class DiscretizedSplitStrategy implements SplitStrategy
         int index = 0;
         for (Instance bag : trainingData)
         {
-            for (Instance inst : bag.relationalValue(AdaptiveSplit.REL_INDEX))
+            for (Instance inst : bag.relationalValue(AdaProp.REL_INDEX))
             {
                 if (!ignore.get(index++))
                 {
@@ -636,7 +636,7 @@ interface SplitPointEvaluator
 class SplitNode implements Serializable
 {
     //<editor-fold defaultstate="collapsed" desc="===Init===" >
-    static final long serialVersionUID = AdaptiveSplit.serialVersionUID + 1000L;
+    static final long serialVersionUID = AdaProp.serialVersionUID + 1000L;
 
     /** The attribute to split on */
     int splitAttrIndex;
@@ -774,7 +774,7 @@ class SplitNode implements Serializable
         int instCount = 0;
         for (Instance bag : trainingBags)
         {
-            instCount += bag.relationalValue(AdaptiveSplit.REL_INDEX).size();
+            instCount += bag.relationalValue(AdaProp.REL_INDEX).size();
         }
 
         TreeBuildingParams params = new TreeBuildingParams(maxDepth, minOccupancy, trainingBags, instCount, splitStrategy, classifier);
@@ -868,7 +868,7 @@ class SplitNode implements Serializable
     public static Instance propositionaliseBag(final Instance bag, final RootSplitNode root,
                                                final Instances propositionalisedDataset)
     {
-        int numInst = bag.relationalValue(AdaptiveSplit.REL_INDEX).size();
+        int numInst = bag.relationalValue(AdaProp.REL_INDEX).size();
         final double[] attrValues = new double[root.getNodeCount()+1];
         attrValues[0] = numInst; // set root count
         attrValues[root.getNodeCount()] = bag.classValue(); // set class val
@@ -906,7 +906,7 @@ class SplitNode implements Serializable
      */
     void propositionaliseBag(Instance bag, double[] attrVals, BitSet ignore)
     {
-        final int numInstances = bag.relationalValue(AdaptiveSplit.REL_INDEX).size();
+        final int numInstances = bag.relationalValue(AdaProp.REL_INDEX).size();
 
         if (!this.isLeaf()) // only proceed if not a leaf;
         {
@@ -952,7 +952,7 @@ class SplitNode implements Serializable
      */
     void filterBag(Instance bag, BitSet ignore, BitSet leftIgnore, BitSet rightIgnore, LeftRightCounter counter)
     {
-        for (Instance inst : bag.relationalValue(AdaptiveSplit.REL_INDEX))
+        for (Instance inst : bag.relationalValue(AdaProp.REL_INDEX))
         {
             filterInst(inst, ignore, leftIgnore, rightIgnore, counter);
         }

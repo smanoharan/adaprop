@@ -12,13 +12,13 @@ import java.util.BitSet;
 import static org.junit.Assert.assertEquals;
 
 /** Author: Siva Manoharan, 1117707 */
-public class AdaptiveSplitNodeTest extends AdaptiveSplitTest
+public class AdaPropSplitNodeTest extends AdaPropTest
 {
     /** Check that the node is equal to the expected values */
     private static void assertNodeEquals(SplitNode actNode, int expSplitAttrIndex, int expSplitPt, SplitNode expLeft, SplitNode expRight)
     {
         assertEquals("splitAttrIndex", expSplitAttrIndex, actNode.splitAttrIndex);
-        assertEquals("splitPoint", expSplitPt, actNode.splitPoint, AdaptiveSplitTest.TOLERANCE);
+        assertEquals("splitPoint", expSplitPt, actNode.splitPoint, AdaPropTest.TOLERANCE);
         assertEquals("left", expLeft, actNode.left);
         assertEquals("right", expRight, actNode.right);
     }
