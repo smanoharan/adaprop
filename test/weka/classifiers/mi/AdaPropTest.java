@@ -20,7 +20,6 @@ public class AdaPropTest
     public static final int NUM_ATTR = 5; // number of attr in si-dataset
     public static final int NUM_BAGS = 3; // number of mi bags
     public static final int NUM_INST_PER_BAG = 4;
-    public static final int REL_INDEX = AdaProp.REL_INDEX;
 
     /** Instance, under test */
     private AdaProp adaProp;

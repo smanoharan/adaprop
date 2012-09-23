@@ -567,7 +567,7 @@ class DiscretizedSplitStrategy implements SplitStrategy
             {
                 if (!ignore.get(index++))
                 {
-                    vals.add(new Pair(inst.value(attrIndex), bag.classValue()));
+                    vals.add(new Pair<Double,Double>(inst.value(attrIndex), bag.classValue()));
                 }
             }
         }

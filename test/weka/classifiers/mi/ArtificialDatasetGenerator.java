@@ -10,7 +10,7 @@ import java.util.*;
 /**
  * Generate an artificial dataset, for testing AdaProp works as expected.
  *
- * Author: Siva Manoharan, 1117707
+ * Author: Siva Manoharan
  */
 public class ArtificialDatasetGenerator
 {
