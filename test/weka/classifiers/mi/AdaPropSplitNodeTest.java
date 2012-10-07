@@ -84,7 +84,8 @@ public class AdaPropSplitNodeTest extends AdaPropTest
     {
         try
         {
-            SplitNode.TreeBuildingParams p = new SplitNode.TreeBuildingParams(maxDepth, minOcc, null, instCount, null, null);
+            SplitNode.TreeBuildingParams p = new SplitNode.TreeBuildingParams(maxDepth, (1 << maxDepth), minOcc, null,
+                    instCount, null, null);
             SplitNode node = SplitNode.newLeafNode(0, 0);
             node.expand(p, new BitSet(instCount), null, 4);
             assertNodeIsALeaf(node);
