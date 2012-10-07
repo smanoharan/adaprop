@@ -28,6 +28,7 @@ public class ArtificialDatasetGenerator
             return;
         }
 
+
         // read args:
         int curIndex = 0;
         int numAttr = Integer.parseInt(args[curIndex++]);
@@ -37,6 +38,15 @@ public class ArtificialDatasetGenerator
         int numSplits = Integer.parseInt(args[curIndex++]);
         long seed = Long.parseLong(args[curIndex++]);
 
+        // print argument parameters:
+        System.out.println("% Artificially generated file. Arguments: " + 
+          "\n%\t Number of Attributes: " + numAttr + 
+          "\n%\t Number of Bags:       " + numBags + 
+          "\n%\t Minimum Bag Size:     " + minInstPerBag + 
+          "\n%\t Maximum Bag Size:     " + maxInstPerBag + 
+          "\n%\t Number of Splits:     " + numSplits + 
+          "\n%\t Seed: " + seed + "\n"); 
+        
         // output in arff format
         System.out.println(generate(numAttr, numBags, minInstPerBag, maxInstPerBag, numSplits, seed).toString());
     }
@@ -108,6 +118,12 @@ public class ArtificialDatasetGenerator
         {
             return this.attrIndex - o.attrIndex;
         }
+
+        @Override
+        public String toString()
+        {
+            return "Attribute " + attrIndex + (positiveRegionIsLeftOfSplit ? " <= " : "  > ")  + splitPt + ".";
+        }
     }
 
 
@@ -149,6 +165,13 @@ public class ArtificialDatasetGenerator
             splits.add(new Split(splitAttr, mean, random.nextBoolean()));
         }
 
+        // print out the splits (as comments)
+        System.out.println("% Splits:");
+        for (Split split : splits)
+        {
+          System.out.println("%\t" + split.toString() );
+        }
+
         // for each bag, count how many instances fall in the 'positive' region
         ArrayList<BagCountPair> bagCountPairs = new ArrayList<BagCountPair>(numBags);
         for (int i=0; i<numBags; i++)
@@ -180,6 +203,8 @@ public class ArtificialDatasetGenerator
 
         // find cut-off point (atm, right in the middle). Mark all below the cutoff as negative (1).
         final int cutoffIndex = numBags / 2;
+        System.out.println("% Class value is based on whether COUNT <= " + bagCountPairs.get(cutoffIndex).count);
+
         for (int i=0; i<cutoffIndex; i++)
         {
             BagCountPair bcp = bagCountPairs.get(i);
