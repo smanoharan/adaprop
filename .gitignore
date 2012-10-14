@@ -12,6 +12,7 @@
 *.synctex.gz*
 *.bbl
 *.blg
+*.bak
 
 # IntelliJ IDEA
 .idea/*
