@@ -9,7 +9,7 @@
 \usepackage{setspace}
 
 %% ABBREVIATIONS
-\newcommand{\AdaProp}{\texttt{AdaProp\xspace}}
+\newcommand{\AdaProp}{\texttt{AdaProp}\xspace}
 
 %\linespread{1.3} % 1.3 *is* one-and-a-half spacing
 
@@ -54,6 +54,8 @@ In the future,
 Multi-instance (MI) learning is machine learning over multi-instance data, where the instances are grouped together into bags and the learning is performed over the bags rather than the individual instances. One approach to handling multi-instance data is propositionalisation, where each bag of instances is converted into a single feature vector. This converted dataset can be used with standard single-instance machine learning algorithms such as SVMs and Neural Networks.
 
 This project will explore adaptive propositionalisation, where the single-instance base learner is used to make decisions when propositionalising the dataset. The main propositionalisation approach considered will be the partitioning of the instance space into regions, where each region corresponds to a feature in the converted dataset.
+
+% TODO - formal defns of propositionalisation etc?
     
 An application of multi-instance learning is image classification, where, for example, an image is represented as a bag of segments and the interaction between the segments contributes to the class of the image. In this context, each segment is an instance and thus each image is a bag of instances. We will also examine this application of multi-instance learning.
 
@@ -106,42 +108,87 @@ Then, this set of instances is used to partition the instance space by
 We restrict each bisecting hyperplane to be parallel to exactly one axis.
 Therefore, we can represent each bisecting hyperplane as an attribute,
     paired with a split value).
+    
 [DIAGRAM, EXAMPLE]
 
-\subsection{Propositionalisation}
-\subsection{The single-instance base learner}    
+\AdaProp selects bisecting hyperplanes in a greedy fashion. 
+At each iteration, a set of candidate bisectors is generated.
+Each candidate bisector is evaluated, 
+    by propositionalisation and then using the single instance base learner
+    and the bisector which results in the least training set error is chosen.
     
-\subsection{MISC}
-This project will consider the adaptive partitioning approach to propositionalisation.
-At each stage, a set of candidate partitions of the instance space will be generated. Each of these partitions will be evaluated using the  single-instance base learner and the best partition will be selected. This process will be repeated recursively for each partition resulting in a tree of regions. At the completion of this process, this tree will be used to propositionalise the MI bags in a way similar to that of \citeA{Weidmann2003}.
+\subsubsection{Generating Candidate Bisectors}
 
-We will examine multiple ways to generate the candidate partitions. One approach is to consider the midpoint value (mean or median) of each attribute as the split point, resulting in multiple partitions. Another approach is to consider every possible split point of the attribute, similar to the discretization process of OneR~\cite{holte}, which may generate better partitions but at the cost of increased runtime.
+Given a set of instances to bisect, 
+    \AdaProp implements four methods for selecting candidate bisectors:
+\begin{enumerate}
+\item Range based midpoint ($\frac{\max+\min}{2}$) of an attribute
+\item Mean of an attribute
+\item Median of an attribute
+\item Each class boundary of an attribute 
+\end{enumerate}
 
+Each of the first three methods generates exactly one candidate per attribute.
+However, the class boundary based method, 
+    which offers a candidate at each value where the class value changes,
+    (similar to the discretization process of OneR~\cite{holte}), 
+    may generate multiple candidates per attribute and 
+    thus is more computationally expensive.
+In order to prevent overfitting, 
+    we restrict the boundaries offered by this method to have at least $minOcc$ instances
+    in the training data on both sides of the boundary 
+    (where $minOcc$ is a user parameter).
 
-%Algorithm(s) will be implemented using the WEKA framework.*
+[PSEUDO-CODE]
 
+\subsubsection{Selecting the best bisector}
+Each candidate bisector was added to the current set of bisectors,
+    and the entire MI dataset was propositionalised and then
+    the base learner was trained on the propositionalised dataset
+    and the training set error was recorded.
+At each iteration, the bisector which results in the least training set error 
+    is chosen to be added to the list of selected bisectors.
 
-We generate candidate partitions by first generating a table of instances from the MI bags, 
-    by assigning to each instance, the class of it's bag and then building a table of such 
-    single instances. 
-    
-Then for each attribute, we aim to find a partitioning point (center?) of the instances across the attribute.
-Four methods for finding the split point were tried: 
-    range - where the midpoint between the maximum and minimum values of the attributes was chosen as the 
-        split point.
-    median - the median of all instances in the set
-    mean - the mean of all instances in the set
-    every split point - arrange all instances by the value of the attribute, consider every point where     
-        the class changes.
-
-Given a set of candidate partitions, the algorithm being developed in this project must select the optimal partition. 
-The current planned approach is to propositionalise the MI bags using the proposed partition and then evaluate the training-set error using the base learner, selecting the partition which results in the least error. An alternative is to use cross-validated error instead of training error, which would increase the running time of the algorithm but may select better partitions by avoiding the partitions to which the single instance learner overfits.
-
+\subsubsection{Tree of Bisectors}
 
 After deciding how to split once, we need to repeat this split to obtain a tree of partitions.
 Originally, fill out the entire tree using depth first search.
 
 Better approaches, i.e.\ Breadth first or Best-first (Heuristic) were tried as well. TODO
+
+\subsection{Propositionalisation}
+The tree of bisectors defines a set of regions in the instance space.
+Each such region will correspond to one attribute in the propositionalised dataset.
+Currently, \AdaProp propositionalises each bag 
+    by simply counting the number of instances in the bag which fall into the region.
+    
+[Example, Formalize] 
+
+In general, the attribute can be any summary statistic chosen by the user.
+\AdaProp will eventually* implement support for aggregations such as 
+    MIN, MAX, AVERAGE, SUM and STDDEV and 
+    will thus allow the user to select any summary statistic 
+    (or perhaps even a set of statistics*?) 
+    to be used in the propositionalisation process.
+    
+[Final Prop Form?]
+    
+
+\subsection{The single-instance base learner}    
+Any single instance base learner can be used to guide the bisector selection process.
+The choice of base learner is left upto the user, and 
+    this report considers a selection of common base learners (see results section).
+*In this report, we consider: [LIST base learners from results ]    
+
+*TODO* any properties satsified by the base learners?
+    
+    
+\subsection{MISC}
+This project will consider the adaptive partitioning approach to propositionalisation.
+At each stage, a set of candidate partitions of the instance space will be generated. Each of these partitions will be evaluated using the  single-instance base learner and the best partition will be selected. This process will be repeated recursively for each partition resulting in a tree of regions. At the completion of this process, this tree will be used to propositionalise the MI bags in a way similar to that of \citeA{Weidmann2003}.
+
+
+%Algorithm(s) will be implemented using the WEKA framework.*
 
 
 \section{Results}
