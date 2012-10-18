@@ -5,17 +5,25 @@
 \usepackage[parfill]{parskip} % Begin paragraphs with an empty line rather than an indent
 \usepackage{apacite} % apa style citations and references
 \usepackage{fullpage} % reduce margins
+\usepackage{booktabs}
+\usepackage{multirow} 
 \usepackage{paralist} % very flexible & customisable lists (eg. enumerate/itemize, etc.)
 \usepackage{url} % for rendering urls (in bibliography)
 \usepackage{xspace} % for spaces after macros
 \usepackage{setspace}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{pgfplots} % For plots
+\pgfplotsset{compat=1.5}
+\usepackage{tikz}
+\usetikzlibrary{positioning}
 
 %% ABBREVIATIONS
 \newcommand{\AdaProp}{\texttt{AdaProp}\xspace}
 \newcommand{\real}{\mathbb{R}}
 \newcommand{\mcl}[1]{\mathcal{#1}}
 \newcommand{\power}{\mathbb{P}}
-
+\newcommand{\vect}[1]{\boldsymbol{#1}}
 %\linespread{1.3} % 1.3 *is* one-and-a-half spacing
 
 \title{\ \\ \  \\ Adaptive Propositionalisation of Multi-Instance Data Towards Image Classification}
@@ -68,27 +76,89 @@ This converted dataset can be used with
     standard single-instance machine learning algorithms 
     such as SVMs and Neural Networks.
 
-This project will explore adaptive propositionalisation, where the single-instance base learner is used to make decisions when propositionalising the dataset. The main propositionalisation approach considered will be the partitioning of the instance space into regions, where each region corresponds to a feature in the converted dataset.
+This project explores adaptive propositionalisation, 
+    where the single-instance base learner is used to 
+    make decisions when propositionalising the dataset. 
+The propositionalisation approach considered is the 
+    partitioning of the instance space into regions, 
+    where each region corresponds to 
+    one or more features in the propositionalised dataset.
 
-    
-An application of multi-instance learning is image classification, where, for example, an image is represented as a bag of segments and the interaction between the segments contributes to the class of the image. In this context, each segment is an instance and thus each image is a bag of instances. We will also examine this application of multi-instance learning.
+An application of multi-instance learning is image classification,
+    where, for example, 
+    an image is represented as a bag of segments and 
+    the interaction between the segments contributes 
+    to the class of the image. 
+In this context, 
+    each segment is an instance and 
+    thus each image is a bag of instances. 
+In the future, we will examine this application of multi-instance learning.
 
 \section{Background}
 
-Multi-instance learning was introduced by \citeA{Diet97} in the context of drug activity prediction. The multi-instance learning problem was defined as a two-class supervised learning problem where the classification occurs over bags of instances rather than the individual instances. \citeA{Diet97} assumed that each instance had a hidden class label and that a bag belongs to the positive class if and only if at least one of the instances in the bag belongs to the positive class. This assumption is known as the ``standard MI assumption'' and fits the original domain of drug activity prediction well.
+Multi-instance learning was introduced by \citeA{Diet97} 
+    in the context of drug activity prediction. 
+The multi-instance learning problem was 
+    defined as a two-class supervised learning problem where 
+    the classification occurs over bags of instances 
+    rather than the individual instances. 
+\citeA{Diet97} assumed that each instance had a hidden class label and 
+    that a bag belongs to the positive class if and only if 
+    at least one of the instances in the bag belongs to the positive class. 
+This assumption is known as the ``standard MI assumption'' and 
+    fits the original domain of drug activity prediction well.
 
-Multi-instance learning has also been applied to other domains such as image classification and text classification where the standard MI assumption is less appropriate. Therefore, a number of generalisations to the multi-instance problem have been proposed.
-\citeA{Chen2006} proposed a generalised MI assumption in which the label of each bag is determined by the distance of the bag's instances to some hidden target points in instance space.
-Similarly, \citeA{Weidmann2003} proposed a hierarchy of MI assumptions where the bag's class is determined by the number of instances of the bag which lay in certain regions of instance space.
-This project will use the same generalised MI assumptions as \citeA{Weidmann2003}.
+Multi-instance learning has also been applied to other domains 
+    such as image classification and text classification where 
+    the standard MI assumption is less appropriate. 
+Therefore, a number of generalisations to the multi-instance problem have been proposed.
+\citeA{Chen2006} proposed a generalised MI assumption in which 
+    the label of each bag is determined by the 
+    distance of the bag's instances to some hidden target points in instance space.
+Similarly, \citeA{Weidmann2003} proposed a hierarchy of MI assumptions where 
+    the bag's class is determined by the number of instances 
+    of the bag which lay in certain regions of instance space.
+This project uses the same generalised MI assumptions as \citeA{Weidmann2003}.
 
-There have been a number of proposed algorithms for dealing with multi-instance data. The original algorithm proposed by \citeA{Diet97} used axis parallel rectangles to identify the regions of the instance space where the positive instances lay. The algorithm was designed to find the regions which contained at least one instance from each positive bag but no instances from the negative class. 
-\citeA{Maron98mil} proposed the Diverse Density algorithm, where the aim was to find target points in instance space which are close to at least one instance from each positive bag and far away from all instances in negative bags.
+There have been a number of proposed algorithms 
+    for dealing with multi-instance data. 
+The original algorithm proposed by \citeA{Diet97} 
+    used axis parallel rectangles to identify the regions of the instance space 
+    where the positive instances lay. 
+The algorithm was designed to find the regions which 
+    contained at least one instance from each positive bag 
+    but no instances from the negative class. 
+\citeA{Maron98mil} proposed the Diverse Density algorithm, 
+    where the aim was to find target points in instance space 
+    which are close to at least one instance from each positive bag and 
+    far away from all instances in negative bags.
 
-\citeA{Weidmann2003} proposed a two level approach for dealing with multi-instance data subject to the generalised MI assumptions. In the first level, a decision tree was built to partition the instance space. In the second level, the occupancy counts of instances of each bag in each region was used to build a propositionalised dataset, to which a single instance learner was applied.
-The algorithm being developed in this project will use a similar process as \citeA{Weidmann2003} in the second level, but we will consider an adaptive approach to partition the instance space.
+\citeA{Weidmann2003} proposed a two level approach for dealing with multi-instance data 
+    subject to the generalised MI assumptions. 
+In the first level, 
+    a decision tree was built to partition the instance space. 
+In the second level, 
+    the occupancy counts of instances of each bag in each region 
+    was used to build a propositionalised dataset, 
+    to which a single instance learner was applied.
+The algorithm being developed in this project uses a similar process 
+    as \citeA{Weidmann2003} in the second level, 
+    but we consider an adaptive approach to partition the instance space.
 
-The problem of image classification fits the multi-instance learning setting well. Since an image may contain multiple objects, a single feature vector may not capture all of the information in the image. As a MI learning problem, an image can be considered to be a bag of instances, where each instance is a segment of interest in the image. There is existing work on applying MI learning to image classification: \citeA{Maron98scene} performed learning over scene images by using fixed size partitions of the image. \citeA{Zhang2002} used K-means to segment the image. We will optimise the algorithm to perform well with MI image classification datasets.
+The problem of image classification fits the multi-instance learning setting well. 
+Since an image may contain multiple objects, 
+    a single feature vector may not capture all 
+    of the information in the image. 
+As a MI learning problem, 
+    an image can be considered to be a bag of instances, 
+    where each instance is a segment of interest in the image. 
+There is existing work on applying MI learning to image classification: 
+    \citeA{Maron98scene} performed learning over scene images by 
+        using fixed size partitions of the image. 
+    \citeA{Zhang2002} used K-means to segment the image. 
+In the future, 
+    we will optimise the algorithm to perform well 
+    with MI image classification datasets.
 
 %[http://www.cs.cmu.edu/~juny/MILL/review.htm] 
 
@@ -113,9 +183,11 @@ Therefore, \AdaProp consists of three major components:
 \subsection{Definitions}
 Formally, we define a multi-instance dataset $\mcl{D}$ as a set of bags, 
     where each bag is a set of instances with a class label.
-Each instance has $k$ attributes.
-Therefore, each instance can be considered to be a vector in $\real^k$,
-    assuming that each attribute is numeric.
+Let the attributes of the instances be  
+    $\mcl{A} = \{ a_1,a_2,\ldots,a_k \}$.
+Therefore, each instance has $k$ attributes and
+    thus can be considered to be a vector in $\real^k$,
+    assuming each attribute is numeric.
 Therefore, the set of all instances in the dataset, $\mcl{I}$,
     can be defined as a set of $k$-dimensional vectors.
 That is, $ \mcl{I} \subseteq \real^k $.
@@ -162,22 +234,164 @@ Formally, $\mcl{M} \subseteq (\mcl{I} \times \mcl{C})$,
                 (inst,c_b) \in \mcl{M}
     $$    
 
-Then, this set of labelled instances, $\mcl{M}$, is used to partition the instance space by
-    repeatedly bisecting the instance space
-    to produce the regions.*
-We restrict each bisecting hyperplane to be parallel to exactly one axis.
-Therefore, we can represent each bisecting hyperplane as an attribute,
-    paired with a split value).
-    
-[DIAGRAM, EXAMPLE]
+For example, consider the small two-class dataset in Table~\ref{tEgData}, 
+    consisting of two bags ($|\mcl{D}| = 2$)
+    containing five instances in total, each with two attributes ($k=2$).\\
+Figure~\ref{visM} shows the $\mcl{M}$ for this example dataset with 
+    positive instances rendered as blue squares and 
+    negative instances rendered as red triangles.
 
-\AdaProp selects bisecting hyperplanes in a greedy fashion. 
-At each iteration, a set of candidate bisectors is generated.
-Each candidate bisector is evaluated, 
-    by propositionalisation and then using the single instance base learner
-    and the bisector which results in the least training set error is chosen.
+
+\begin{table}
+\begin{center}
+\begin{tabular}{ccccc}
+    \toprule
+    Bag & Class & Instance & Attribute 1 & Attribute 2 \\
+    \midrule
+    \multirow{2}{*}{$bag_1$} & \multirow{2}{*}{positive} & $inst_1$ & 0.3 & 0.7 \\
+    &  & $inst_2$ & 0.5 & 0.1 \\
+    \cmidrule(r){1-5}
+    \multirow{3}{*}{$bag_2$} & \multirow{3}{*}{negative} & $inst_3$ & 0.2 & 0.9 \\
+    & & $inst_4$ & 0.8 & 0.6 \\
+    & & $inst_5$ & 0.5 & 0.7 \\
+    \bottomrule
     
-\subsubsection{Generating Candidate Bisectors}
+\end{tabular}
+\end{center}
+%\input{example-data-table.tex}
+\caption{Example Dataset}
+\label{tEgData}
+\end{table}
+
+\begin{figure}
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[xlabel={$a_1$}, ylabel={$a_2$},
+ xmin=0,xmax=1,ymin=0,ymax=1,
+ scatter/classes={p={mark=square*,blue},n={mark=triangle*,red}}]
+\addplot[scatter,only marks,scatter src=explicit symbolic]
+table[meta=label] {
+	x	y	label
+	0.3	0.7	p
+	0.5	0.1	p
+	0.2	0.9	n
+	0.8	0.6	n
+	0.5	0.7	n
+};
+\end{axis}
+\end{tikzpicture}
+\end{center}
+\caption{Visualisation of $\mcl{M}$ for the example dataset}
+\label{visM}
+\end{figure}
+
+After computing the $\mcl{M}$, 
+    \AdaProp aims to partition the instance space of $\mcl{M}$ into regions.
+These regions are found by an iterative greedy algorithm (Algorithm~\ref{algoTree}), 
+    which builds up a tree of bisections.
+For the purposes of the algorithm, 
+    a bisection is a hyperplane in instance space, 
+    of the form $w_1a_1 + w_2a_2 + \ldots = \vect{w} \cdot \vect{a} = c$,
+    where $c$ and $\vect{w}$ are parameters of the hyperplane and 
+    $\vect{a}$ is the vector of attribute values.
+This hyperplane represents a natural partitioning of the instance space
+    into two regions:
+        the instances which lie above the hyperplane, 
+            i.e.\ $i \in \mcl{I}$ where $\vect{w} \cdot{i} > c$; and
+        the instances which lie at or below the hyperplane,
+            i.e.\ $i \in \mcl{I}$ where $\vect{w} \cdot{i} \leq c$.
+    
+At each iteration,
+    the algorithm generates a list of candidate bisections and
+    selects the best bisection to add to the tree of bisections.
+For computational efficiency purposes,
+    \AdaProp only considers bisection hyperplanes which
+    correspond to testing just one attribute, 
+    i.e.\ the hyperplanes which intersect exactly one axis.
+Therefore, each bisection corresponds to a hyperplane of the form $a_i = c$.
+
+\begin{algorithm}
+\caption{Building a tree of bisections}
+\label{algoTree}
+\begin{algorithmic}
+\State Initialise $T$, the tree of bisections as a tree with a single node
+\Loop 
+    \State $n_i \gets$ Select a leaf node in the tree $T$
+    \State $\mcl{M}_i \gets \{ (inst,c) \in \mcl{M} ~|~ inst$ 
+        lies in the region corresponding to $n_i \}$
+    \State $H \gets$ Generate candidate bisections for $\mcl{M}_i$
+    \State $H_i \gets$ Select the optimal bisection in $H$
+    \State Make $n_i$ an internal node corresponding 
+        to the bisection $H_i$
+\EndLoop
+\end{algorithmic}
+\end{algorithm}
+
+\begin{figure}
+\begin{center}
+\begin{tikzpicture}[domain=0:50]
+\begin{axis}[xlabel={$a_1$}, ylabel={$a_2$},
+ xmin=0,xmax=1,ymin=0,ymax=1,
+ scatter/classes={p={mark=square*,blue},n={mark=triangle*,red}}]
+\addplot[scatter,only marks,scatter src=explicit symbolic]
+table[meta=label] {
+	x	y	label
+	0.3	0.7	p
+	0.5	0.1	p
+	0.2	0.9	n
+	0.8	0.6	n
+	0.5	0.7	n
+};
+\addplot[scatter src=explicit symbolic]
+table {
+	x	y
+	0.4	0.0
+	0.4	1.0
+};
+\addplot[scatter src=explicit symbolic]
+table {
+	x	y
+	0.0 0.8
+	0.4 0.8
+	0.4	0.5
+	1.0	0.5
+};
+\end{axis}
+\end{tikzpicture}
+\end{center}
+\caption{Partitioning of $\mcl{M}$ for the example dataset}
+\label{visMpart}
+\end{figure}
+
+\begin{figure}
+\begin{center}
+\begin{tikzpicture}[every node/.style={inner sep=1pt}]
+\node[label=above:$n_0$] (n)   {$\bullet$};
+\node[label=left:$n_1$]  (n0)  [below left=  3cm and 3cm of n]  {$\bullet$};
+\node[label=right:$n_2$] (n1)  [below right= 3cm and 3cm of n]  {$\bullet$};
+\node[label=left:$n_3$]  (n00) [below left=  3cm and 1cm of n0] {$\bullet$};
+\node[label=right:$n_4$] (n01) [below right= 3cm and 1cm of n0] {$\bullet$};
+\node[label=left:$n_5$]  (n10) [below left=  3cm and 1cm of n1] {$\bullet$};
+\node[label=right:$n_6$] (n11) [below right= 3cm and 1cm of n1] {$\bullet$};
+
+\path[thick,-] (n)  edge node[label=left :{$a_1 \leq 0.4~~$}] {} (n0);
+\path[thick,-] (n)  edge node[label=right:{~~$a_1 > 0.4$}] {} (n1);
+\path[thick,-] (n0) edge node[label=left :{$a_2 \leq 0.8~~$}] {} (n00);
+\path[thick,-] (n0) edge node[label=right:{~~$a_2> 0.8$}] {} (n01);
+\path[thick,-] (n1) edge node[label=left :{$a_2 \leq 0.5~~$}] {} (n10);
+\path[thick,-] (n1) edge node[label=right:{~~$a_2> 0.5$}] {} (n11);
+\end{tikzpicture}
+\end{center}
+\caption{A tree corresponding to the partitioning of $\mcl{M}$ in Figure~\ref{visMpart}}
+\label{visMTree}
+\end{figure}
+    
+Figure~\ref{visMpart} shows a possible partitioning of 
+    the instance space of the example dataset (from Table~\ref{tEgData}).
+Figure~\ref{visMTree} shows the corresponding tree of bisections built by
+    the algorithm.
+
+\subsubsection{Generating Candidate Bisections}
 
 Given a set of instances to bisect, 
     \AdaProp implements four methods for selecting candidate bisectors:
@@ -201,7 +415,7 @@ In order to prevent overfitting,
 
 [PSEUDO-CODE]
 
-\subsubsection{Selecting the best bisector}
+\subsubsection{Selecting the optimal bisection}
 Each candidate bisector was added to the current set of bisectors,
     and the entire MI dataset was propositionalised and then
     the base learner was trained on the propositionalised dataset
@@ -209,7 +423,7 @@ Each candidate bisector was added to the current set of bisectors,
 At each iteration, the bisector which results in the least training set error 
     is chosen to be added to the list of selected bisectors.
 
-\subsubsection{Tree of Bisectors}
+\subsubsection{Building the tree of bisections}
 
 After deciding how to split once, we need to repeat this split to obtain a tree of partitions.
 Originally, fill out the entire tree using depth first search.
