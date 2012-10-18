@@ -1,5 +1,7 @@
 \documentclass[a4paper,12pt]{article} % use larger type; default would be 10pt
 
+\usepackage{amsmath}
+\usepackage{amssymb}
 \usepackage[parfill]{parskip} % Begin paragraphs with an empty line rather than an indent
 \usepackage{apacite} % apa style citations and references
 \usepackage{fullpage} % reduce margins
@@ -10,6 +12,9 @@
 
 %% ABBREVIATIONS
 \newcommand{\AdaProp}{\texttt{AdaProp}\xspace}
+\newcommand{\real}{\mathbb{R}}
+\newcommand{\mcl}[1]{\mathcal{#1}}
+\newcommand{\power}{\mathbb{P}}
 
 %\linespread{1.3} % 1.3 *is* one-and-a-half spacing
 
@@ -51,11 +56,20 @@ In the future,
 
 \section{Introduction} 
 
-Multi-instance (MI) learning is machine learning over multi-instance data, where the instances are grouped together into bags and the learning is performed over the bags rather than the individual instances. One approach to handling multi-instance data is propositionalisation, where each bag of instances is converted into a single feature vector. This converted dataset can be used with standard single-instance machine learning algorithms such as SVMs and Neural Networks.
+Multi-instance (MI) learning is 
+    machine learning over multi-instance data, 
+    where the instances are grouped together into bags and 
+    the learning is performed over the bags 
+    rather than the individual instances. 
+One approach to handling multi-instance data is propositionalisation, 
+    where each bag of instances is converted into 
+    a single feature vector. 
+This converted dataset can be used with 
+    standard single-instance machine learning algorithms 
+    such as SVMs and Neural Networks.
 
 This project will explore adaptive propositionalisation, where the single-instance base learner is used to make decisions when propositionalising the dataset. The main propositionalisation approach considered will be the partitioning of the instance space into regions, where each region corresponds to a feature in the converted dataset.
 
-% TODO - formal defns of propositionalisation etc?
     
 An application of multi-instance learning is image classification, where, for example, an image is represented as a bag of segments and the interaction between the segments contributes to the class of the image. In this context, each segment is an instance and thus each image is a bag of instances. We will also examine this application of multi-instance learning.
 
@@ -78,9 +92,10 @@ The problem of image classification fits the multi-instance learning setting wel
 
 %[http://www.cs.cmu.edu/~juny/MILL/review.htm] 
 
-\section{AdaProp}
+\section{Method}
 
-\AdaProp is an approach for adaptively propositionalising multi-instance datasets.
+Our approach, named \AdaProp, is an adaptive propositionalisation algorithm 
+    for multi-instance datasets.
 \AdaProp divides the single-instance space
     (the space defined by each (single)-instance in each bag of the MI dataset)
     into regions and then
@@ -95,14 +110,59 @@ Therefore, \AdaProp consists of three major components:
         using each bag and each region, and
     A (single-instance) base learner to guide the above the two algorithms.
 
+\subsection{Definitions}
+Formally, we define a multi-instance dataset $\mcl{D}$ as a set of bags, 
+    where each bag is a set of instances with a class label.
+Each instance has $k$ attributes.
+Therefore, each instance can be considered to be a vector in $\real^k$,
+    assuming that each attribute is numeric.
+Therefore, the set of all instances in the dataset, $\mcl{I}$,
+    can be defined as a set of $k$-dimensional vectors.
+That is, $ \mcl{I} \subseteq \real^k $.
+
+Each bag in the dataset $\mcl{D}$ is 
+    composed of a set of instances from $\mcl{I}$,
+    along with a class label. % FOR SIMPLICITY, we ignore duplicate instances
+Let $\mcl{C}$ be the set of all possible class labels.
+Then we can define $\mcl{D}$,
+    the multi-instance dataset, as 
+    $\mcl{D} \subseteq ( \power (\mcl{I}) \times \mcl{C} )$,
+    where $\times$ represents the cartesian product of the two sets.
+
+The propositionalisation process can be viewed as a function
+    mapping each bag $B_i \in \mcl{D}$ to 
+    a single propositionalised instance $p_i \in ( \real^j \times \mcl{C} )$.
+Note that $p_i$ has $j$ (non-class) attributes, 
+    which need not be equal to $k$, the number of attributes of 
+    each single instance in the original dataset.
+Also note that the class value of $p_i$ will be 
+    equal to that of $B_i$,
+    i.e.\ the class value is unchanged by the propositionalisation process.
+       
+
 \subsection{Bisecting the instance space}
 
-For partitioning purposes,
-    a single-instance dataset is built up from the multi-instance dataset
-    by collecting together all single instances from all the bags.
-Each single-instance is given the class label from its parent bag.
+For the purposes of finding the best instance-space bisector,
+    we first compute $\mcl{M}$, an intermediate dataset.
+$\mcl{M}$ is built up by collecting together all single-instances
+    from all the bags in the dataset and 
+    attaching the class value of each bag to 
+    each instance in the bag.
+Formally, $\mcl{M} \subseteq (\mcl{I} \times \mcl{C})$, 
+    where each instance of $\mcl{M}$ appears in $\mcl{D}$:
+    $$
+        \forall~(inst,c_i)\in\mcl{M} ~:~ 
+            \exists~(bag,c_b) \in \mcl{D} ~:~ 
+                inst \in bag ~\land~ c_i = c_b
+    $$
+    and each instance of $\mcl{D}$ appears in $\mcl{M}$:
+    $$
+        \forall~(bag,c_b) \in \mcl{D} ~:~ 
+            \forall~inst \in bag ~:~
+                (inst,c_b) \in \mcl{M}
+    $$    
 
-Then, this set of instances is used to partition the instance space by
+Then, this set of labelled instances, $\mcl{M}$, is used to partition the instance space by
     repeatedly bisecting the instance space
     to produce the regions.*
 We restrict each bisecting hyperplane to be parallel to exactly one axis.
@@ -181,7 +241,7 @@ The choice of base learner is left upto the user, and
 *In this report, we consider: [LIST base learners from results ]    
 
 *TODO* any properties satsified by the base learners?
-    
+-- MUST SUPPORT CLASS VALUES
     
 \subsection{MISC}
 This project will consider the adaptive partitioning approach to propositionalisation.
@@ -192,12 +252,40 @@ At each stage, a set of candidate partitions of the instance space will be gener
 
 
 \section{Results}
+Experiments were conducted using 16 datasets from the UCI repository, 
+    comparing the performance of three bisector generation methods 
+    (range-based midpoint, mean, and median)
+    and two base learners (j48 and SMO).
+All experiments were conducted for the breadth*-first search strategy for 
+    building up the tree of bisectors.
+Experiments for the the fourth bisector generation method and best first search strategies 
+    are ongoing.
+    
+First, we aggregate the results of all experiments and 
+    compare the results for each bisector generation method:
+    
+[TODO]
+
+Then compare the results across base learners 
+
+[ TODO ]
+
+Then we show the results over each dataset
+
+[ Raw Data ? can be found at appendix ? ]    
+    
+
 
 \section{Results - Artificial dataset}
-
+Since the results on the UCI datasets were unsatisfactory, 
+    artificial datasets were generated to check that the 
+    implementation of the \AdaProp algorithm.
+    
 Poor results with J48, overfitting the very simple dataset, better results with 
     OneR, more data and the last algorithm (what was it?)
 Simpler base learner may work better in the simple datasets?
+
+[ Learning curves ]
 
 
 \section{Future Work}
@@ -206,19 +294,15 @@ Application towards image classification, consider representations
 
 Nominal and missing attr
 
-\section{Conclusion}
-TODO
-
-
-\section{Evaluation}
-
 The final output of this project will be an algorithm which can be used to adaptively propositionalise multi-instance data. Since there are other established algorithms for handling multi-instance data, the evaluation will consist of comparing the classification accuracy of this algorithm on standard multi-instance datasets against the accuracy of methods such as MILES~\cite{Chen2006}, TLC~\cite{Weidmann2003} and DD~\cite{Maron98mil}.
 
 Since this algorithm is a meta-learner, i.e.\ it is dependent on an underlying single-instance base learner, a number of different base learners will be used to evaluate the performance of this algorithm.
  
 Finally, this algorithm will be evaluated on standard image classification datasets (for example the \citeA{sival}) and the performance will be compared to that of established image classification algorithms.
 
+
 \section{Conclusion}
+TODO
 
 In this project, we will examine the propositionalisation of multi-instance data using a process which is influenced by the single-instance base learner being used, i.e. an adaptive propositionalisation process. The initial approach will be to partition the instance space by generating a set of candidate partitions and using the single instance learner to select the optimal partition. 
 The result of this project is an algorithm, which will be evaluated by comparing its performance to that of existing multi-instance learning algorithms on standard MI datasets. 
