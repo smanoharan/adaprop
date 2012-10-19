@@ -13,6 +13,7 @@
 \usepackage{setspace}
 \usepackage{algorithm}
 \usepackage{algpseudocode}
+\usepackage{comment}
 
 % For figures and subfigures
 \usepackage{graphicx}
@@ -168,7 +169,6 @@ There is existing work on applying MI learning to image classification:
 In the future, 
     we will optimise the algorithm to perform well 
     with MI image classification datasets.
-
 %[http://www.cs.cmu.edu/~juny/MILL/review.htm] 
 
 \section{Method}
@@ -176,18 +176,14 @@ In the future,
 Our approach, named \AdaProp, is an adaptive propositionalisation algorithm 
     for multi-instance datasets.
 \AdaProp divides the single-instance space
-    (the space defined by each (single)-instance in each bag of the MI dataset)
-    into regions and then
-    propositionalises each bag by computing some summary statistics for the 
+    into regions and then propositionalises each bag 
+    by computing summary statistics for the 
     subset of instances of the bag which lie in each region.
-
-\AdaProp divides the instance space into regions
-    by repeatedly bisecting the space.
+\AdaProp determines the regions by repeatedly bisecting the instance space.
 Therefore, \AdaProp consists of three major components: 
-    An algorithm for choosing the hyperplane to bisect the space *,
-    An algorithm for constructing the propositionalised dataset 
-        using each bag and each region, and
-    A (single-instance) base learner to guide the above the two algorithms.
+    a base learner (any single-instance learning algorithm),
+    a process for bisecting the instance space and 
+    a process for constructing the propositionalised dataset using the regions.
 
 \subsection{Definitions}
 Formally, we define a multi-instance dataset $\mcl{D}$ as a set of bags, 
@@ -267,7 +263,6 @@ Figure~\ref{visM} shows the $\mcl{M}$ for this example dataset with
     
 \end{tabular}
 \end{center}
-%\input{example-data-table.tex}
 \caption{Example Dataset}
 \label{tEgData}
 \end{table}
@@ -322,7 +317,6 @@ Therefore, each bisection corresponds to a hyperplane of the form $a_i = c$.
 \begin{algorithm}
 \caption{Building a tree of bisections}
 \label{algoTree} 
-%TODO stopping condition
 \begin{algorithmic}
 \State Initialise $T$, the tree of bisections as a tree with a single node
 \While{$T$ is not satisfactory} \hfill (Section~\ref{secStopCond})
@@ -434,8 +428,9 @@ The leaf nodes which are eligible to be expanded
     violate the $maxDepth$ condition.
 Let $\mcl{N}$ be the subset of the leaf nodes of $T$ 
     which are eligible for expansion:
-    $$ \mcl{N} = \{ n_i \in leafNodes(T) ~\big|~ depth(n_i) < maxDepth - 1 \} $$
-
+\begin{algorithmic}
+    \State $\mcl{N} \gets \{ n_i \in leafNodes(T) ~\big|~ depth(n_i) < maxDepth - 1 \} $
+\end{algorithmic}
 We assume that the nodes in $T$ are indexed in breadth first order, 
     as shown in Figure~\ref{visMTree}.
 Then, among any subset of nodes with equal depth,
@@ -452,8 +447,10 @@ This concept of leftmost is necessary to break ties in the
     the leaf nodes which have the greatest depth
     in $\mcl{N}$.
     In pseudo-code:
-    $$ greatestDepth \gets \max\{ depth(n_j) ~\big|~ n_j \in \mcl{N} \} $$
-    $$ n_i \gets \textrm{leftmost}\{ n_j \in \mcl{N} ~\big|~ depth(n_j) = greatestDepth \} $$
+\begin{algorithmic}
+    \State $ greatestDepth \gets \max\{ depth(n_j) ~\big|~ n_j \in \mcl{N} \} $
+    \State $ n_i \gets \textrm{leftmost}\{ n_j \in \mcl{N} ~\big|~ depth(n_j) = greatestDepth \} $
+\end{algorithmic}
         
 \item[~~~Breadth first search:] \ \\
     The node selected is the leaf node 
@@ -461,8 +458,10 @@ This concept of leftmost is necessary to break ties in the
     the leaf nodes which have the least depth
     in $\mcl{N}$.
     In pseudo-code:
-    $$ leastDepth \gets \min\{ depth(n_j) ~\big|~ n_j \in \mcl{N} \} $$
-    $$ n_i \gets \textrm{leftmost}\{ n_j \in \mcl{N} ~\big|~ depth(n_j) = leastDepth \} $$
+\begin{algorithmic}
+    \State $ leastDepth \gets \min\{ depth(n_j) ~\big|~ n_j \in \mcl{N} \} $
+    \State $ n_i \gets \textrm{leftmost}\{ n_j \in \mcl{N} ~\big|~ depth(n_j) = leastDepth \} $
+\end{algorithmic}
     
 \item[~~~Best first search:] \ \\
     Given a heuristic function $h(n)$ such that
@@ -472,8 +471,10 @@ This concept of leftmost is necessary to break ties in the
     the leaf nodes which have the least value for $h(n)$
     in $\mcl{N}$.
     In pseudo-code:
-    $$ leastH \gets \min\{ h(n_j) ~\big|~ n_j \in \mcl{N} \} $$
-    $$ n_i \gets \textrm{leftmost}\{ n_j \in \mcl{N} ~\big|~ h(n_j) = leastH \} $$
+\begin{algorithmic}
+    \State $ leastH \gets \min\{ h(n_j) ~\big|~ n_j \in \mcl{N} \} $
+    \State $ n_i \gets \textrm{leftmost}\{ n_j \in \mcl{N} ~\big|~ h(n_j) = leastH \} $
+\end{algorithmic}
 
     \AdaProp currently only supports one heuristic function, 
         the $Error(n)$, which is the training set error 
@@ -728,32 +729,122 @@ See Figure~\ref{visCandGen} for the visualisation of all the
 \subsubsection{Selecting the optimal bisection}
 \label{secOptBisection}
 
-Each candidate bisector was added to the current set of bisectors,
-    and the entire MI dataset was propositionalised and then
-    the base learner was trained on the propositionalised dataset
-    and the training set error was recorded.
-At each iteration, the bisector which results in the least training set error 
-    is chosen to be added to the list of selected bisectors.
+Given a set of candidate bisections $B$ for the labelled set of instances $\mcl{M}_i$, 
+    \AdaProp aims to find the optimal bisection $B_i$ in $B$ such that
+    the training set error on $\mcl{D}$ using the base learner is minimized.
+For each candidate bisection $B_j$,
+    a new tree $T_j$ is built by adding $B_j$ to $T$.
+Then $T_j$ is used to propositionalise $\mcl{D}$
+    and the base learner is trained on the propositionalised dataset.
+The candidate bisection which results in the least training set 
+    error during this process is selected as the 
+    optimal bisection.
+This process is given in Algorithm~\ref{algoOptBisector}.
+
+\begin{algorithm}
+\caption{Finding the Optimal Bisection}
+\label{algoOptBisector} 
+\begin{algorithmic}
+    \Function{EvaluateBisection}{$T,n_i,B_j$}
+    \State $T_j \gets T$ with $B_j$ added at the node $n_i$
+        \State $\mcl{D}_{T_j} \gets \mcl{D}$ propositionalised using $T_j$
+        \State \Return $Error(BaseLearner,\mcl{D}_{T_j})$
+    \EndFunction
+    \State 
+    \Function{FindOptimalBisection}{$T,n_i,B$}
+    \State $errors = \{ \textrm{\sc EvaluateBisection}(T,n_i,B_j) ~|~ B_j \in B \}$
+    \State $minErr = \min errors$
+    \State \Return $\textrm{any} \{ B_j \in B ~|~ \textrm{\sc EvaluateBisection}(T,n_i,B_j) = minErr \}$
+    \EndFunction
+\end{algorithmic}
+\end{algorithm}
 
 \subsection{Propositionalisation}
 \label{secProp}
 
-The tree of bisectors defines a set of regions in the instance space.
-Each such region will correspond to one attribute in the propositionalised dataset.
+The tree of bisectors $T$ defines a set of regions in the instance space.
+Each such region will correspond to one or more attributes 
+    in the propositionalised dataset.
 Currently, \AdaProp propositionalises each bag 
     by simply counting the number of instances in the bag which fall into the region.
-    
-[Example, Formalize] 
+Algorithm~\ref{algoProp} shows the process in pseudo-code.
+Table~\ref{tEgPropCount} shows the propositionalised form of 
+    the example dataset given in Table~\ref{tEgData}.
 
-In general, the attribute can be any summary statistic chosen by the user.
-\AdaProp will eventually* implement support for aggregations such as 
-    MIN, MAX, AVERAGE, SUM and STDDEV and 
-    will thus allow the user to select any summary statistic 
-    (or perhaps even a set of statistics*?) 
+\begin{algorithm}
+\caption{Propositionalisation}
+\label{algoProp} 
+    \begin{algorithmic}
+    \State Initialise the propositionalised dataset $\mcl{P}$ as an empty dataset
+    \ForAll{bags $(B_i,c) \in \mcl{D}$}
+        \State Initialise the propositionalised vector $\vect{p}$ as the zero vector
+        \ForAll{nodes $n_j$ in the tree $T$} 
+            \State $X_j \gets \{ inst \in B_i ~|~ inst$ 
+                lies in the region corresponding to $n_j \} $
+            \State $p_{j} \gets | X_j |$
+        \EndFor
+        \State Add the labelled propositionalised vector $(\vect{p},c)$ 
+            to the dataset $\mcl{P}$
+    \EndFor
+    \end{algorithmic}
+\end{algorithm}
+    
+    
+\begin{table}
+\begin{center}
+\begin{tabular}{*{9}{c}}
+    \toprule
+    Bag & $n_0$ & $n_1$ & $n_2$ & $n_3$ & $n_4$ & $n_5$ & $n_6$ & Class \\
+    \midrule
+    $bag_1$ & 2 &     1 & 1 &     1 & 0 & 1 & 0 & positive\\
+    $bag_2$ & 3 &     1 & 2 &     0 & 1 & 0 & 2 & negative\\
+    \bottomrule
+    
+\end{tabular}
+\end{center}
+\caption{Propositionalised form of the example dataset using COUNTs}
+\label{tEgPropCount}
+\end{table}    
+
+In general, 
+    the instances which fall into each region  
+    can be aggregated using any summary statistic.
+In the future, \AdaProp will implement support for aggregations such as 
+    MIN, MAX, AVERAGE, and SUM, 
+    and will allow the user to select one or more summary statistics
     to be used in the propositionalisation process.
+The aggregation will be performed over the attribute belonging
+    to the bisection which corresponds to the node,
+    thus only internal nodes will be used for propositionalisation.
+Table~\ref{tEgPropAgg} shows the propositionalised form of 
+    the example dataset given in Table~\ref{tEgData} when
+    using all the above summary statistics.   
     
-[Final Prop Form?]
+\begin{table}
+\begin{center}
+\begin{tabular}{*{14}{c}}
+    \toprule
+        \multirow{2}{*}{Bag} & 
+        \multicolumn{4}{c}{$n_0$} & 
+        \multicolumn{4}{c}{$n_1$} & 
+        \multicolumn{4}{c}{$n_2$} &
+        \multirow{2}{*}{Class} \\
+    \cmidrule(r){2-5}
+    \cmidrule(r){6-9}
+    \cmidrule(r){10-13}
+     & min & max & sum & avg & min & max & sum & avg & min & max & sum & avg & \\
+    \midrule
+    $bag_1$ &     0.3 & 0.5 & 0.8 & 0.4     & 0.7 & 0.7 & 0.7 & 0.7     & 0.1 & 0.1 & 0.1 & 0.1 & positive\\
+    $bag_2$ &     0.2 & 0.8 & 1.5 & 0.5     & 0.9 & 0.9 & 0.9 & 0.9     & 0.6 & 0.7 & 1.3 & 0.65 & negative\\
+    \bottomrule
     
+\end{tabular}
+\end{center}
+\caption{Propositionalised form of the example dataset using all aggregations}
+\label{tEgPropAgg}
+\end{table}    
+
+\begin{comment}
 
 \subsection{The single-instance base learner}    
 Any single instance base learner can be used to guide the bisector selection process.
@@ -804,26 +895,53 @@ Simpler base learner may work better in the simple datasets?
 
 [ Learning curves ]
 
+\end{comment}
 
 \section{Future Work}
-Application towards image classification, consider representations
-    convert existing SI image datasets to MI image datasets, etc
 
-Nominal and missing attr
+The final output of this project is an algorithm 
+    which can be used to adaptively propositionalise multi-instance data. 
+Since there are other established algorithms for handling multi-instance data, 
+    the evaluation will consist of comparing the classification accuracy 
+    of this algorithm on standard multi-instance datasets against 
+    the accuracy of methods such as 
+    MILES~\cite{Chen2006}, TLC~\cite{Weidmann2003} and DD~\cite{Maron98mil}.
 
-The final output of this project will be an algorithm which can be used to adaptively propositionalise multi-instance data. Since there are other established algorithms for handling multi-instance data, the evaluation will consist of comparing the classification accuracy of this algorithm on standard multi-instance datasets against the accuracy of methods such as MILES~\cite{Chen2006}, TLC~\cite{Weidmann2003} and DD~\cite{Maron98mil}.
+We will also consider the application of this algorithm towards image classification and 
+    potentially convert some existing single-instance image classification
+    datasets into a multi-instance form.
 
-Since this algorithm is a meta-learner, i.e.\ it is dependent on an underlying single-instance base learner, a number of different base learners will be used to evaluate the performance of this algorithm.
+Currently, \AdaProp only supports multi-instance datasets with 
+    numeric attributes.
+In the future, we intend to implement support for
+    nominal attributes and possibly missing values.
+
+Since this algorithm is a meta-learner, 
+    i.e.\ it is dependent on an underlying single-instance base learner, 
+    a number of different base learners will be 
+    used to evaluate the performance of this algorithm.
  
-Finally, this algorithm will be evaluated on standard image classification datasets (for example the \citeA{sival}) and the performance will be compared to that of established image classification algorithms.
-
+Finally, this algorithm will be evaluated on 
+    standard image classification datasets 
+    (for example the \citeA{sival}) and 
+    the performance will be compared to that of 
+    established image classification algorithms.
 
 \section{Conclusion}
-TODO
-
-In this project, we will examine the propositionalisation of multi-instance data using a process which is influenced by the single-instance base learner being used, i.e. an adaptive propositionalisation process. The initial approach will be to partition the instance space by generating a set of candidate partitions and using the single instance learner to select the optimal partition. 
-The result of this project is an algorithm, which will be evaluated by comparing its performance to that of existing multi-instance learning algorithms on standard MI datasets. 
-In addition, the application of multi-instance learning for image classification will be examined and the algorithm will be tuned for dealing with image classification datasets.
+In this project, 
+    we examine the propositionalisation of multi-instance data using 
+    a process which is influenced by the single-instance base learner being used, 
+    i.e. an adaptive propositionalisation process. 
+Our approach is to partition the instance space 
+    by generating a set of candidate partitions and 
+    using the single instance learner to select the optimal partition. 
+The result of this project is an algorithm, 
+    which will be evaluated by comparing its performance to 
+    that of existing multi-instance learning algorithms on standard MI datasets. 
+In addition, 
+    the application of multi-instance learning 
+    for image classification will be examined and 
+    the algorithm will be tuned for dealing with image classification datasets.
 \clearpage
 \bibliographystyle{apacite} 
 \bibliography{interim-report}
