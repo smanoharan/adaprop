@@ -13,9 +13,18 @@
 \usepackage{setspace}
 \usepackage{algorithm}
 \usepackage{algpseudocode}
+
+% For figures and subfigures
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{subcaption}
+
+
 \usepackage{pgfplots} % For plots
 \pgfplotsset{compat=1.5}
-\usepackage{tikz}
+\usepackage[section]{placeins} % avoid figures leaving sections
+
+\usepackage{tikz} % For graphs 
 \usetikzlibrary{positioning}
 
 %% ABBREVIATIONS
@@ -246,7 +255,7 @@ Figure~\ref{visM} shows the $\mcl{M}$ for this example dataset with
 \begin{center}
 \begin{tabular}{ccccc}
     \toprule
-    Bag & Class & Instance & Attribute 1 & Attribute 2 \\
+    Bag & Class & Instance & Attribute $a_1$ & Attribute $a_2$ \\
     \midrule
     \multirow{2}{*}{$bag_1$} & \multirow{2}{*}{positive} & $inst_1$ & 0.3 & 0.7 \\
     &  & $inst_2$ & 0.5 & 0.1 \\
@@ -312,24 +321,25 @@ Therefore, each bisection corresponds to a hyperplane of the form $a_i = c$.
 
 \begin{algorithm}
 \caption{Building a tree of bisections}
-\label{algoTree}
+\label{algoTree} 
+%TODO stopping condition
 \begin{algorithmic}
 \State Initialise $T$, the tree of bisections as a tree with a single node
-\Loop 
-    \State $n_i \gets$ Select a leaf node in the tree $T$
+\While{$T$ is not satisfactory} \hfill (Section~\ref{secStopCond})
+    \State $n_i ~~\gets$ Select a leaf node in the tree $T$ \hfill (Section~\ref{secTreeBuild})
     \State $\mcl{M}_i \gets \{ (inst,c) \in \mcl{M} ~|~ inst$ 
         lies in the region corresponding to $n_i \}$
-    \State $H \gets$ Generate candidate bisections for $\mcl{M}_i$
-    \State $H_i \gets$ Select the optimal bisection in $H$
-    \State Make $n_i$ an internal node corresponding 
-        to the bisection $H_i$
-\EndLoop
+    \State $B ~~\gets$ Generate candidate bisections for $\mcl{M}_i$ \hfill (Section~\ref{secCandGen})
+    \State $B_i \,~\gets$ Select the optimal bisection in $B$ \hfill (Section~\ref{secOptBisection})
+    \State Make $n_i$ an internal node in $T$, corresponding 
+        to the bisection $B_i$
+\EndWhile
 \end{algorithmic}
 \end{algorithm}
 
 \begin{figure}
 \begin{center}
-\begin{tikzpicture}[domain=0:50]
+\begin{tikzpicture}
 \begin{axis}[xlabel={$a_1$}, ylabel={$a_2$},
  xmin=0,xmax=1,ymin=0,ymax=1,
  scatter/classes={p={mark=square*,blue},n={mark=triangle*,red}}]
@@ -391,31 +401,333 @@ Figure~\ref{visMpart} shows a possible partitioning of
 Figure~\ref{visMTree} shows the corresponding tree of bisections built by
     the algorithm.
 
+\subsubsection{Stopping Conditions}
+\label{secStopCond}
+
+The algorithm continues to iterate while none of the following stopping conditions are met:
+\begin{description}
+
+\item[~~~The tree becomes too big:] \ \\
+    $Depth(T) \geq maxDepth$, 
+    where  $maxDepth$ is a user specified parameter.
+\item[~~~Each region corresponding to a leaf node contains too few instances:] \ \\ 
+    $\forall~n_i \in leafNodes(T) ~:~ Occupancy(n_i) < minOcc$, 
+    where $Occupancy(n_i)$ is the number of instances of $\mcl{M}$ which lie in $n_i$ and
+    $minOcc$ is a user specified parameter.
+\item[~~~The tree is optimal for the training set:] \ \\
+    $Error(BaseLearner, \mcl{D}_T) < minErr$, 
+    where $\mcl{D}_T$ is the dataset $\mcl{D}$ propositionalised using $T$ (see Section~\ref{secProp}),
+    $Error$ is the misclassfication error on the training set when 
+    training the $BaseLearner$ on $\mcl{D}_T$,
+    and $minErr$ is a user specified parameter.
+
+\end{description}
+
+\subsubsection{Selecting a leaf node to expand}
+\label{secTreeBuild}
+
+At each iteration of the algorithm, 
+    a leaf node of $T$ is selected to be expanded 
+    (into an internal node of the tree).
+The leaf nodes which are eligible to be expanded
+    are those which, when expanded, will not 
+    violate the $maxDepth$ condition.
+Let $\mcl{N}$ be the subset of the leaf nodes of $T$ 
+    which are eligible for expansion:
+    $$ \mcl{N} = \{ n_i \in leafNodes(T) ~\big|~ depth(n_i) < maxDepth - 1 \} $$
+
+We assume that the nodes in $T$ are indexed in breadth first order, 
+    as shown in Figure~\ref{visMTree}.
+Then, among any subset of nodes with equal depth,
+    the leftmost node is the node which has the least index.
+This concept of leftmost is necessary to break ties in the 
+    leaf node selection strategies.    
+    
+\AdaProp currently supports three strategies for leaf node selection:
+
+\begin{description}
+\item[~~~Depth first search:] \ \\
+    The node selected is the leaf node 
+    which is left-most node among 
+    the leaf nodes which have the greatest depth
+    in $\mcl{N}$.
+    In pseudo-code:
+    $$ greatestDepth \gets \max\{ depth(n_j) ~\big|~ n_j \in \mcl{N} \} $$
+    $$ n_i \gets \textrm{leftmost}\{ n_j \in \mcl{N} ~\big|~ depth(n_j) = greatestDepth \} $$
+        
+\item[~~~Breadth first search:] \ \\
+    The node selected is the leaf node 
+    which is left-most node among 
+    the leaf nodes which have the least depth
+    in $\mcl{N}$.
+    In pseudo-code:
+    $$ leastDepth \gets \min\{ depth(n_j) ~\big|~ n_j \in \mcl{N} \} $$
+    $$ n_i \gets \textrm{leftmost}\{ n_j \in \mcl{N} ~\big|~ depth(n_j) = leastDepth \} $$
+    
+\item[~~~Best first search:] \ \\
+    Given a heuristic function $h(n)$ such that
+    $h(n_j) \leq h(n_i)$ iff $n_j$ is a better node to expand than $n_i$,
+    the node selected is the leaf node 
+    which is the left-most among 
+    the leaf nodes which have the least value for $h(n)$
+    in $\mcl{N}$.
+    In pseudo-code:
+    $$ leastH \gets \min\{ h(n_j) ~\big|~ n_j \in \mcl{N} \} $$
+    $$ n_i \gets \textrm{leftmost}\{ n_j \in \mcl{N} ~\big|~ h(n_j) = leastH \} $$
+
+    \AdaProp currently only supports one heuristic function, 
+        the $Error(n)$, which is the training set error 
+        when using the base learner on the dataset $\mcl{D}$
+        propositionalised using $T$ along with 
+        the best bisection at $n$.
+     In order to compute the value of this heuristic function at $n$,
+         all possible bisections at $n$ must be evaluated,
+         thus $Error(n)$ is computationally expensive.
+     In the future, we will implement other heuristic methods
+         for the best first search strategy.
+    
+\end{description}
+
 \subsubsection{Generating Candidate Bisections}
+\label{secCandGen}
 
-Given a set of instances to bisect, 
-    \AdaProp implements four methods for selecting candidate bisectors:
-\begin{enumerate}
-\item Range based midpoint ($\frac{\max+\min}{2}$) of an attribute
-\item Mean of an attribute
-\item Median of an attribute
-\item Each class boundary of an attribute 
-\end{enumerate}
+Given $\mcl{M}_i \subseteq \mcl{M}$, 
+    a set of labelled instances, 
+    we wish to generate a set of candidate bisections for $\mcl{M}_i$,
+    each of which is represented by a hyperplane in the instance space.
+For computational reasons, 
+    \AdaProp only considers bisecting hyperplanes 
+    which intersect exactly one axis
+    (thus is parallel to all other axes).
+Furthermore, we attempt to find balanced bisecting hyperplanes, 
+    i.e.\ those which lie somewhat near the center of the instances
+    in $\mcl{M}_i$.
 
-Each of the first three methods generates exactly one candidate per attribute.
-However, the class boundary based method, 
-    which offers a candidate at each value where the class value changes,
-    (similar to the discretization process of OneR~\cite{holte}), 
-    may generate multiple candidates per attribute and 
-    thus is more computationally expensive.
-In order to prevent overfitting, 
-    we restrict the boundaries offered by this method to have at least $minOcc$ instances
-    in the training data on both sides of the boundary 
-    (where $minOcc$ is a user parameter).
+In \AdaProp, four methods for selecting candidate bisectors are supported:
+\begin{description}
 
-[PSEUDO-CODE]
+\item[~~~Range based midpoint:] \ \\
+    For each attribute $a_j$, 
+    the range (i.e.\ minimum and maximum) of values for $a_j$ 
+        for the instances in $\mcl{M}_i$ is computed, 
+        and a candidate bisector corresponding to the midpoint between the 
+        minimum and maximum values is generated.
+    In pseudo-code:
+    \begin{algorithmic}
+    \ForAll{attributes $a_j$} 
+        \State $V_j \gets \{ inst.j ~|~ \exists c \in \mcl{C} ~:~ (inst,c) \in \mcl{M}_i \}$
+        \State $midpt \gets \frac{\min(V_j) ~+~ \max(V_j)}{2}$
+        \State Output candidate bisecting hyperplane: $a_j = midpt $
+    \EndFor
+    \end{algorithmic}
+    
+\item[~~~Mean:]  \ \\
+    For each attribute $a_j$, 
+        the candidate bisector generated corresponds to 
+        the mean value of $a_j$ 
+        for all instances in $\mcl{M}_i$.
+    In pseudo-code:
+    \begin{algorithmic}
+    \ForAll{attributes $a_j$} 
+        \State $V_j \gets \{ inst.j ~|~ \exists c \in \mcl{C} ~:~ (inst,c) \in \mcl{M}_i \}$
+        \State $midpt \gets \textrm{mean}(V_j)$
+        \State Output candidate bisecting hyperplane: $a_j = midpt $
+    \EndFor
+    \end{algorithmic}        
+        
+
+\item[~~~Median:]  \ \\
+    For each attribute $a_j$, 
+        the candidate bisector generated corresponds to 
+        the median value of $a_j$ 
+        for all instances in $\mcl{M}_i$.
+    In pseudo-code:
+    \begin{algorithmic}
+    \ForAll{attributes $a_j$} 
+        \State $V_j \gets \{ inst.j ~|~ \exists c \in \mcl{C} ~:~ (inst,c) \in \mcl{M}_i \}$
+        \State $midpt \gets \textrm{median}(V_j)$
+        \State Output candidate bisecting hyperplane: $a_j = midpt $
+    \EndFor
+    \end{algorithmic}  
+    
+\item[~~~Class boundaries:]  \ \\
+    This method is different to the above three methods,
+        as it generates (potentially) multiple candidate bisectors 
+        per attribute.
+    For each attribute $a_j$, 
+        the values of $a_j$ for all instances in $\mcl{M}_i$ are sorted,
+        and the values at which the class changes (i.e.\ the class boundaries)
+        are used to generate the bisecting hyperplanes.
+    This is similar to the discretization process of OneR~\cite{holte}.
+    In pseudo-code:
+    \begin{algorithmic}
+    \ForAll{attributes $a_j$} 
+        \State $W_j \gets \{ (inst.j,c) ~|~ (inst,c) \in \mcl{M}_i \}$
+        \State Sort $W_j$
+        \ForAll{values $(w_j,c_j) \in W_j$ where $c_{j-1} \neq c_j$}
+            \State $midpt \gets \frac{w_{j-1}+w_j}{2}$
+            \State Output candidate bisecting hyperplane: $a_j = midpt$
+        \EndFor
+    \EndFor
+    \end{algorithmic}
+\end{description}
+
+See Figure~\ref{visCandGen} for the visualisation of all the 
+    candidate bisecting hyperplanes generated by each method
+    for the example dataset in Table~\ref{tEgData}.
+
+\FloatBarrier
+
+%% Visualisation of all candidate bisecting hyperplanes:
+\begin{figure}
+\begin{center}
+        \begin{subfigure}[b]{0.45\textwidth}
+                \centering
+                \begin{tikzpicture}[scale=0.8]
+					\begin{axis}[xlabel={$a_1$}, ylabel={$a_2$},
+					 xmin=0,xmax=1,ymin=0,ymax=1,
+					 scatter/classes={p={mark=square*,blue},n={mark=triangle*,red}}]
+					\addplot[scatter,only marks,scatter src=explicit symbolic]
+					table[meta=label] {
+						x	y	label
+						0.3	0.7	p
+						0.5	0.1	p
+						0.2	0.9	n
+						0.8	0.6	n
+						0.5	0.7	n
+					};
+					\addplot[scatter src=explicit symbolic,dashed]
+					table {
+						x	y
+						0.5	0.0
+						0.5	1.0
+					};
+					\addplot[scatter src=explicit symbolic,dashed]
+					table {
+						x	y
+						0.0 0.5
+						1.0 0.5
+					};
+					\end{axis}
+			    \end{tikzpicture}
+                \caption{Range-Based}
+        \end{subfigure}%
+        ~~~
+        \begin{subfigure}[b]{0.45\textwidth}
+                \centering
+                \begin{tikzpicture}[scale=0.8]
+					\begin{axis}[xlabel={$a_1$}, ylabel={$a_2$},
+					 xmin=0,xmax=1,ymin=0,ymax=1,
+					 scatter/classes={p={mark=square*,blue},n={mark=triangle*,red}}]
+					\addplot[scatter,only marks,scatter src=explicit symbolic]
+					table[meta=label] {
+						x	y	label
+						0.3	0.7	p
+						0.5	0.1	p
+						0.2	0.9	n
+						0.8	0.6	n
+						0.5	0.7	n
+					};
+					\addplot[scatter src=explicit symbolic,dashed]
+					table {
+						x	y
+						0.46	0.0
+						0.46	1.0
+					};
+					\addplot[scatter src=explicit symbolic,dashed]
+					table {
+						x	y
+						0.0 0.6
+						1.0 0.6
+					};
+					\end{axis}
+			    \end{tikzpicture}
+                \caption{Mean}
+        \end{subfigure}%
+        \\ \  \\
+        \begin{subfigure}[b]{0.45\textwidth}
+                \centering
+                \begin{tikzpicture}[scale=0.8]
+					\begin{axis}[xlabel={$a_1$}, ylabel={$a_2$},
+					 xmin=0,xmax=1,ymin=0,ymax=1,
+					 scatter/classes={p={mark=square*,blue},n={mark=triangle*,red}}]
+					\addplot[scatter,only marks,scatter src=explicit symbolic]
+					table[meta=label] {
+						x	y	label
+						0.3	0.7	p
+						0.5	0.1	p
+						0.2	0.9	n
+						0.8	0.6	n
+						0.5	0.7	n
+					};
+					\addplot[scatter src=explicit symbolic,dashed]
+					table {
+						x	y
+						0.5	0.0
+						0.5	1.0
+					};
+					\addplot[scatter src=explicit symbolic,dashed]
+					table {
+						x	y
+						0.0 0.7
+						1.0 0.7
+					};
+					\end{axis}
+			    \end{tikzpicture}
+                \caption{Median}
+        \end{subfigure}%
+        ~~~
+        \begin{subfigure}[b]{0.45\textwidth}
+                \centering
+                \begin{tikzpicture}[scale=0.8]
+					\begin{axis}[xlabel={$a_1$}, ylabel={$a_2$},
+					 xmin=0,xmax=1,ymin=0,ymax=1,
+					 scatter/classes={p={mark=square*,blue},n={mark=triangle*,red}}]
+					\addplot[scatter,only marks,scatter src=explicit symbolic]
+					table[meta=label] {
+						x	y	label
+						0.3	0.7	p
+						0.5	0.1	p
+						0.2	0.9	n
+						0.8	0.6	n
+						0.5	0.7	n
+					};
+					\addplot[scatter src=explicit symbolic,dashed]
+					table {
+						x	y
+						0.25	0.0
+						0.25	1.0
+					};
+					\addplot[scatter src=explicit symbolic,dashed]
+					table {
+						x	y
+						0.5	0.0
+						0.5	1.0
+					};
+					\addplot[scatter src=explicit symbolic,dashed]
+					table {
+						x	y
+						0.0 0.8
+						1.0 0.8
+					};
+					\addplot[scatter src=explicit symbolic,dashed]
+					table {
+						x	y
+						0.0 0.7
+						1.0 0.7
+					};
+					\end{axis}
+			    \end{tikzpicture}
+                \caption{Class Boundaries}
+        \end{subfigure}
+\end{center}
+\caption{Candidate bisections generated by each method for $\mcl{M}$ of the example dataset}
+\label{visCandGen}
+\end{figure}
 
 \subsubsection{Selecting the optimal bisection}
+\label{secOptBisection}
+
 Each candidate bisector was added to the current set of bisectors,
     and the entire MI dataset was propositionalised and then
     the base learner was trained on the propositionalised dataset
@@ -423,14 +735,9 @@ Each candidate bisector was added to the current set of bisectors,
 At each iteration, the bisector which results in the least training set error 
     is chosen to be added to the list of selected bisectors.
 
-\subsubsection{Building the tree of bisections}
-
-After deciding how to split once, we need to repeat this split to obtain a tree of partitions.
-Originally, fill out the entire tree using depth first search.
-
-Better approaches, i.e.\ Breadth first or Best-first (Heuristic) were tried as well. TODO
-
 \subsection{Propositionalisation}
+\label{secProp}
+
 The tree of bisectors defines a set of regions in the instance space.
 Each such region will correspond to one attribute in the propositionalised dataset.
 Currently, \AdaProp propositionalises each bag 
@@ -456,10 +763,6 @@ The choice of base learner is left upto the user, and
 
 *TODO* any properties satsified by the base learners?
 -- MUST SUPPORT CLASS VALUES
-    
-\subsection{MISC}
-This project will consider the adaptive partitioning approach to propositionalisation.
-At each stage, a set of candidate partitions of the instance space will be generated. Each of these partitions will be evaluated using the  single-instance base learner and the best partition will be selected. This process will be repeated recursively for each partition resulting in a tree of regions. At the completion of this process, this tree will be used to propositionalise the MI bags in a way similar to that of \citeA{Weidmann2003}.
 
 
 %Algorithm(s) will be implemented using the WEKA framework.*
