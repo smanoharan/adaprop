@@ -20,7 +20,6 @@
 \usepackage{caption}
 \usepackage{subcaption}
 
-
 \usepackage{pgfplots} % For plots
 \pgfplotsset{compat=1.5}
 \usepackage[section]{placeins} % avoid figures leaving sections
@@ -186,16 +185,15 @@ Therefore, \AdaProp consists of three major components:
     a process for constructing the propositionalised dataset using the regions.
 
 \subsection{Definitions}
-Formally, we define a multi-instance dataset $\mcl{D}$ as a set of bags, 
+A multi-instance dataset $\mcl{D}$ is a set of labelled bags, 
     where each bag is a set of instances with a class label.
-Let the attributes of the instances be  
-    $\mcl{A} = \{ a_1,a_2,\ldots,a_k \}$.
-Therefore, each instance has $k$ attributes and
-    thus can be considered to be a vector in $\real^k$,
-    assuming each attribute is numeric.
-Therefore, the set of all instances in the dataset, $\mcl{I}$,
+Each instance in each bag has a set of $k$ attributes,
+    $\mcl{A} = \{ a_1,a_2,\ldots,a_k \}$, 
+    thus can be considered to be a vector in $\real^k$
+    (assuming all attributes are numeric).
+Therefore, the set of all instances, $\mcl{I}$,
     can be defined as a set of $k$-dimensional vectors.
-That is, $ \mcl{I} \subseteq \real^k $.
+Thus, $ \mcl{I} \subseteq \real^k $.
 
 Each bag in the dataset $\mcl{D}$ is 
     composed of a set of instances from $\mcl{I}$,
@@ -211,19 +209,20 @@ The propositionalisation process can be viewed as a function
     a single propositionalised instance $p_i \in ( \real^j \times \mcl{C} )$.
 Note that $p_i$ has $j$ (non-class) attributes, 
     which need not be equal to $k$, the number of attributes of 
-    each single instance in the original dataset.
-Also note that the class value of $p_i$ will be 
+    each single-instance in the original dataset.
+Also note that the class label of $p_i$ will be 
     equal to that of $B_i$,
-    i.e.\ the class value is unchanged by the propositionalisation process.
+    i.e.\ the class label is unchanged by the propositionalisation process.
        
 
 \subsection{Bisecting the instance space}
 
 For the purposes of finding the best instance-space bisector,
-    we first compute $\mcl{M}$, an intermediate dataset.
+    we first compute $\mcl{M}$, an intermediate labelled dataset 
+    consisting of all single-instances in $\mcl{D}$.
 $\mcl{M}$ is built up by collecting together all single-instances
     from all the bags in the dataset and 
-    attaching the class value of each bag to 
+    attaching the class label of each bag to 
     each instance in the bag.
 Formally, $\mcl{M} \subseteq (\mcl{I} \times \mcl{C})$, 
     where each instance of $\mcl{M}$ appears in $\mcl{D}$:
@@ -243,8 +242,8 @@ For example, consider the small two-class dataset in Table~\ref{tEgData},
     consisting of two bags ($|\mcl{D}| = 2$)
     containing five instances in total, each with two attributes ($k=2$).\\
 Figure~\ref{visM} shows the $\mcl{M}$ for this example dataset with 
-    positive instances rendered as blue squares and 
-    negative instances rendered as red triangles.
+    positive instances rendered as squares and 
+    negative instances rendered as triangles.
 
 
 \begin{table}
@@ -263,7 +262,7 @@ Figure~\ref{visM} shows the $\mcl{M}$ for this example dataset with
     
 \end{tabular}
 \end{center}
-\caption{Example Dataset}
+\caption{Example dataset}
 \label{tEgData}
 \end{table}
 
@@ -289,30 +288,34 @@ table[meta=label] {
 \label{visM}
 \end{figure}
 
+\ \\ \ 
+
 After computing the $\mcl{M}$, 
     \AdaProp aims to partition the instance space of $\mcl{M}$ into regions.
 These regions are found by an iterative greedy algorithm (Algorithm~\ref{algoTree}), 
     which builds up a tree of bisections.
-For the purposes of the algorithm, 
+For the purposes of this algorithm, 
     a bisection is a hyperplane in instance space, 
-    of the form $w_1a_1 + w_2a_2 + \ldots = \vect{w} \cdot \vect{a} = c$,
+    of the form $w_1a_1 + w_2a_2 + \ldots + w_ka_k = c $, 
+    i.e.\ $\vect{w} \cdot \vect{a} = c$,
     where $c$ and $\vect{w}$ are parameters of the hyperplane and 
     $\vect{a}$ is the vector of attribute values.
 This hyperplane represents a natural partitioning of the instance space
     into two regions:
         the instances which lie above the hyperplane, 
-            i.e.\ $i \in \mcl{I}$ where $\vect{w} \cdot{i} > c$; and
+            i.e.\ $\vect{i} \in \mcl{I}$ where $\vect{w} \cdot \vect{i} > c$; and
         the instances which lie at or below the hyperplane,
-            i.e.\ $i \in \mcl{I}$ where $\vect{w} \cdot{i} \leq c$.
+            i.e.\ $\vect{i} \in \mcl{I}$ where $\vect{w} \cdot \vect{i} \leq c$.
     
 At each iteration,
     the algorithm generates a list of candidate bisections and
     selects the best bisection to add to the tree of bisections.
-For computational efficiency purposes,
+To reduce the search space,
     \AdaProp only considers bisection hyperplanes which
     correspond to testing just one attribute, 
     i.e.\ the hyperplanes which intersect exactly one axis.
-Therefore, each bisection corresponds to a hyperplane of the form $a_i = c$.
+Therefore, each bisection in this algorithm
+    corresponds to a hyperplane of the form $a_i = c$.
 
 \begin{algorithm}
 \caption{Building a tree of bisections}
@@ -391,7 +394,7 @@ table {
 \end{figure}
     
 Figure~\ref{visMpart} shows a possible partitioning of 
-    the instance space of the example dataset (from Table~\ref{tEgData}).
+    the instance space for the example dataset (from Table~\ref{tEgData}).
 Figure~\ref{visMTree} shows the corresponding tree of bisections built by
     the algorithm.
 
@@ -405,14 +408,14 @@ The algorithm continues to iterate while none of the following stopping conditio
     $Depth(T) \geq maxDepth$, 
     where  $maxDepth$ is a user specified parameter.
 \item[~~~Each region corresponding to a leaf node contains too few instances:] \ \\ 
-    $\forall~n_i \in leafNodes(T) ~:~ Occupancy(n_i) < minOcc$, 
+    $\forall~n_i \in LeafNodes(T) ~:~ Occupancy(n_i) < minOcc$, 
     where $Occupancy(n_i)$ is the number of instances of $\mcl{M}$ which lie in $n_i$ and
     $minOcc$ is a user specified parameter.
 \item[~~~The tree is optimal for the training set:] \ \\
     $Error(BaseLearner, \mcl{D}_T) < minErr$, 
     where $\mcl{D}_T$ is the dataset $\mcl{D}$ propositionalised using $T$ (see Section~\ref{secProp}),
     $Error$ is the misclassfication error on the training set when 
-    training the $BaseLearner$ on $\mcl{D}_T$,
+    the $BaseLearner$ is trained on $\mcl{D}_T$,
     and $minErr$ is a user specified parameter.
 
 \end{description}
@@ -429,13 +432,13 @@ The leaf nodes which are eligible to be expanded
 Let $\mcl{N}$ be the subset of the leaf nodes of $T$ 
     which are eligible for expansion:
 \begin{algorithmic}
-    \State $\mcl{N} \gets \{ n_i \in leafNodes(T) ~\big|~ depth(n_i) < maxDepth - 1 \} $
+    \State $\mcl{N} \gets \{ n_i \in LeafNodes(T) ~\big|~ Depth(n_i) < maxDepth - 1 \} $
 \end{algorithmic}
 We assume that the nodes in $T$ are indexed in breadth first order, 
     as shown in Figure~\ref{visMTree}.
 Then, among any subset of nodes with equal depth,
     the leftmost node is the node which has the least index.
-This concept of leftmost is necessary to break ties in the 
+This concept of leftmost is used to break ties in the 
     leaf node selection strategies.    
     
 \AdaProp currently supports three strategies for leaf node selection:
@@ -443,10 +446,9 @@ This concept of leftmost is necessary to break ties in the
 \begin{description}
 \item[~~~Depth first search:] \ \\
     The node selected is the leaf node 
-    which is left-most node among 
+    which is leftmost node among 
     the leaf nodes which have the greatest depth
     in $\mcl{N}$.
-    In pseudo-code:
 \begin{algorithmic}
     \State $ greatestDepth \gets \max\{ depth(n_j) ~\big|~ n_j \in \mcl{N} \} $
     \State $ n_i \gets \textrm{leftmost}\{ n_j \in \mcl{N} ~\big|~ depth(n_j) = greatestDepth \} $
@@ -454,10 +456,9 @@ This concept of leftmost is necessary to break ties in the
         
 \item[~~~Breadth first search:] \ \\
     The node selected is the leaf node 
-    which is left-most node among 
+    which is leftmost node among 
     the leaf nodes which have the least depth
     in $\mcl{N}$.
-    In pseudo-code:
 \begin{algorithmic}
     \State $ leastDepth \gets \min\{ depth(n_j) ~\big|~ n_j \in \mcl{N} \} $
     \State $ n_i \gets \textrm{leftmost}\{ n_j \in \mcl{N} ~\big|~ depth(n_j) = leastDepth \} $
@@ -465,12 +466,11 @@ This concept of leftmost is necessary to break ties in the
     
 \item[~~~Best first search:] \ \\
     Given a heuristic function $h(n)$ such that
-    $h(n_j) \leq h(n_i)$ iff $n_j$ is a better node to expand than $n_i$,
+    $h(n_j) < h(n_i)$ iff $n_j$ is a better node to expand than $n_i$,
     the node selected is the leaf node 
-    which is the left-most among 
+    which is the leftmost among 
     the leaf nodes which have the least value for $h(n)$
     in $\mcl{N}$.
-    In pseudo-code:
 \begin{algorithmic}
     \State $ leastH \gets \min\{ h(n_j) ~\big|~ n_j \in \mcl{N} \} $
     \State $ n_i \gets \textrm{leftmost}\{ n_j \in \mcl{N} ~\big|~ h(n_j) = leastH \} $
@@ -478,10 +478,10 @@ This concept of leftmost is necessary to break ties in the
 
     \AdaProp currently only supports one heuristic function, 
         the $Error(n)$, which is the training set error 
-        when using the base learner on the dataset $\mcl{D}$
+        when the base learner is trained on the dataset $\mcl{D}$
         propositionalised using $T$ along with 
         the best bisection at $n$.
-     In order to compute the value of this heuristic function at $n$,
+     In order to compute the value of this heuristic function at a node $n$,
          all possible bisections at $n$ must be evaluated,
          thus $Error(n)$ is computationally expensive.
      In the future, we will implement other heuristic methods
@@ -492,8 +492,7 @@ This concept of leftmost is necessary to break ties in the
 \subsubsection{Generating Candidate Bisections}
 \label{secCandGen}
 
-Given $\mcl{M}_i \subseteq \mcl{M}$, 
-    a set of labelled instances, 
+Given the set of labelled instances $\mcl{M}_i \subseteq \mcl{M}$,
     we wish to generate a set of candidate bisections for $\mcl{M}_i$,
     each of which is represented by a hyperplane in the instance space.
 For computational reasons, 
@@ -504,19 +503,19 @@ Furthermore, we attempt to find balanced bisecting hyperplanes,
     i.e.\ those which lie somewhat near the center of the instances
     in $\mcl{M}_i$.
 
-In \AdaProp, four methods for selecting candidate bisectors are supported:
+\AdaProp supports four methods for generating candidate bisections:
 \begin{description}
 
 \item[~~~Range based midpoint:] \ \\
     For each attribute $a_j$, 
-    the range (i.e.\ minimum and maximum) of values for $a_j$ 
+    the range (i.e.\ minimum and maximum) of 
+        values of $a_j$ 
         for the instances in $\mcl{M}_i$ is computed, 
-        and a candidate bisector corresponding to the midpoint between the 
+        and a candidate bisection corresponding to the midpoint between the 
         minimum and maximum values is generated.
-    In pseudo-code:
     \begin{algorithmic}
     \ForAll{attributes $a_j$} 
-        \State $V_j \gets \{ inst.j ~|~ \exists c \in \mcl{C} ~:~ (inst,c) \in \mcl{M}_i \}$
+        \State $V_j \gets \{ inst.j ~\big|~ \exists c \in \mcl{C} ~:~ (inst,c) \in \mcl{M}_i \}$
         \State $midpt \gets \frac{\min(V_j) ~+~ \max(V_j)}{2}$
         \State Output candidate bisecting hyperplane: $a_j = midpt $
     \EndFor
@@ -524,13 +523,12 @@ In \AdaProp, four methods for selecting candidate bisectors are supported:
     
 \item[~~~Mean:]  \ \\
     For each attribute $a_j$, 
-        the candidate bisector generated corresponds to 
+        the candidate bisection generated corresponds to 
         the mean value of $a_j$ 
         for all instances in $\mcl{M}_i$.
-    In pseudo-code:
     \begin{algorithmic}
     \ForAll{attributes $a_j$} 
-        \State $V_j \gets \{ inst.j ~|~ \exists c \in \mcl{C} ~:~ (inst,c) \in \mcl{M}_i \}$
+        \State $V_j \gets \{ inst.j ~\big|~ \exists c \in \mcl{C} ~:~ (inst,c) \in \mcl{M}_i \}$
         \State $midpt \gets \textrm{mean}(V_j)$
         \State Output candidate bisecting hyperplane: $a_j = midpt $
     \EndFor
@@ -539,31 +537,29 @@ In \AdaProp, four methods for selecting candidate bisectors are supported:
 
 \item[~~~Median:]  \ \\
     For each attribute $a_j$, 
-        the candidate bisector generated corresponds to 
+        the candidate bisection generated corresponds to 
         the median value of $a_j$ 
         for all instances in $\mcl{M}_i$.
-    In pseudo-code:
     \begin{algorithmic}
     \ForAll{attributes $a_j$} 
-        \State $V_j \gets \{ inst.j ~|~ \exists c \in \mcl{C} ~:~ (inst,c) \in \mcl{M}_i \}$
+        \State $V_j \gets \{ inst.j ~\big|~ \exists c \in \mcl{C} ~:~ (inst,c) \in \mcl{M}_i \}$
         \State $midpt \gets \textrm{median}(V_j)$
         \State Output candidate bisecting hyperplane: $a_j = midpt $
     \EndFor
     \end{algorithmic}  
     
 \item[~~~Class boundaries:]  \ \\
-    This method is different to the above three methods,
-        as it generates (potentially) multiple candidate bisectors 
+    This method is different to the above three methods
+        as it (potentially) generates multiple candidate bisections 
         per attribute.
     For each attribute $a_j$, 
         the values of $a_j$ for all instances in $\mcl{M}_i$ are sorted,
         and the values at which the class changes (i.e.\ the class boundaries)
         are used to generate the bisecting hyperplanes.
     This is similar to the discretization process of OneR~\cite{holte}.
-    In pseudo-code:
     \begin{algorithmic}
     \ForAll{attributes $a_j$} 
-        \State $W_j \gets \{ (inst.j,c) ~|~ (inst,c) \in \mcl{M}_i \}$
+        \State $W_j \gets \{ (inst.j,c) ~\big|~ (inst,c) \in \mcl{M}_i \}$
         \State Sort $W_j$
         \ForAll{values $(w_j,c_j) \in W_j$ where $c_{j-1} \neq c_j$}
             \State $midpt \gets \frac{w_{j-1}+w_j}{2}$
@@ -573,7 +569,7 @@ In \AdaProp, four methods for selecting candidate bisectors are supported:
     \end{algorithmic}
 \end{description}
 
-See Figure~\ref{visCandGen} for the visualisation of all the 
+See Figure~\ref{visCandGen} for a visualisation of all the 
     candidate bisecting hyperplanes generated by each method
     for the example dataset in Table~\ref{tEgData}.
 
@@ -611,7 +607,7 @@ See Figure~\ref{visCandGen} for the visualisation of all the
 					};
 					\end{axis}
 			    \end{tikzpicture}
-                \caption{Range-Based}
+                \caption{Range based midpoint}
         \end{subfigure}%
         ~~~
         \begin{subfigure}[b]{0.45\textwidth}
@@ -719,10 +715,10 @@ See Figure~\ref{visCandGen} for the visualisation of all the
 					};
 					\end{axis}
 			    \end{tikzpicture}
-                \caption{Class Boundaries}
+                \caption{Class boundaries}
         \end{subfigure}
 \end{center}
-\caption{Candidate bisections generated by each method for $\mcl{M}$ of the example dataset}
+\caption{Candidate bisections generated for the $\mcl{M}$ corresponding to the example dataset}
 \label{visCandGen}
 \end{figure}
 
@@ -730,8 +726,9 @@ See Figure~\ref{visCandGen} for the visualisation of all the
 \label{secOptBisection}
 
 Given a set of candidate bisections $B$ for the labelled set of instances $\mcl{M}_i$, 
-    \AdaProp aims to find the optimal bisection $B_i$ in $B$ such that
-    the training set error on $\mcl{D}$ using the base learner is minimized.
+    \AdaProp aims to find the optimal bisection $B_i$ in $B$, 
+    which is the bisection with the least
+    training set error on $\mcl{D}$ when using the base learner.
 For each candidate bisection $B_j$,
     a new tree $T_j$ is built by adding $B_j$ to $T$.
 Then $T_j$ is used to propositionalise $\mcl{D}$
@@ -742,18 +739,17 @@ The candidate bisection which results in the least training set
 This process is given in Algorithm~\ref{algoOptBisector}.
 
 \begin{algorithm}
-\caption{Finding the Optimal Bisection}
+\caption{Selecting the Optimal Bisection}
 \label{algoOptBisector} 
 \begin{algorithmic}
     \Function{EvaluateBisection}{$T,n_i,B_j$}
-    \State $T_j \gets T$ with $B_j$ added at the node $n_i$
+    \State $T_j \gets T$ with the bisection $B_j$ added at the node $n_i$
         \State $\mcl{D}_{T_j} \gets \mcl{D}$ propositionalised using $T_j$
         \State \Return $Error(BaseLearner,\mcl{D}_{T_j})$
     \EndFunction
     \State 
     \Function{FindOptimalBisection}{$T,n_i,B$}
-    \State $errors = \{ \textrm{\sc EvaluateBisection}(T,n_i,B_j) ~|~ B_j \in B \}$
-    \State $minErr = \min errors$
+    \State $minErr = \min \{ \textrm{\sc EvaluateBisection}(T,n_i,B_j) ~|~ B_j \in B \}$
     \State \Return $\textrm{any} \{ B_j \in B ~|~ \textrm{\sc EvaluateBisection}(T,n_i,B_j) = minErr \}$
     \EndFunction
 \end{algorithmic}
@@ -766,8 +762,8 @@ The tree of bisectors $T$ defines a set of regions in the instance space.
 Each such region will correspond to one or more attributes 
     in the propositionalised dataset.
 Currently, \AdaProp propositionalises each bag 
-    by simply counting the number of instances in the bag which fall into the region.
-Algorithm~\ref{algoProp} shows the process in pseudo-code.
+    by simply counting the number of instances in the bag which fall into the region
+    (Algorithm~\ref{algoProp}).
 Table~\ref{tEgPropCount} shows the propositionalised form of 
     the example dataset given in Table~\ref{tEgData}.
 
@@ -802,7 +798,7 @@ Table~\ref{tEgPropCount} shows the propositionalised form of
     
 \end{tabular}
 \end{center}
-\caption{Propositionalised form of the example dataset using COUNTs}
+\caption{Propositionalised form of the example dataset using counts}
 \label{tEgPropCount}
 \end{table}    
 
@@ -810,12 +806,13 @@ In general,
     the instances which fall into each region  
     can be aggregated using any summary statistic.
 In the future, \AdaProp will implement support for aggregations such as 
-    MIN, MAX, AVERAGE, and SUM, 
+    minimum, maximum, sum, and average (i.e.\ mean), 
     and will allow the user to select one or more summary statistics
     to be used in the propositionalisation process.
-The aggregation will be performed over the attribute belonging
-    to the bisection which corresponds to the node,
-    thus only internal nodes will be used for propositionalisation.
+The attribute used for aggregation will be the attribute intersected
+    by the bisection corresponding to the node.
+Since only internal nodes correspond to a bisection, 
+    only internal nodes will be used for propositionalisation.
 Table~\ref{tEgPropAgg} shows the propositionalised form of 
     the example dataset given in Table~\ref{tEgData} when
     using all the above summary statistics.   
@@ -902,19 +899,18 @@ Simpler base learner may work better in the simple datasets?
 The final output of this project is an algorithm 
     which can be used to adaptively propositionalise multi-instance data. 
 Since there are other established algorithms for handling multi-instance data, 
-    the evaluation will consist of comparing the classification accuracy 
-    of this algorithm on standard multi-instance datasets against 
-    the accuracy of methods such as 
+    we will evaluate the algorithm by comparing the classification accuracy 
+    on standard multi-instance datasets against methods such as 
     MILES~\cite{Chen2006}, TLC~\cite{Weidmann2003} and DD~\cite{Maron98mil}.
 
 We will also consider the application of this algorithm towards image classification and 
     potentially convert some existing single-instance image classification
-    datasets into a multi-instance form.
+    datasets into a multi-instance representation.
 
 Currently, \AdaProp only supports multi-instance datasets with 
     numeric attributes.
 In the future, we intend to implement support for
-    nominal attributes and possibly missing values.
+    nominal attributes and missing values.
 
 Since this algorithm is a meta-learner, 
     i.e.\ it is dependent on an underlying single-instance base learner, 
@@ -935,12 +931,12 @@ In this project,
 Our approach is to partition the instance space 
     by generating a set of candidate partitions and 
     using the single instance learner to select the optimal partition. 
-The result of this project is an algorithm, 
+The result of this project is an algorithm
     which will be evaluated by comparing its performance to 
     that of existing multi-instance learning algorithms on standard MI datasets. 
 In addition, 
     the application of multi-instance learning 
-    for image classification will be examined and 
+    to image classification will be examined and 
     the algorithm will be tuned for dealing with image classification datasets.
 \clearpage
 \bibliographystyle{apacite} 
