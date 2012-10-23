@@ -47,7 +47,7 @@
 \maketitle 
 \ \\ \ \\ \ \\ \ \\ \ \\ \ \\ \ % Some blank lines
 \begin{abstract}
-Multi-instance learning a type of supervised machine learning 
+Multi-instance learning is a type of supervised machine learning 
     where the class labels are attached to bags of instances. 
 This is in contrast to single-instance learning 
     where each individual instance is given a class label.
@@ -77,14 +77,15 @@ Multi-instance (MI) learning is
     machine learning over multi-instance data, 
     where the instances are grouped together into bags and 
     the learning is performed over the bags 
-    rather than the individual instances. 
+    rather than the individual instances.
+Multi-instance learning was originally proposed 
+    in the context of drug-activity prediction.
 One approach to handling multi-instance data is propositionalisation, 
     where each bag of instances is converted into 
     a single feature vector. 
 This converted dataset can be used with 
     standard single-instance machine learning algorithms 
-    such as SVMs and Neural Networks.
-
+    such as SVMs and neural networks.
 This project explores adaptive propositionalisation, 
     where the single-instance base learner is used to 
     make decisions when propositionalising the dataset. 
@@ -126,7 +127,7 @@ Therefore, a number of generalisations to the multi-instance problem have been p
     distance of the bag's instances to some hidden target points in instance space.
 Similarly, \citeA{Weidmann2003} proposed a hierarchy of MI assumptions where 
     the bag's class is determined by the number of instances 
-    of the bag which lay in certain regions of instance space.
+    of the bag which are located in certain regions of instance space.
 This project uses the same generalised MI assumptions as \citeA{Weidmann2003}.
 
 There have been a number of proposed algorithms 
@@ -166,7 +167,7 @@ There is existing work on applying MI learning to image classification:
         using fixed size partitions of the image. 
     \citeA{Zhang2002} used K-means to segment the image. 
 In the future, 
-    we will optimise the algorithm to perform well 
+    we will optimise the algorithm developed in this project to perform well 
     with MI image classification datasets.
 %[http://www.cs.cmu.edu/~juny/MILL/review.htm] 
 
@@ -178,24 +179,24 @@ Our approach, named \AdaProp, is an adaptive propositionalisation algorithm
     into regions and then propositionalises each bag 
     by computing summary statistics for the 
     subset of instances of the bag which lie in each region.
-\AdaProp determines the regions by repeatedly bisecting the instance space.
+\AdaProp determines the regions by repeatedly splitting the instance space into 
+    two partitions.
 Therefore, \AdaProp consists of three major components: 
     a base learner (any single-instance learning algorithm),
-    a process for bisecting the instance space and 
+    a process for partitioning the instance space and 
     a process for constructing the propositionalised dataset using the regions.
 
 \subsection{Definitions}
 A multi-instance dataset $\mcl{D}$ is a set of labelled bags, 
-    where each bag is a set of instances with a class label.
-Each instance in each bag has a set of $k$ attributes,
-    $\mcl{A} = \{ a_1,a_2,\ldots,a_k \}$, 
+    where each labelled bag is a set of instances with a class label.
+Each instance in each bag has a set of $k$ attributes
     thus can be considered to be a vector in $\real^k$
     (assuming all attributes are numeric).
 Therefore, the set of all instances, $\mcl{I}$,
     can be defined as a set of $k$-dimensional vectors.
 Thus, $ \mcl{I} \subseteq \real^k $.
 
-Each bag in the dataset $\mcl{D}$ is 
+Each labelled bag in the dataset $\mcl{D}$ is 
     composed of a set of instances from $\mcl{I}$,
     along with a class label. % FOR SIMPLICITY, we ignore duplicate instances
 Let $\mcl{C}$ be the set of all possible class labels.
@@ -205,46 +206,44 @@ Then we can define $\mcl{D}$,
     where $\times$ represents the cartesian product of the two sets.
 
 The propositionalisation process can be viewed as a function
-    mapping each bag $B_i \in \mcl{D}$ to 
-    a single propositionalised instance $p_i \in ( \real^j \times \mcl{C} )$.
-Note that $p_i$ has $j$ (non-class) attributes, 
+    mapping each labelled bag $({B_i},c_i) \in \mcl{D}$ to 
+    a single labelled instance $\vect{p_i} \in ( \real^j \times \mcl{C} )$.
+Note that $\vect{p_i}$ has $j$ (non-class) attributes, 
     which need not be equal to $k$, the number of attributes of 
-    each single-instance in the original dataset.
-Also note that the class label of $p_i$ will be 
-    equal to that of $B_i$,
-    i.e.\ the class label is unchanged by the propositionalisation process.
+    each instance in the original dataset.
+Also note that the class label is unchanged by the propositionalisation process.
        
 
-\subsection{Bisecting the instance space}
+\subsection{Partitioning the instance space}
 
-For the purposes of finding the best instance-space bisector,
+For the purposes of finding the best instance-space partitioning hyperplane,
     we first compute $\mcl{M}$, an intermediate labelled dataset 
-    consisting of all single-instances in $\mcl{D}$.
-$\mcl{M}$ is built up by collecting together all single-instances
+    consisting of all instances in $\mcl{D}$.
+$\mcl{M}$ is built up by collecting together all instances
     from all the bags in the dataset and 
     attaching the class label of each bag to 
     each instance in the bag.
 Formally, $\mcl{M} \subseteq (\mcl{I} \times \mcl{C})$, 
     where each instance of $\mcl{M}$ appears in $\mcl{D}$:
     $$
-        \forall~(inst,c_i)\in\mcl{M} ~:~ 
-            \exists~(bag,c_b) \in \mcl{D} ~:~ 
-                inst \in bag ~\land~ c_i = c_b
+        \forall~(\vect{a},c_i)\in\mcl{M} ~:~ 
+            \exists~({B},c_b) \in \mcl{D} ~:~ 
+                \vect{a} \in {B} ~\land~ c_i = c_b
     $$
     and each instance of $\mcl{D}$ appears in $\mcl{M}$:
     $$
-        \forall~(bag,c_b) \in \mcl{D} ~:~ 
-            \forall~inst \in bag ~:~
-                (inst,c_b) \in \mcl{M}
+        \forall~({B},c_b) \in \mcl{D} ~:~ 
+            \forall~\vect{a} \in {B} ~:~
+                (\vect{a},c_b) \in \mcl{M}
     $$    
 
 For example, consider the small two-class dataset in Table~\ref{tEgData}, 
     consisting of two bags ($|\mcl{D}| = 2$)
-    containing five instances in total, each with two attributes ($k=2$).\\
-Figure~\ref{visM} shows the $\mcl{M}$ for this example dataset with 
+    containing five instances in total, each with two attributes ($k=2$).
+Figure~\ref{visM} shows the intermediate labelled dataset $\mcl{M}$ 
+    for this example dataset with 
     positive instances rendered as squares and 
     negative instances rendered as triangles.
-
 
 \begin{table}
 \begin{center}
@@ -288,16 +287,14 @@ table[meta=label] {
 \label{visM}
 \end{figure}
 
-\ \\ \ 
-
-After computing the $\mcl{M}$, 
-    \AdaProp aims to partition the instance space of $\mcl{M}$ into regions.
+After computing $\mcl{M}$, 
+    our algorithm
+    aims to partition the instance space of $\mcl{M}$ into regions.
 These regions are found by an iterative greedy algorithm (Algorithm~\ref{algoTree}), 
-    which builds up a tree of bisections.
+    which builds up a tree of partitioning hyperplanes.
 For the purposes of this algorithm, 
-    a bisection is a hyperplane in instance space, 
-    of the form $w_1a_1 + w_2a_2 + \ldots + w_ka_k = c $, 
-    i.e.\ $\vect{w} \cdot \vect{a} = c$,
+    a partitioning hyperplane is a hyperplane in the instance space, 
+    of the form $\vect{w} \cdot \vect{a} = c$,
     where $c$ and $\vect{w}$ are parameters of the hyperplane and 
     $\vect{a}$ is the vector of attribute values.
 This hyperplane represents a natural partitioning of the instance space
@@ -308,28 +305,30 @@ This hyperplane represents a natural partitioning of the instance space
             i.e.\ $\vect{i} \in \mcl{I}$ where $\vect{w} \cdot \vect{i} \leq c$.
     
 At each iteration,
-    the algorithm generates a list of candidate bisections and
-    selects the best bisection to add to the tree of bisections.
+    the algorithm generates a list of candidate partitioning hyperplanes and
+    selects the best hyperplane to add to the tree.
 To reduce the search space,
-    \AdaProp only considers bisection hyperplanes which
+    \AdaProp, as evaluated in this project,
+     only considers hyperplanes which
     correspond to testing just one attribute, 
-    i.e.\ the hyperplanes which intersect exactly one axis.
-Therefore, each bisection in this algorithm
+    i.e.\ hyperplanes which intersect exactly one axis.
+Therefore, each partition in this algorithm
     corresponds to a hyperplane of the form $a_i = c$.
 
 \begin{algorithm}
-\caption{Building a tree of bisections}
+\caption{Building a tree of partitioning hyperplanes}
 \label{algoTree} 
 \begin{algorithmic}
-\State Initialise $T$, the tree of bisections as a tree with a single node
+\State Initialise $T$, the tree of partitioning hyperplanes as a tree with a single node
 \While{$T$ is not satisfactory} \hfill (Section~\ref{secStopCond})
     \State $n_i ~~\gets$ Select a leaf node in the tree $T$ \hfill (Section~\ref{secTreeBuild})
-    \State $\mcl{M}_i \gets \{ (inst,c) \in \mcl{M} ~|~ inst$ 
+    \State $\mcl{M}_i \gets \{ (\vect{a},c) \in \mcl{M} ~|~ \vect{a}$ 
         lies in the region corresponding to $n_i \}$
-    \State $B ~~\gets$ Generate candidate bisections for $\mcl{M}_i$ \hfill (Section~\ref{secCandGen})
-    \State $B_i \,~\gets$ Select the optimal bisection in $B$ \hfill (Section~\ref{secOptBisection})
+    \State $B ~~\gets$ Generate candidate partitioning hyperplanes for 
+        $\mcl{M}_i$ \hfill (Section~\ref{secCandGen})
+    \State $B_i \,~\gets$ Select the optimal hyperplane in $B$ \hfill (Section~\ref{secOptPartition})
     \State Make $n_i$ an internal node in $T$, corresponding 
-        to the bisection $B_i$
+        to the hyperplane $B_i$
 \EndWhile
 \end{algorithmic}
 \end{algorithm}
@@ -395,7 +394,7 @@ table {
     
 Figure~\ref{visMpart} shows a possible partitioning of 
     the instance space for the example dataset (from Table~\ref{tEgData}).
-Figure~\ref{visMTree} shows the corresponding tree of bisections built by
+Figure~\ref{visMTree} shows the corresponding tree of partitioning hyperplanes built by
     the algorithm.
 
 \subsubsection{Stopping Conditions}
@@ -411,7 +410,7 @@ The algorithm continues to iterate while none of the following stopping conditio
     $\forall~n_i \in LeafNodes(T) ~:~ Occupancy(n_i) < minOcc$, 
     where $Occupancy(n_i)$ is the number of instances of $\mcl{M}$ which lie in $n_i$ and
     $minOcc$ is a user specified parameter.
-\item[~~~The tree is optimal for the training set:] \ \\
+\item[~~~The tree is sufficiently accurate for the training set:] \ \\
     $Error(BaseLearner, \mcl{D}_T) < minErr$, 
     where $\mcl{D}_T$ is the dataset $\mcl{D}$ propositionalised using $T$ (see Section~\ref{secProp}),
     $Error$ is the misclassfication error on the training set when 
@@ -438,7 +437,7 @@ We assume that the nodes in $T$ are indexed in breadth first order,
     as shown in Figure~\ref{visMTree}.
 Then, among any subset of nodes with equal depth,
     the leftmost node is the node which has the least index.
-This concept of leftmost is used to break ties in the 
+This concept of leftmost-node is used to break ties in the 
     leaf node selection strategies.    
     
 \AdaProp currently supports three strategies for leaf node selection:
@@ -480,30 +479,42 @@ This concept of leftmost is used to break ties in the
         the $Error(n)$, which is the training set error 
         when the base learner is trained on the dataset $\mcl{D}$
         propositionalised using $T$ along with 
-        the best bisection at $n$.
+        the best partitioning hyperplane at $n$.
      In order to compute the value of this heuristic function at a node $n$,
-         all possible bisections at $n$ must be evaluated,
+         all possible bi-partitions at $n$ must be evaluated,
          thus $Error(n)$ is computationally expensive.
      In the future, we will implement other heuristic methods
          for the best first search strategy.
     
 \end{description}
 
-\subsubsection{Generating Candidate Bisections}
+\subsubsection{Generating Candidate partitioning hyperplanes}
 \label{secCandGen}
 
 Given the set of labelled instances $\mcl{M}_i \subseteq \mcl{M}$,
-    we wish to generate a set of candidate bisections for $\mcl{M}_i$,
+    we wish to generate a set of candidate partitioning hyperplanes for $\mcl{M}_i$,
     each of which is represented by a hyperplane in the instance space.
-For computational reasons, 
-    \AdaProp only considers bisecting hyperplanes 
+As mentioned above, 
+    \AdaProp only considers hyperplanes 
     which intersect exactly one axis
     (thus is parallel to all other axes).
-Furthermore, we attempt to find balanced bisecting hyperplanes, 
+Furthermore, we attempt to find balanced partitioning hyperplanes, 
     i.e.\ those which lie somewhat near the center of the instances
     in $\mcl{M}_i$.
 
-\AdaProp supports four methods for generating candidate bisections:
+Each method of generating candidate partitioning hyperplanes 
+    considers each attribute of the instances and attempts 
+    to find midpoints of the instances along the attribute.
+Therefore, most methods follow the same template:
+    \begin{algorithmic}
+    \For{$j = 1 \to k$} 
+        \State $V_j \gets \{ a_j ~\big|~ \exists c \in \mcl{C} ~:~ (\vect{a},c) \in \mcl{M}_i \}$
+        \State $m \gets $ Find $midpt(V_j)$
+        \State Output candidate hyperplane: $a_j = m $
+    \EndFor
+    \end{algorithmic}
+        
+\AdaProp supports four methods for generating candidate partitioning hyperplanes:
 \begin{description}
 
 \item[~~~Range based midpoint:] \ \\
@@ -511,71 +522,58 @@ Furthermore, we attempt to find balanced bisecting hyperplanes,
     the range (i.e.\ minimum and maximum) of 
         values of $a_j$ 
         for the instances in $\mcl{M}_i$ is computed, 
-        and a candidate bisection corresponding to the midpoint between the 
+        and a candidate hyperplane corresponding to the midpoint between the 
         minimum and maximum values is generated.
     \begin{algorithmic}
-    \ForAll{attributes $a_j$} 
-        \State $V_j \gets \{ inst.j ~\big|~ \exists c \in \mcl{C} ~:~ (inst,c) \in \mcl{M}_i \}$
-        \State $midpt \gets \frac{\min(V_j) ~+~ \max(V_j)}{2}$
-        \State Output candidate bisecting hyperplane: $a_j = midpt $
-    \EndFor
+        \State $midpt(V_j) \gets \frac{\min(V_j) ~+~ \max(V_j)}{2}$
     \end{algorithmic}
     
 \item[~~~Mean:]  \ \\
     For each attribute $a_j$, 
-        the candidate bisection generated corresponds to 
+        the candidate hyperplane generated corresponds to 
         the mean value of $a_j$ 
         for all instances in $\mcl{M}_i$.
     \begin{algorithmic}
-    \ForAll{attributes $a_j$} 
-        \State $V_j \gets \{ inst.j ~\big|~ \exists c \in \mcl{C} ~:~ (inst,c) \in \mcl{M}_i \}$
-        \State $midpt \gets \textrm{mean}(V_j)$
-        \State Output candidate bisecting hyperplane: $a_j = midpt $
-    \EndFor
-    \end{algorithmic}        
-        
+        \State $midpt(V_j) \gets \textrm{mean}(V_j)$
+    \end{algorithmic}    
 
 \item[~~~Median:]  \ \\
     For each attribute $a_j$, 
-        the candidate bisection generated corresponds to 
+        the candidate hyperplane generated corresponds to 
         the median value of $a_j$ 
         for all instances in $\mcl{M}_i$.
     \begin{algorithmic}
-    \ForAll{attributes $a_j$} 
-        \State $V_j \gets \{ inst.j ~\big|~ \exists c \in \mcl{C} ~:~ (inst,c) \in \mcl{M}_i \}$
-        \State $midpt \gets \textrm{median}(V_j)$
-        \State Output candidate bisecting hyperplane: $a_j = midpt $
-    \EndFor
+        \State $midpt(V_j) \gets \textrm{median}(V_j)$
     \end{algorithmic}  
     
 \item[~~~Class boundaries:]  \ \\
     This method is different to the above three methods
-        as it (potentially) generates multiple candidate bisections 
+        as it (potentially) generates multiple candidate partitions 
         per attribute.
     For each attribute $a_j$, 
         the values of $a_j$ for all instances in $\mcl{M}_i$ are sorted,
         and the values at which the class changes (i.e.\ the class boundaries)
-        are used to generate the bisecting hyperplanes.
+        are used to generate the partitioning hyperplanes.
     This is similar to the discretization process of OneR~\cite{holte}.
     \begin{algorithmic}
-    \ForAll{attributes $a_j$} 
-        \State $W_j \gets \{ (inst.j,c) ~\big|~ (inst,c) \in \mcl{M}_i \}$
+    \For{$j = 1 \to k$} 
+        \State $W_j \gets \{ (a_j,c) ~\big|~ (\vect{a},c) \in \mcl{M}_i \}$
         \State Sort $W_j$
         \ForAll{values $(w_j,c_j) \in W_j$ where $c_{j-1} \neq c_j$}
-            \State $midpt \gets \frac{w_{j-1}+w_j}{2}$
-            \State Output candidate bisecting hyperplane: $a_j = midpt$
+            \State $m \gets \frac{w_{j-1}+w_j}{2}$
+            \State Output candidate hyperplane: $a_j = m$
         \EndFor
     \EndFor
     \end{algorithmic}
 \end{description}
 
 See Figure~\ref{visCandGen} for a visualisation of all the 
-    candidate bisecting hyperplanes generated by each method
+    candidate partitioning hyperplanes generated by each method
     for the example dataset in Table~\ref{tEgData}.
 
 \FloatBarrier
 
-%% Visualisation of all candidate bisecting hyperplanes:
+%% Visualisation of all candidate partitioning hyperplanes:
 \begin{figure}
 \begin{center}
         \begin{subfigure}[b]{0.45\textwidth}
@@ -718,39 +716,39 @@ See Figure~\ref{visCandGen} for a visualisation of all the
                 \caption{Class boundaries}
         \end{subfigure}
 \end{center}
-\caption{Candidate bisections generated for the $\mcl{M}$ corresponding to the example dataset}
+\caption{Candidate partitions generated for the $\mcl{M}$ corresponding to the example dataset}
 \label{visCandGen}
 \end{figure}
 
-\subsubsection{Selecting the optimal bisection}
-\label{secOptBisection}
+\subsubsection{Selecting the optimal partitioning hyperplane}
+\label{secOptPartition}
 
-Given a set of candidate bisections $B$ for the labelled set of instances $\mcl{M}_i$, 
-    \AdaProp aims to find the optimal bisection $B_i$ in $B$, 
-    which is the bisection with the least
+Given a set of candidate partitioning hyperplanes $B$ for the labelled set of instances $\mcl{M}_i$, 
+    \AdaProp aims to find the optimal hyperplane $B_i$ in $B$, 
+    which is the hyperplane with the least
     training set error on $\mcl{D}$ when using the base learner.
-For each candidate bisection $B_j$,
+For each candidate hyperplane $B_j$,
     a new tree $T_j$ is built by adding $B_j$ to $T$.
 Then $T_j$ is used to propositionalise $\mcl{D}$
     and the base learner is trained on the propositionalised dataset.
-The candidate bisection which results in the least training set 
+The candidate hyperplane which results in the least training set 
     error during this process is selected as the 
-    optimal bisection.
-This process is given in Algorithm~\ref{algoOptBisector}.
+    optimal hyperplane.
+This process is given in Algorithm~\ref{algoOptPart}.
 
 \begin{algorithm}
-\caption{Selecting the Optimal Bisection}
-\label{algoOptBisector} 
+\caption{Selecting the Optimal Partitioning Hyperplane}
+\label{algoOptPart} 
 \begin{algorithmic}
-    \Function{EvaluateBisection}{$T,n_i,B_j$}
-    \State $T_j \gets T$ with the bisection $B_j$ added at the node $n_i$
+    \Function{EvaluatePartition}{$T,n_i,B_j$}
+    \State $T_j \gets T$ with the hyperplane $B_j$ added at the node $n_i$
         \State $\mcl{D}_{T_j} \gets \mcl{D}$ propositionalised using $T_j$
         \State \Return $Error(BaseLearner,\mcl{D}_{T_j})$
     \EndFunction
     \State 
-    \Function{FindOptimalBisection}{$T,n_i,B$}
-    \State $minErr = \min \{ \textrm{\sc EvaluateBisection}(T,n_i,B_j) ~|~ B_j \in B \}$
-    \State \Return $\textrm{any} \{ B_j \in B ~|~ \textrm{\sc EvaluateBisection}(T,n_i,B_j) = minErr \}$
+    \Function{FindOptimalPartition}{$T,n_i,B$}
+    \State $minErr = \min \{ \textrm{\sc EvaluatePartition}(T,n_i,B_j) ~|~ B_j \in B \}$
+    \State \Return $\textrm{any} \{ B_j \in B ~|~ \textrm{\sc EvaluatePartition}(T,n_i,B_j) = minErr \}$
     \EndFunction
 \end{algorithmic}
 \end{algorithm}
@@ -758,7 +756,7 @@ This process is given in Algorithm~\ref{algoOptBisector}.
 \subsection{Propositionalisation}
 \label{secProp}
 
-The tree of bisectors $T$ defines a set of regions in the instance space.
+The tree of partitioning hyperplanes $T$ defines a set of regions in the instance space.
 Each such region will correspond to one or more attributes 
     in the propositionalised dataset.
 Currently, \AdaProp propositionalises each bag 
@@ -779,12 +777,11 @@ Table~\ref{tEgPropCount} shows the propositionalised form of
                 lies in the region corresponding to $n_j \} $
             \State $p_{j} \gets | X_j |$
         \EndFor
-        \State Add the labelled propositionalised vector $(\vect{p},c)$ 
+        \State Add the labelled vector $(\vect{p},c)$ 
             to the dataset $\mcl{P}$
     \EndFor
     \end{algorithmic}
 \end{algorithm}
-    
     
 \begin{table}
 \begin{center}
@@ -810,8 +807,8 @@ In the future, \AdaProp will implement support for aggregations such as
     and will allow the user to select one or more summary statistics
     to be used in the propositionalisation process.
 The attribute used for aggregation will be the attribute intersected
-    by the bisection corresponding to the node.
-Since only internal nodes correspond to a bisection, 
+    by the partitioning hyperplane corresponding to the node.
+Since only internal nodes correspond to a partitioning hyperplane, 
     only internal nodes will be used for propositionalisation.
 Table~\ref{tEgPropAgg} shows the propositionalised form of 
     the example dataset given in Table~\ref{tEgData} when
@@ -844,7 +841,7 @@ Table~\ref{tEgPropAgg} shows the propositionalised form of
 \begin{comment}
 
 \subsection{The single-instance base learner}    
-Any single instance base learner can be used to guide the bisector selection process.
+Any single instance base learner can be used to guide the hyperplane selection process.
 The choice of base learner is left upto the user, and 
     this report considers a selection of common base learners (see results section).
 *In this report, we consider: [LIST base learners from results ]    
@@ -858,16 +855,16 @@ The choice of base learner is left upto the user, and
 
 \section{Results}
 Experiments were conducted using 16 datasets from the UCI repository, 
-    comparing the performance of three bisector generation methods 
+    comparing the performance of three candidate hyperplane generation methods 
     (range-based midpoint, mean, and median)
     and two base learners (j48 and SMO).
 All experiments were conducted for the breadth*-first search strategy for 
-    building up the tree of bisectors.
-Experiments for the the fourth bisector generation method and best first search strategies 
+    building up the tree of partitioning hyperplanes.
+Experiments for the the fourth candidate hyperplane generation method and best first search strategies 
     are ongoing.
     
 First, we aggregate the results of all experiments and 
-    compare the results for each bisector generation method:
+    compare the results for each candidate hyperplane generation method:
     
 [TODO]
 
@@ -904,7 +901,7 @@ Since there are other established algorithms for handling multi-instance data,
     MILES~\cite{Chen2006}, TLC~\cite{Weidmann2003} and DD~\cite{Maron98mil}.
 
 We will also consider the application of this algorithm towards image classification and 
-    potentially convert some existing single-instance image classification
+    potentially convert some existing image classification
     datasets into a multi-instance representation.
 
 Currently, \AdaProp only supports multi-instance datasets with 
