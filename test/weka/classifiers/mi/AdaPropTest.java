@@ -214,17 +214,32 @@ public class AdaPropTest
     @Test
     public void testSplitPointOptionsAreListed() // in .listOptions();
     {
-        // split point is chosen by '-s'. Try to find it:
-        Option opt = findOption(adaProp.listOptions(), "S");
+        Option opt = findOption(adaProp.listOptions(), "split");
         if (opt == null)
         {
-            Assert.fail("Option -S (split point) not found");
+            Assert.fail("Option -split (split point) not found");
         }
         else
         {
             assertOptionEquals(opt,
-                "\tSplit point criterion: 1=mean (default), 2=median, 3=discretized, 4=range",
-                1, "-S <num>");
+                    "\tSplit point criterion: 1=mean (default), 2=median, 3=discretized, 4=range",
+                    1, "-split <num>");
+        }
+    }
+
+    @Test
+    public void testSearchStrategyOptionsAreListed() // in .listOptions();
+    {
+        Option opt = findOption(adaProp.listOptions(), "search");
+        if (opt == null)
+        {
+            Assert.fail("Option -search (search strategy) not found");
+        }
+        else
+        {
+            assertOptionEquals(opt,
+                    "\tSearch strategy: 1=breadth-first (default), 2=best-first",
+                    1, "-search <num>");
         }
     }
 
@@ -247,19 +262,34 @@ public class AdaPropTest
     public void testGetAndSetSplitOptions() throws Exception
     {
         // by default: split point should be set to 1;
-        assertOptionValueEquals(adaProp.getOptions(), "-S", "1");
+        assertOptionValueEquals(adaProp.getOptions(), "-split", "1");
 
         // try setting it to 2 (median) & use get to verify
-        adaProp.setOptions(new String[]{"-S", "2"});
-        assertOptionValueEquals(adaProp.getOptions(), "-S", "2");
+        adaProp.setOptions(new String[]{"-split", "2"});
+        assertOptionValueEquals(adaProp.getOptions(), "-split", "2");
 
         // try setting it to 3 (discretize) & use get to verify
-        adaProp.setOptions(new String[]{"-S", "3"});
-        assertOptionValueEquals(adaProp.getOptions(), "-S", "3");
+        adaProp.setOptions(new String[]{"-split", "3"});
+        assertOptionValueEquals(adaProp.getOptions(), "-split", "3");
 
         // try setting it to 4 (range) & use get to verify
-        adaProp.setOptions(new String[]{"-S", "4"});
-        assertOptionValueEquals(adaProp.getOptions(), "-S", "4");
+        adaProp.setOptions(new String[]{"-split", "4"});
+        assertOptionValueEquals(adaProp.getOptions(), "-split", "4");
+    }
+
+    @Test
+    public void testGetAndSetSearchOptions() throws Exception
+    {
+        // by default: Search strategy should be set to 1;
+        assertOptionValueEquals(adaProp.getOptions(), "-search", "1");
+
+        // try setting it to 2 (best-first) & use get to verify
+        adaProp.setOptions(new String[]{"-search", "2"});
+        assertOptionValueEquals(adaProp.getOptions(), "-search", "2");
+
+        // try setting it back to 1 (breadth-first) & use get to verify
+        adaProp.setOptions(new String[]{"-search", "1"});
+        assertOptionValueEquals(adaProp.getOptions(), "-search", "1");
     }
 
     // ==================================================================================
