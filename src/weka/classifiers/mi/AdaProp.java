@@ -1132,11 +1132,11 @@ class SplitNode implements Serializable
      *
      * @param bag The (MI) bag to propositionalise.
      * @param root The root of the tree of splits.
-     * @param propositionalisedDataset The header for the data-instances.
+     * @param propDatasetHeader The header for the propositionalised bags.
      * @return The propositionalised instance.
      */
     public static Instance propositionaliseBag(final Instance bag, final RootSplitNode root,
-                                               final Instances propositionalisedDataset)
+                                               final Instances propDatasetHeader)
     {
         int numInst = bag.relationalValue(AdaProp.REL_INDEX).size();
         final double[] attrValues = new double[root.getNodeCount()+1];
@@ -1147,7 +1147,7 @@ class SplitNode implements Serializable
         root.propositionaliseBag(bag, attrValues, new BitSet(numInst));
 
         Instance prop = new DenseInstance(1.0, attrValues);
-        prop.setDataset(propositionalisedDataset);
+        prop.setDataset(propDatasetHeader);
         return prop;
     }
 
