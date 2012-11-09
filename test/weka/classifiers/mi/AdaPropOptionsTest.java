@@ -6,7 +6,6 @@ import weka.classifiers.Classifier;
 import weka.classifiers.rules.OneR;
 import weka.classifiers.rules.ZeroR;
 import weka.classifiers.trees.J48;
-import weka.core.Instances;
 import weka.core.Option;
 
 import java.util.BitSet;
@@ -131,8 +130,6 @@ public class AdaPropOptionsTest extends AdaPropTestBase
         assertOptionValueEquals(adaProp.getOptions(), "-search", "1");
     }
 
-
-
     /** Test evaluation of with the specified classifier gives the correct value */
     private void evalSplitWithClassifier(Classifier classifier, double exp)
     {
@@ -172,7 +169,5 @@ public class AdaPropOptionsTest extends AdaPropTestBase
         j48.setMinNumObj(1);
         evalSplitWithClassifier(j48, 0);
     }
-
-
 }
 

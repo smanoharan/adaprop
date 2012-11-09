@@ -9,7 +9,9 @@ import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 
-/** Author: Siva Manoharan, 1117707 */
+/**
+ * Test the split strategies. TODO needs to be more extensive.
+ */
 public class AdaPropSplitStrategyTest extends AdaPropTestBase
 {
     @Test
@@ -140,23 +142,21 @@ public class AdaPropSplitStrategyTest extends AdaPropTestBase
         }
     }
 
-
-
     // Test the splitting when invoked via instance methods:
-    private static void assertSplitPtListEquals(SplitStrategy strategy, List<Pair<Integer, Double>> exp, String msg)
+    private static void assertSplitPtListEquals(SplitStrategy strategy, List<CompPair<Integer, Double>> exp, String msg)
     {
-        List<Pair<Integer, Double>> act = strategy.generateSplitPoints(miData, new BitSet(NUM_INST_PER_BAG*NUM_BAGS));
+        List<CompPair<Integer, Double>> act = strategy.generateSplitPoints(miData, new BitSet(NUM_INST_PER_BAG*NUM_BAGS));
         assertPairListEquals(msg, exp, act);
     }
 
 
     // can be used when there is a unique split point for each attr index
-    private static List<Pair<Integer, Double>> arrayToPairList(double ... splitPts)
+    private static List<CompPair<Integer, Double>> arrayToPairList(double ... splitPts)
     {
-        List<Pair<Integer, Double>> list = new ArrayList<Pair<Integer, Double>>(splitPts.length);
+        List<CompPair<Integer, Double>> list = new ArrayList<CompPair<Integer, Double>>(splitPts.length);
         for (int i=0; i<splitPts.length; i++)
         {
-            list.add(new Pair<Integer, Double>(i, splitPts[i]));
+            list.add(new CompPair<Integer, Double>(i, splitPts[i]));
         }
         return list;
     }

@@ -5,6 +5,7 @@ import org.junit.Test;
 import java.util.BitSet;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
 /** Author: Siva Manoharan, 1117707 */
 public class AdaPropSplitNodeTest extends AdaPropTestBase
@@ -24,23 +25,14 @@ public class AdaPropSplitNodeTest extends AdaPropTestBase
         assertNodeEquals(node, -1, 0, null, null);
     }
 
-
-
     // try expanding a leaf node, check that it fails
     private static void assertNodeIsNotExpanded(final int maxDepth, final int minOcc, final int instCount)
     {
-        try
-        {
-            TreeBuildingParams p = new TreeBuildingParams(maxDepth, (1 << maxDepth), minOcc, null,
-                    instCount, null, null);
-            SplitNode node = SplitNode.newLeafNode(0, 0);
-            node.expand(p, new BitSet(instCount), null, 4);
-            assertNodeIsALeaf(node);
-        }
-        catch (Exception e)
-        {
-            throw new RuntimeException(e);
-        }
+        TreeBuildingParams params = new TreeBuildingParams(maxDepth, (1 << maxDepth), minOcc,
+                null, instCount, null, null);
+        SplitNode node = new SplitNode(1, 2, 0);
+        BreadthFirstSearchStrategy bfs = new BreadthFirstSearchStrategy();
+        assertFalse(bfs.isExpandable(node, params, new BitSet(instCount)));
     }
 
     @Test
@@ -58,6 +50,4 @@ public class AdaPropSplitNodeTest extends AdaPropTestBase
         assertNodeIsNotExpanded(999, 5, 0);
         assertNodeIsNotExpanded(999, 2, 1);
     }
-
-
 }

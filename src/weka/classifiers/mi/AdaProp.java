@@ -14,7 +14,7 @@ import java.util.Queue;
  *  on the best attribute to split on. For now, just a 1-level tree.
  *  TODO update
  *
- * Author: Siva Manoharan
+ * @author Siva Manoharan
  */
 public class AdaProp extends SingleClassifierEnhancer
         implements MultiInstanceCapabilitiesHandler, OptionHandler
@@ -23,7 +23,7 @@ public class AdaProp extends SingleClassifierEnhancer
      * For serialization:
      *  format: 1[dd][mm][yyyy]00..0[digit revision number]L
      */
-    static final long serialVersionUID = 1200920120000013L;
+    static final long serialVersionUID = 1091120120000015L;
 
     /** The tree of splits */
     protected RootSplitNode splitTreeRoot;
@@ -318,7 +318,7 @@ public class AdaProp extends SingleClassifierEnhancer
     {
         if (m_Classifier == null)
         {
-            throw new Exception("A base classifier has not been specified!");
+            throw new Exception("A base classifier has not been specified.");
         }
 
         // can classifier handle the data?
@@ -375,8 +375,10 @@ public class AdaProp extends SingleClassifierEnhancer
     }
 }
 
-/** For storing a pair: value (double) and class (double) */
-class Pair<A extends Comparable<A>,B extends Comparable<B>> implements Comparable<Pair<A,B>>
+// <editor-fold defaultstate="collapsed" desc="===Utility Classes===">
+
+/** For storing a pair (A,B) */
+class Pair<A, B>
 {
     public final A key;
     public final B value;
@@ -387,14 +389,6 @@ class Pair<A extends Comparable<A>,B extends Comparable<B>> implements Comparabl
         this.value = classVal;
     }
 
-    /** @inheritDoc */
-    @Override
-    public int compareTo(final Pair<A,B> o)
-    {
-        int diff = key.compareTo(o.key);
-        return diff == 0 ? value.compareTo(o.value) : diff;
-    }
-
     @Override
     public String toString()
     {
@@ -402,6 +396,66 @@ class Pair<A extends Comparable<A>,B extends Comparable<B>> implements Comparabl
     }
 }
 
+/** For storing a comparable pair */
+class CompPair<A extends Comparable<A>,B extends Comparable<B>> extends Pair<A,B>
+        implements Comparable<CompPair<A,B>>
+{
+    CompPair(final A key, final B val)
+    {
+        super(key, val);
+    }
+
+    /** @inheritDoc */
+    @Override
+    public int compareTo(final CompPair<A,B> o)
+    {
+        int diff = key.compareTo(o.key);
+        return diff == 0 ? value.compareTo(o.value) : diff;
+    }
+}
+
+/** Data structure for storing the tree-building param */
+final class TreeBuildingParams
+{
+    public final int maxDepth;
+    public final int maxNodeCount;
+    public final int minOccupancy;
+    public final Instances trainingBags;
+    public final int instCount;
+    public final SplitStrategy splitStrategy;
+    public final Classifier classifier;
+
+    TreeBuildingParams(final int maxDepth, final int maxNodeCount, final int minOccupancy, final Instances trainingBags,
+                       final int instCount, final SplitStrategy splitStrategy, final Classifier classifier)
+    {
+        this.maxDepth = maxDepth;
+        this.maxNodeCount = maxNodeCount;
+        this.minOccupancy = minOccupancy;
+        this.classifier = classifier;
+        this.trainingBags = trainingBags;
+        this.instCount = instCount;
+        this.splitStrategy = splitStrategy;
+    }
+}
+
+/** A (mutable) data structure for keeping track of two counters and an instIndex. */
+class LeftRightCounter
+{
+    public int leftCount;
+    public int rightCount;
+    public int instIndex;
+
+    LeftRightCounter()
+    {
+        leftCount = 0;
+        rightCount = 0;
+        instIndex = 0;
+    }
+}
+
+// </editor-fold>
+
+// <editor-fold defaultstate="collapsed" desc="===Split Strategies===" >
 /**
  * A strategy for generating candidate splits
  */
@@ -413,7 +467,7 @@ interface SplitStrategy
      * @param ignore The bitSet of instances to ignore.
      * @return A list of candidate splits
      */
-    List<Pair<Integer, Double>> generateSplitPoints(final Instances trainingData,
+    List<CompPair<Integer, Double>> generateSplitPoints(final Instances trainingData,
                                                     final BitSet ignore);
 }
 
@@ -438,14 +492,14 @@ abstract class CenterSplitStrategy implements SplitStrategy
 
     /** @inheritDoc */
     @Override
-    public List<Pair<Integer, Double>> generateSplitPoints(
+    public List<CompPair<Integer, Double>> generateSplitPoints(
             final Instances trainingData, final BitSet ignore)
     {
-        List<Pair<Integer, Double>> splits = new ArrayList<Pair<Integer, Double>>(numAttr);
+        List<CompPair<Integer, Double>> splits = new ArrayList<CompPair<Integer, Double>>(numAttr);
 
         for(int attr=0; attr<numAttr; attr++)
         {
-            splits.add(new Pair<Integer, Double>(attr, findCenter(trainingData, attr, ignore)));
+            splits.add(new CompPair<Integer, Double>(attr, findCenter(trainingData, attr, ignore)));
         }
 
         return splits;
@@ -625,7 +679,7 @@ class DiscretizedSplitStrategy implements SplitStrategy
     static ArrayList<Double> findDiscretizedSplits(
             final Instances trainingData, final int attrIndex, final BitSet ignore)
     {
-        List<Pair<Double,Double>> vals = new ArrayList<Pair<Double,Double>>();
+        List<CompPair<Double,Double>> vals = new ArrayList<CompPair<Double,Double>>();
         int index = 0;
         for (Instance bag : trainingData)
         {
@@ -633,7 +687,7 @@ class DiscretizedSplitStrategy implements SplitStrategy
             {
                 if (!ignore.get(index++))
                 {
-                    vals.add(new Pair<Double,Double>(inst.value(attrIndex), bag.classValue()));
+                    vals.add(new CompPair<Double,Double>(inst.value(attrIndex), bag.classValue()));
                 }
             }
         }
@@ -642,11 +696,11 @@ class DiscretizedSplitStrategy implements SplitStrategy
 
         // iterate through the list, finding class-boundaries
         ArrayList<Double> splits = new ArrayList<Double>();
-        Pair<Double, Double> last = vals.get(0);
+        CompPair<Double, Double> last = vals.get(0);
         final int size = vals.size();
         for(int i=1; i<size; i++)
         {
-            Pair<Double, Double> cur = vals.get(i);
+            CompPair<Double, Double> cur = vals.get(i);
             if (!last.value.equals(cur.value))
             {
                 // this is a class boundary
@@ -660,16 +714,16 @@ class DiscretizedSplitStrategy implements SplitStrategy
 
     /** @inheritDoc */
     @Override
-    public List<Pair<Integer, Double>> generateSplitPoints(
+    public List<CompPair<Integer, Double>> generateSplitPoints(
             final Instances trainingData, final BitSet ignore)
     {
-        List<Pair<Integer, Double>> splits = new ArrayList<Pair<Integer, Double>>(numAttr);
+        List<CompPair<Integer, Double>> splits = new ArrayList<CompPair<Integer, Double>>(numAttr);
 
         for(int attr=0; attr<numAttr; attr++)
         {
             for (double split : findDiscretizedSplits(trainingData, attr, ignore))
             {
-                splits.add(new Pair<Integer, Double>(attr, split));
+                splits.add(new CompPair<Integer, Double>(attr, split));
             }
         }
 
@@ -677,62 +731,11 @@ class DiscretizedSplitStrategy implements SplitStrategy
     }
 }
 
-/**
- * A way to evaluate each split point
- */
-interface SplitPointEvaluator
-{
-    /**
-     * Evaluate the accuracy when splitting the trainingData on the specified attribute,
-     *  using the specified split point.
-     * @param trainingData The training instances
-     * @param splitAttrIndex The attribute to split on
-     * @param splitPoint The split value
-     * @return The classification error.
-     */
-    double evaluateSplit(Instances trainingData, int splitAttrIndex, double splitPoint);
-}
+// </editor-fold>
 
-/** Data structure for storing the tree-building param */
-final class TreeBuildingParams
-{
-    public final int maxDepth;
-    public final int maxNodeCount;
-    public final int minOccupancy;
-    public final Instances trainingBags;
-    public final int instCount;
-    public final SplitStrategy splitStrategy;
-    public final Classifier classifier;
+// <editor-fold defaultstate="collapsed" desc="===Search Strategies===">
 
-    TreeBuildingParams(final int maxDepth, final int maxNodeCount, final int minOccupancy, final Instances trainingBags,
-                       final int instCount, final SplitStrategy splitStrategy, final Classifier classifier)
-    {
-        this.maxDepth = maxDepth;
-        this.maxNodeCount = maxNodeCount;
-        this.minOccupancy = minOccupancy;
-        this.classifier = classifier;
-        this.trainingBags = trainingBags;
-        this.instCount = instCount;
-        this.splitStrategy = splitStrategy;
-    }
-}
-
-/** A (mutable) data structure for keeping track of two counters and an instIndex. */
-class LeftRightCounter
-{
-    public int leftCount;
-    public int rightCount;
-    public int instIndex;
-
-    LeftRightCounter()
-    {
-        leftCount = 0;
-        rightCount = 0;
-        instIndex = 0;
-    }
-}
-
-interface SearchStrategy
+abstract class SearchStrategy
 {
     /**
      * Build up the entire tree using this search strategy.
@@ -742,170 +745,163 @@ interface SearchStrategy
      * @param trainingBags The training dataset (of bags).
      * @return The root of the built tree.
      */
-    RootSplitNode buildTree(final TreeBuildingParams params, final int instCount, final Instances trainingBags)
-        throws Exception;
+    abstract RootSplitNode buildTree(final TreeBuildingParams params, final int instCount,
+                                      final Instances trainingBags) throws Exception;
 
     /**
-     * Determine the max depth from the user specified parameter.
-     * @param userDepthLimit The user specified limit parameter.
-     * @return the maxDepth.
+     * Build up the default root (a single root, with no specified split).
+     *
+     * @return the default root.
      */
-    int determineMaxDepth(int userDepthLimit);
-
-    /**
-     * Determine the max node count from the user specified parameter.
-     * @param userDepthLimit The user specified limit parameter.
-     * @return the max node count.
-     */
-    int determineMaxNodeCount(int userDepthLimit);
+    protected RootSplitNode buildRoot()
+    {
+        // root starts at depth=0, with 2 prop-attr (indices 1 and 2).
+        RootSplitNode root = RootSplitNode.toRootNode(new SplitNode(1, 2, 0));
+        root.setNodeCount(1);
+        return root;
+    }
 }
 
 /** Breadth-first search */
-class BreadthFirstSearchStrategy implements SearchStrategy
+class BreadthFirstSearchStrategy extends SearchStrategy
 {
+    /**
+     * Determine whether the node can be expanded.
+     *
+     * @param node The node to check.
+     * @param params Tree building parameters.
+     * @param ignoredInst The bitset indicating which instances are to be ignored.
+     * @return true if the node can be expanded, false otherwise.
+     */
+    protected boolean isExpandable(final SplitNode node, final TreeBuildingParams params, final BitSet ignoredInst)
+    {
+        final int numInstInNode = params.instCount - ignoredInst.cardinality();
+        return numInstInNode >= params.minOccupancy && node.curDepth < params.maxDepth;
+    }
+
     @Override /** @inheritDoc */
     public RootSplitNode buildTree(final TreeBuildingParams params, final int instCount, final Instances trainingBags)
             throws Exception
     {
-
         // build the root:
-        int propIndex = 0;
-        RootSplitNode root = RootSplitNode.toRootNode(SplitNode.newLeafNode(propIndex++, 0));
-        root.setNodeCount(1);
-        root.expand(params, new BitSet(instCount), root, propIndex);
-        propIndex += 2;
+        int nextPropIndex = 3;
+        RootSplitNode root = buildRoot();
+        final BitSet rootIgnoredInst = new BitSet(instCount);
 
-        // structure the tree into an arraylist via breadth-first-search:
-        Queue<SplitNode> nodeQueue = new LinkedList<SplitNode>();
-        ArrayList<BitSet> ignoreList = new ArrayList<BitSet>(); // for storing the ignore-bitsets.
-        ignoreList.add(new BitSet(instCount));
-        ignoreList.add(null); ignoreList.add(null); // allocate 2 more slots in the array list for the child nodes
-        nodeQueue.add(root);
+        if (isExpandable(root, params, rootIgnoredInst)) {
+            root.computeBestSplit(params, rootIgnoredInst, root);
+        } else {
+            return root; // computation is complete.
+        }
 
-        while(!nodeQueue.isEmpty())
+        // structure the tree into an queue via breadth-first-search:
+        int numNodes = 1;
+        Queue<Pair<SplitNode,BitSet>> queue = new LinkedList<Pair<SplitNode,BitSet>>();
+        queue.add(new Pair<SplitNode, BitSet>(root, rootIgnoredInst));
+
+        while(!queue.isEmpty())
         {
-            // take the first node, check if it's children require further splitting:
-            SplitNode node = nodeQueue.remove();
-            if ( !node.isLeaf() )
+            // take the first node, check if it's children can be expanded further:
+            final Pair<SplitNode,BitSet> nodeMapPair = queue.remove();
+            final SplitNode node = nodeMapPair.key;
+            final BitSet ignoredInst = nodeMapPair.value;
+            final int nextDepth = node.curDepth + 1;
+
+            // partition the data-set into left and right sets:
+            BitSet leftIgnoredInst = new BitSet(instCount);
+            BitSet rightIgnoredInst = new BitSet(instCount);
+            LeftRightCounter counter = new LeftRightCounter();
+            node.filterDataset(trainingBags, ignoredInst, leftIgnoredInst, rightIgnoredInst, counter);
+
+            // build the left and right nodes
+            node.left = new SplitNode(nextPropIndex, nextPropIndex+1, nextDepth);
+            if (isExpandable(node.left, params, leftIgnoredInst))
             {
-                // partition the dataset into left and right sets:
-                BitSet leftIgnore = new BitSet(instCount);
-                BitSet rightIgnore = new BitSet(instCount);
-                LeftRightCounter counter = new LeftRightCounter();
-                node.filterDataset(trainingBags, ignoreList.get(node.propAttributeIndex), leftIgnore, rightIgnore, counter);
+                node.left.computeBestSplit(params, leftIgnoredInst, root);
+                nextPropIndex += 2;
+                numNodes++;
+                queue.add(new Pair<SplitNode, BitSet>(node.left, leftIgnoredInst));
+            }
 
-                // build the left and right nodes
-                if (node.left.expand(params, leftIgnore, root, propIndex))
-                {
-                    propIndex += 2;
-                    ignoreList.add(null);
-                    ignoreList.add(null);
-                    nodeQueue.add(node.left);
-                    ignoreList.set(node.left.propAttributeIndex, leftIgnore);
-                }
-
-                if (node.right.expand(params, rightIgnore, root, propIndex))
-                {
-                    propIndex += 2;
-                    ignoreList.add(null);
-                    ignoreList.add(null);
-                    nodeQueue.add(node.right);
-                    ignoreList.set(node.right.propAttributeIndex, rightIgnore);
-                }
+            node.right = new SplitNode(nextPropIndex, nextPropIndex+1, nextDepth);
+            if (isExpandable(node.right, params, rightIgnoredInst))
+            {
+                node.right.computeBestSplit(params, rightIgnoredInst, root);
+                nextPropIndex += 2;
+                numNodes++;
+                queue.add(new Pair<SplitNode, BitSet>(node.right, rightIgnoredInst));
             }
         }
 
+        root.setNodeCount(numNodes);
         return root;
-    }
-
-    @Override
-    public int determineMaxDepth(final int userDepthLimit)
-    {
-        return userDepthLimit;
-    }
-
-    @Override
-    public int determineMaxNodeCount(final int userDepthLimit)
-    {
-
-        // no made node count for breadth first.
-        return Integer.MAX_VALUE;
     }
 }
 
 /** Best-first search */
-class BestFirstSearchStrategy implements SearchStrategy
+class BestFirstSearchStrategy extends SearchStrategy
 {
     @Override /** @inheritDoc */
     public RootSplitNode buildTree(final TreeBuildingParams params, final int instCount, final Instances trainingBags)
             throws Exception
     {
         // build the root:
-        int propIndex = 0;
-        RootSplitNode root = RootSplitNode.toRootNode(SplitNode.newLeafNode(propIndex++, 0));
-        root.setNodeCount(1);
-        root.expand(params, new BitSet(instCount), root, propIndex);
-        propIndex += 2;
+        int nextPropIndex = 3;
+        RootSplitNode root = buildRoot();
+        final BitSet rootIgnoredInst = new BitSet(instCount);
 
-        // structure the search by keeping a list of expandable (but currently leaf) nodes.
-        LinkedList<SplitNode> expandableLeafNodes = new LinkedList<SplitNode>();
-        ArrayList<BitSet> ignoreList = new ArrayList<BitSet>(); // for storing the ignore-bitsets.
-        ignoreList.add(new BitSet(instCount));
-        ignoreList.add(null); ignoreList.add(null); // allocate 2 more slots in the array list for the child nodes
-        expandableLeafNodes.add(root);
-        int nodeCount = 0;
+        if (instCount >= params.minOccupancy) {
+            root.computeBestSplit(params, rootIgnoredInst, root);
+        } else {
+            return root; // computation is complete.
+        }
 
-        while(!expandableLeafNodes.isEmpty() && nodeCount < params.maxNodeCount)
+        // structure the search by keeping a list of expandable nodes
+        //  (i.e. those which have at least one empty child.
+        int nodeCount = 1;
+        LinkedList<Pair<SplitNode, BitSet>> expandableLeafNodes = new LinkedList<Pair<SplitNode, BitSet>>();
+
+        // initialise the border with the two children of the root.
+        root.left = new SplitNode(-1, -1, 1);
+        root.right = new SplitNode(-1, -1, 1);
+        BitSet rootLeftIgnore = new BitSet(instCount);
+        BitSet rootRightIgnore = new BitSet(instCount);
+        LeftRightCounter rootCounter = new LeftRightCounter();
+        root.filterDataset(trainingBags, rootIgnoredInst, rootLeftIgnore, rootRightIgnore, rootCounter);
+        expandableLeafNodes.add(new Pair<SplitNode, BitSet>(root.left, rootLeftIgnore));
+        expandableLeafNodes.add(new Pair<SplitNode, BitSet>(root.right, rootRightIgnore));
+
+        while(!expandableLeafNodes.isEmpty() && nodeCount <= params.maxNodeCount)
         {
             // iterate over all split nodes and find the one with the least error
-            SplitNode bestSplit = null;
-            BitSet bestSplitLeftIgnore = null;
-            BitSet bestSplitRightIgnore = null;
+            Pair<SplitNode, BitSet> bestSplit = null;
+            int bestSplitAttrIndex = -1;
             double minErr = Double.MAX_VALUE;
 
-            for (SplitNode node : expandableLeafNodes)
+            for (Pair<SplitNode, BitSet> nodeMapPair: expandableLeafNodes)
             {
-                // try splitting here:
-                // partition the dataset into left and right sets:
-                BitSet leftIgnore = new BitSet(instCount);
-                BitSet rightIgnore = new BitSet(instCount);
-                LeftRightCounter counter = new LeftRightCounter();
-                node.filterDataset(trainingBags, ignoreList.get(node.propAttributeIndex), leftIgnore, rightIgnore, counter);
+                final SplitNode node = nodeMapPair.key;
+                final BitSet ignoredInst = nodeMapPair.value;
 
-                // build the left and right nodes
-                double trainingSetError = 0;
-                int childNodeCount = 0;
-                if (node.left == null)
+                // try expansion:
+                node.propLeftIndex = nextPropIndex;
+                node.propRightIndex = nextPropIndex + 1;
+                node.computeBestSplit(params, ignoredInst, root);
+
+                final double nodeErr = node.trainingSetError;
+                if (nodeErr < minErr)
                 {
-                    break;
-                }
-                if (node.left.expand(params, leftIgnore, root, propIndex))
-                {
-                    childNodeCount++;
-                    propIndex += 2;
-                    trainingSetError += node.left.trainingSetError;
+                    bestSplit = nodeMapPair;
+                    bestSplitAttrIndex = node.splitAttrIndex;
+                    minErr = nodeErr;
                 }
 
-                if (node.right.expand(params, rightIgnore, root, propIndex))
-                {
-                    childNodeCount++;
-                    propIndex += 2;
-                    trainingSetError += node.right.trainingSetError;
-                }
-
-                if (childNodeCount > 0 && trainingSetError < minErr*childNodeCount)
-                {
-                    bestSplit = node;
-                    bestSplitLeftIgnore = leftIgnore;
-                    bestSplitRightIgnore = rightIgnore;
-                    minErr = trainingSetError / childNodeCount;
-                }
-
-                // reset propIndex:
-                propIndex -= (2*childNodeCount);
+                // reset the node (so that the other nodes in the border are unaffected):
+                node.splitAttrIndex = -1;
+                node.propLeftIndex = -1;
+                node.propRightIndex = -1;
             }
 
-            // "use up" the bestSplit:
             if (bestSplit == null)
             {
                 // no best-split found.
@@ -913,50 +909,50 @@ class BestFirstSearchStrategy implements SearchStrategy
             }
             else
             {
+                // "use up" the bestSplit:
                 expandableLeafNodes.remove(bestSplit);
-                if (bestSplit.left != null)
-                {
-                    nodeCount++;
-                    propIndex += 2;
-                    ignoreList.add(null); ignoreList.add(null);
-                    ignoreList.set(bestSplit.left.propAttributeIndex, bestSplitLeftIgnore);
-                    expandableLeafNodes.add(bestSplit.left);
-                }
+                final SplitNode bestNode = bestSplit.key;
+                final BitSet bestIgnoredInst = bestSplit.value;
+                bestNode.splitAttrIndex = bestSplitAttrIndex;
+                bestNode.propLeftIndex = nextPropIndex;
+                bestNode.propRightIndex = nextPropIndex + 1;
 
-                if (bestSplit.right != null)
-                {
-                    nodeCount++;
-                    propIndex += 2;
-                    ignoreList.add(null); ignoreList.add(null);
-                    ignoreList.set(bestSplit.right.propAttributeIndex, bestSplitRightIgnore);
-                    expandableLeafNodes.add(bestSplit.right);
-                }
+                // adjust counters:
+                nodeCount++;
+                nextPropIndex += 2;
+
+                // create 2 child nodes:
+                final int nextDepth = bestNode.curDepth + 1;
+                bestNode.left = new SplitNode(-1, -1, nextDepth);
+                bestNode.right = new SplitNode(-1, -1, nextDepth);
+                BitSet leftIgnore = new BitSet(instCount);
+                BitSet rightIgnore = new BitSet(instCount);
+                LeftRightCounter counter = new LeftRightCounter();
+                bestNode.filterDataset(params.trainingBags, bestIgnoredInst, leftIgnore, rightIgnore, counter);
+
+                // add the child nodes to the expandable node border:
+                expandableLeafNodes.add(new Pair<SplitNode, BitSet>(bestNode.left, leftIgnore));
+                expandableLeafNodes.add(new Pair<SplitNode, BitSet>(bestNode.right, rightIgnore));
             }
         }
 
-        // clear the remaining leaf nodes:
-        for (SplitNode node : expandableLeafNodes)
+        // clear (reset) the remaining leaf nodes:
+        for (Pair<SplitNode, BitSet> nodeMapPair: expandableLeafNodes)
         {
+            final SplitNode node = nodeMapPair.key;
             node.left = null;
             node.right = null;
+            node.propLeftIndex = -1;
+            node.propRightIndex = -1;
             node.splitAttrIndex = -1;
         }
 
+        root.setNodeCount(nodeCount);
         return root;
     }
-
-    @Override
-    public int determineMaxDepth(final int userDepthLimit)
-    {
-        return Integer.MAX_VALUE; // no max depth for best-first
-    }
-
-    @Override
-    public int determineMaxNodeCount(final int userDepthLimit)
-    {
-        return (1 << userDepthLimit);
-    }
 }
+
+// </editor-fold>
 
 /**
  * Represents a single split point (a node in the adaSplitTree).
@@ -986,52 +982,74 @@ class SplitNode implements Serializable
     /** The depth of the current node (from the root) */
     final int curDepth;
 
-    /** The instIndex of the attribute to which node corresponds */
-    int propAttributeIndex;
+    /** The index of the propositionalised data-set to store the left-count result */
+    int propLeftIndex;
 
-    SplitNode(final int propositionalisedAttributeIndex, final int splitAttrIndex, final double splitPoint,
+    /** The index of the propositionalised data-set to store the right-count result */
+    int propRightIndex;
+
+    SplitNode(final int propLeftIndex, final int propRightIndex, final int splitAttrIndex, final double splitPoint,
               final SplitNode left, final SplitNode right, final int curDepth)
     {
-        this.propAttributeIndex = propositionalisedAttributeIndex;
+        this.propLeftIndex = propLeftIndex;
+        this.propRightIndex = propRightIndex;
         this.splitAttrIndex = splitAttrIndex;
         this.splitPoint = splitPoint;
         this.left = left;
         this.right = right;
         this.curDepth = curDepth;
     }
+
+    /**
+     * Create a split node with no current split and no child nodes.
+     *
+     * @param propLeftIndex The prop-left-index
+     * @param propRightIndex The prop-right-index
+     * @param curDepth The current depth
+     */
+    SplitNode(final int propLeftIndex, final int propRightIndex, final int curDepth)
+    {
+        this(propLeftIndex, propRightIndex, -1, 0, null, null, curDepth);
+    }
+
+    @Override
+    public String toString()
+    {
+        return "\tSplit on attr" + splitAttrIndex + " at " + splitPoint +
+                ". left=" + propLeftIndex + ", right=" + propRightIndex + ".\n" +
+                (left == null ? "" : left.toString()) + (right == null ? "" : right.toString());
+
+    }
     //</editor-fold>
 
     //<editor-fold defaultstate="collapsed" desc="===Tree-building===" >
-    /**
-     * Creates a new leaf node.
-     *
-     * @param propAttrIndex The propositionalisedAttributeIndex
-     * @param curDepth depth of this leaf node.
-     * @return A leaf node.
-     */
-    public static SplitNode newLeafNode(int propAttrIndex, int curDepth)
-    {
-        return new SplitNode(propAttrIndex, -1, 0, null, null, curDepth);
-    }
 
     /**
-     * Out of the set of candidate splits, find the split which results in the least (training-set) error and set it
-     *  in the current node.
+     * Compute the best splittling hyperplane for this node.
      *
-     * @param candidateSplits The set of splits to try.
-     * @param bags The training data.
-     * @param classifier The classifier to evaluate with.
+     * First, a set of candidate splits are genereted.
+     * Then, the best split (least training-set error) is chosen
+     * and set it in the current node.
+     *
+     * @param params The tree building parameters.
+     * @param ignoredInst The instances in the data-set to ignore (because they fall outside the current node).
+     * @param root The root of this tree.
+     * @return Whether this node was expanded (false iff this node remains a leaf).
+     * @throws Exception
      */
-    private void setBestSplit(final List<Pair<Integer, Double>> candidateSplits, final Instances bags,
-                              final Classifier classifier, final RootSplitNode root) throws Exception
+    void computeBestSplit(final TreeBuildingParams params, final BitSet ignoredInst, final RootSplitNode root)
+            throws Exception
     {
+        List<CompPair<Integer, Double>> candidateSplits =
+                params.splitStrategy.generateSplitPoints(params.trainingBags, ignoredInst);
+
         double minErr = Double.MAX_VALUE;
-        Pair<Integer, Double> bestSplit = null;
-        for (Pair<Integer, Double> curSplit : candidateSplits)
+        CompPair<Integer, Double> bestSplit = null;
+        for (CompPair<Integer, Double> curSplit : candidateSplits)
         {
             this.splitAttrIndex = curSplit.key;
             this.splitPoint = curSplit.value;
-            double err = evaluateCurSplit(bags, classifier, root);
+            double err = evaluateCurSplit(params.trainingBags, params.classifier, root);
             if (err < minErr)
             {
                 minErr = err;
@@ -1046,41 +1064,16 @@ class SplitNode implements Serializable
     }
 
     /**
-     * Attempt to expand this leaf node.
-     *
-     * @param params The tree building parameters.
-     * @param ignore The instances in the dataset to ignore (because they fall outside the current node).
-     * @param root The root of this tree.
-     * @return Whether this node was expanded (false iff this node remains a leaf).
-     * @throws Exception
-     */
-    boolean expand(final TreeBuildingParams params, final BitSet ignore, final RootSplitNode root,
-                   final int propIndex) throws Exception
-    {
-        // only expand if the stopping condition is not met
-        if (this.curDepth < params.maxDepth && params.instCount - ignore.cardinality() >= params.minOccupancy)
-        {
-            this.left = newLeafNode(propIndex, this.curDepth + 1);
-            this.right = newLeafNode(propIndex+1, this.curDepth + 1);
-            root.setNodeCount(root.getNodeCount()+2);
-            List<Pair<Integer, Double>> candidateSplits = params.splitStrategy.generateSplitPoints(params.trainingBags, ignore);
-            this.setBestSplit(candidateSplits, params.trainingBags, params.classifier, root);
-            return true;
-        }
-        else return false;
-    }
-
-    /**
      * Build up the tree of splits.
      *
      * @param trainingBags the MI bags for use as training data. Must be Non-empty.
      * @param splitStrategy The strategy to split each node.
-     * @param userMaxDepth The maximum depth of the tree.
+     * @param maxDepth The maximum depth of the tree.
      * @param minOccupancy The minimum occupancy of each node.
      * @return The root of the split-tree
      */
     public static RootSplitNode buildTree(Instances trainingBags, final SplitStrategy splitStrategy,
-                                          final int userMaxDepth, final int minOccupancy, final Classifier classifier,
+                                          final int maxDepth, final int minOccupancy, final Classifier classifier,
                                           final SearchStrategy searchStrategy) throws Exception
     {
         // count the number of instances in all the bags:
@@ -1090,12 +1083,10 @@ class SplitNode implements Serializable
             instCount += bag.relationalValue(AdaProp.REL_INDEX).size();
         }
 
-        // convert user's depth limit into a maxDepth and a maxNodeCount
-        final int maxDepth = searchStrategy.determineMaxDepth(userMaxDepth);
-        final int maxNodeCount = searchStrategy.determineMaxNodeCount(userMaxDepth);
-
+        final int maxNodeCount = 1 << maxDepth;
         TreeBuildingParams params = new TreeBuildingParams(maxDepth, maxNodeCount, minOccupancy, trainingBags,
                 instCount, splitStrategy, classifier);
+
         return searchStrategy.buildTree(params, instCount, trainingBags);
 
     }
@@ -1119,8 +1110,7 @@ class SplitNode implements Serializable
         propositionalisedDataset.setClassIndex(numAttr);
 
         // propositionalise each bag and add it to the set
-        for (Instance bag : bags)
-        {
+        for (Instance bag : bags) {
             propositionalisedDataset.add(propositionaliseBag(bag, root, propositionalisedDataset));
         }
 
@@ -1144,7 +1134,9 @@ class SplitNode implements Serializable
         attrValues[root.getNodeCount()] = bag.classValue(); // set class val
 
         // recursively fill in all the attribute values
-        root.propositionaliseBag(bag, attrValues, new BitSet(numInst));
+        if (root.splitAttrIndex >= 0) {
+            root.propositionaliseBag(bag, attrValues, new BitSet(numInst));
+        }
 
         Instance prop = new DenseInstance(1.0, attrValues);
         prop.setDataset(propDatasetHeader);
@@ -1163,18 +1155,19 @@ class SplitNode implements Serializable
     {
         final int numInstances = bag.relationalValue(AdaProp.REL_INDEX).size();
 
-        if (!this.isLeaf()) // only proceed if not a leaf;
-        {
-            BitSet leftIgnore = new BitSet(numInstances);
-            BitSet rightIgnore = new BitSet(numInstances);
+        BitSet leftIgnore = new BitSet(numInstances);
+        BitSet rightIgnore = new BitSet(numInstances);
 
-            LeftRightCounter counter = new LeftRightCounter();
-            filterBag(bag, ignore, leftIgnore, rightIgnore, counter);
-            attrVals[left.propAttributeIndex] = counter.leftCount;
-            attrVals[right.propAttributeIndex] = counter.rightCount;
+        LeftRightCounter counter = new LeftRightCounter();
+        filterBag(bag, ignore, leftIgnore, rightIgnore, counter);
+        attrVals[propLeftIndex] = counter.leftCount;
+        attrVals[propRightIndex] = counter.rightCount;
 
-            // recursively fill in the remaining values:
+        // recursively fill in the remaining values:
+        if (left != null && left.splitAttrIndex >= 0) {
             left.propositionaliseBag(bag, attrVals, leftIgnore);
+        }
+        if (right != null && right.splitAttrIndex >= 0) {
             right.propositionaliseBag(bag, attrVals,  rightIgnore);
         }
     }
@@ -1190,8 +1183,7 @@ class SplitNode implements Serializable
      */
     void filterDataset(Instances bags, BitSet ignore, BitSet leftIgnore, BitSet rightIgnore, LeftRightCounter counter)
     {
-        for (Instance bag : bags)
-        {
+        for (Instance bag : bags) {
             filterBag(bag, ignore, leftIgnore, rightIgnore, counter);
         }
     }
@@ -1207,8 +1199,7 @@ class SplitNode implements Serializable
      */
     void filterBag(Instance bag, BitSet ignore, BitSet leftIgnore, BitSet rightIgnore, LeftRightCounter counter)
     {
-        for (Instance inst : bag.relationalValue(AdaProp.REL_INDEX))
-        {
+        for (Instance inst : bag.relationalValue(AdaProp.REL_INDEX)) {
             filterInst(inst, ignore, leftIgnore, rightIgnore, counter);
         }
     }
@@ -1243,6 +1234,7 @@ class SplitNode implements Serializable
                 leftIgnore.set(counter.instIndex);
                 counter.rightCount++;
             }
+
         }
         counter.instIndex++;
     }
@@ -1262,35 +1254,6 @@ class SplitNode implements Serializable
         Evaluation evaluation = new Evaluation(propDataset);
         evaluation.evaluateModel(classifier, propDataset);
         return evaluation.incorrect();
-    }
-    //</editor-fold>
-
-    //<editor-fold defaultstate="collapsed" desc="===common member functions====">
-    /**
-     * Returns whether or not this node is a leaf.
-     * @return true iff this node is a leaf.
-     */
-    public boolean isLeaf()
-    {
-        return this.splitAttrIndex == -1;
-    }
-
-    @Override
-    public String toString()
-    {
-        if (left == null)
-        {
-            // this is a leaf:
-            return "\t["+ propAttributeIndex + "] leaf.\n";
-        }
-        else
-        {
-            return "\t[" + propAttributeIndex + "] Split on attr" +
-                    splitAttrIndex + " at " + splitPoint + ". left=" +
-                    left.propAttributeIndex + ", right=" +
-                    right.propAttributeIndex + ".\n" +
-                    left.toString() + right.toString();
-        }
     }
     //</editor-fold>
 }
@@ -1326,10 +1289,11 @@ class RootSplitNode extends SplitNode
         }
     }
 
-    RootSplitNode(final int propositionalisedAttributeIndex, final int splitAttrIndex, final double splitPoint,
-                  final SplitNode left, final SplitNode right, final int curDepth)
+    RootSplitNode(final int propLeftIndex, final int propRightIndex,
+                  final int splitAttrIndex, final double splitPoint, final SplitNode left,
+                  final SplitNode right, final int curDepth)
     {
-        super(propositionalisedAttributeIndex, splitAttrIndex, splitPoint, left, right, curDepth);
+        super(propLeftIndex, propRightIndex, splitAttrIndex, splitPoint, left, right, curDepth);
         attrInfo = new ArrayList<Attribute>();
     }
 
@@ -1338,7 +1302,7 @@ class RootSplitNode extends SplitNode
      */
     public static RootSplitNode toRootNode(SplitNode node)
     {
-        return new RootSplitNode(node.propAttributeIndex, node.splitAttrIndex, node.splitPoint,
-                node.left, node.right, node.curDepth);
+        return new RootSplitNode(node.propLeftIndex, node.propRightIndex,
+                node.splitAttrIndex, node.splitPoint, node.left, node.right, node.curDepth);
     }
 }

@@ -96,10 +96,10 @@ public class AdaPropPropositionalisationTest extends AdaPropTestBase
          *                                      -- <=: [5]:<>
          *                                      --  >: [6]:<>
          */
-        SplitNode splitNode4 = new SplitNode(4, 0, -9, createLeafNode(7), createLeafNode(8), 3);
-        SplitNode splitNode2 = new SplitNode(2, 2, 50, createLeafNode(5), createLeafNode(6), 3);
-        SplitNode splitNode1 = new SplitNode(1, 1, 15, createLeafNode(3), splitNode4, 5);
-        RootSplitNode root = RootSplitNode.toRootNode(new SplitNode(0, 3, 31, splitNode1, splitNode2, 9));
+        SplitNode splitNode4 = new SplitNode(7, 8, 0, -9, null, null, 3);
+        SplitNode splitNode2 = new SplitNode(5, 6, 2, 50, null, null, 3);
+        SplitNode splitNode1 = new SplitNode(3, 4, 1, 15, null, splitNode4, 5);
+        RootSplitNode root = RootSplitNode.toRootNode(new SplitNode(1, 2, 3, 31, splitNode1, splitNode2, 9));
         root.setNodeCount(9);
 
         String[] exp = new String[] { // the following values were hand-computed:
@@ -138,19 +138,6 @@ public class AdaPropPropositionalisationTest extends AdaPropTestBase
     }
 
     // <editor-fold desc="===Helper Methods===">
-
-    /**
-     * Create a new leaf node with the given propositionalisedIndex.
-     *
-     * @param propIndex The propositionalisedIndex of the node,
-     *                  i.e. where it places it's results.
-     * @return The split node.
-     */
-    private static SplitNode createLeafNode(int propIndex)
-    {
-        return new SplitNode(propIndex, -1, 0, null, null, 1);
-    }
-
     /**
      * Convert a string (format "attr1,attr2,...") to an instance.
      *
@@ -286,7 +273,7 @@ public class AdaPropPropositionalisationTest extends AdaPropTestBase
     {
         // build the single-node split tree:
         final RootSplitNode root = RootSplitNode.toRootNode(
-                new SplitNode(0, splitAttrIndex, splitPoint, createLeafNode(1), createLeafNode(2), 3));
+                new SplitNode(1, 2, splitAttrIndex, splitPoint, null, null, 3));
         root.setNodeCount(3);
 
         // when propositionalised using one split, there are always 4 attributes:

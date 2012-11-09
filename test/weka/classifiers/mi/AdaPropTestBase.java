@@ -238,7 +238,7 @@ public class AdaPropTestBase
         }
     }
 
-    protected static void assertPairListEquals(String msg, List<Pair<Integer, Double>> exp, List<Pair<Integer, Double>> act)
+    protected static void assertPairListEquals(String msg, List<CompPair<Integer, Double>> exp, List<CompPair<Integer, Double>> act)
     {
         // check sizes are equal
         assertEquals(msg + " size", exp.size(), act.size());
@@ -254,9 +254,7 @@ public class AdaPropTestBase
 
     protected static RootSplitNode createRootSplit(final int attrIndex, final double splitPt)
     {
-        SplitNode leftLeaf = SplitNode.newLeafNode(1,1);
-        SplitNode rightLeaf = SplitNode.newLeafNode(2,1);
-        RootSplitNode root = new RootSplitNode(0, attrIndex, splitPt, leftLeaf, rightLeaf, 0);
+        RootSplitNode root = new RootSplitNode(1, 2, attrIndex, splitPt, null, null, 0);
         root.setNodeCount(3);
         return root;
     }
