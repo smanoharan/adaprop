@@ -254,8 +254,8 @@ public class AdaPropTestBase
 
     protected static RootSplitNode createRootSplit(final int attrIndex, final double splitPt)
     {
-        RootSplitNode root = new RootSplitNode(1, 2, attrIndex, splitPt, null, null, 0);
-        root.setNodeCount(3);
+        RootSplitNode root = new RootSplitNode(1, 2, attrIndex, splitPt, null, null, 0, new CountBasedPropositionalisationStrategy());
+        root.setNodeCount(1);
         return root;
     }
 }

@@ -31,6 +31,9 @@ public class AdaProp extends SingleClassifierEnhancer
     /** Contains the bags as propositionalised instances */
     protected Instances m_propositionalisedDataset;
 
+    /** The propositionalisation strategy to use */
+    protected PropositionalisationStrategy propStrategy = new CountBasedPropositionalisationStrategy();
+
     /** The instIndex of the relational attribute in the bag instance */
     public static final int REL_INDEX = 1;
 
@@ -307,7 +310,7 @@ public class AdaProp extends SingleClassifierEnhancer
     {
         // propositionalise the bag
         Instance propositionalisedTrainingData =
-                SplitNode.propositionaliseBag(newBag, splitTreeRoot, m_propositionalisedDataset);
+                SplitNode.propositionaliseBag(newBag, splitTreeRoot, m_propositionalisedDataset, propStrategy);
 
         // use the base classifier for prediction.
         return m_Classifier.distributionForInstance(propositionalisedTrainingData);
@@ -366,10 +369,10 @@ public class AdaProp extends SingleClassifierEnhancer
 
         // create the tree of splits:
         splitTreeRoot = SplitNode.buildTree(trainingBags, splitStrategy, m_MaxDepth,
-                m_MinOccupancy, m_Classifier, searchStrategy);
+                m_MinOccupancy, m_Classifier, searchStrategy, propStrategy);
 
         // retrain m_classifier with the best attribute:
-        Instances propositionalisedTrainingData = SplitNode.propositionaliseDataset(trainingBags, splitTreeRoot);
+        Instances propositionalisedTrainingData = SplitNode.propositionaliseDataset(trainingBags, splitTreeRoot, propStrategy);
         m_Classifier.buildClassifier(propositionalisedTrainingData);
         m_propositionalisedDataset = new Instances(propositionalisedTrainingData, 0);
     }
@@ -378,7 +381,7 @@ public class AdaProp extends SingleClassifierEnhancer
 // <editor-fold defaultstate="collapsed" desc="===Utility Classes===">
 
 /** For storing a pair (A,B) */
-class Pair<A, B>
+class Pair<A, B> implements Serializable
 {
     public final A key;
     public final B value;
@@ -415,7 +418,7 @@ class CompPair<A extends Comparable<A>,B extends Comparable<B>> extends Pair<A,B
 }
 
 /** Data structure for storing the tree-building param */
-final class TreeBuildingParams
+final class TreeBuildingParams implements Serializable
 {
     public final int maxDepth;
     public final int maxNodeCount;
@@ -423,14 +426,17 @@ final class TreeBuildingParams
     public final Instances trainingBags;
     public final int instCount;
     public final SplitStrategy splitStrategy;
+    public final PropositionalisationStrategy propStrategy;
     public final Classifier classifier;
 
     TreeBuildingParams(final int maxDepth, final int maxNodeCount, final int minOccupancy, final Instances trainingBags,
-                       final int instCount, final SplitStrategy splitStrategy, final Classifier classifier)
+                       final int instCount, final SplitStrategy splitStrategy,
+                       final PropositionalisationStrategy propStrategy, final Classifier classifier)
     {
         this.maxDepth = maxDepth;
         this.maxNodeCount = maxNodeCount;
         this.minOccupancy = minOccupancy;
+        this.propStrategy = propStrategy;
         this.classifier = classifier;
         this.trainingBags = trainingBags;
         this.instCount = instCount;
@@ -438,20 +444,6 @@ final class TreeBuildingParams
     }
 }
 
-/** A (mutable) data structure for keeping track of two counters and an instIndex. */
-class LeftRightCounter
-{
-    public int leftCount;
-    public int rightCount;
-    public int instIndex;
-
-    LeftRightCounter()
-    {
-        leftCount = 0;
-        rightCount = 0;
-        instIndex = 0;
-    }
-}
 
 // </editor-fold>
 
@@ -459,7 +451,7 @@ class LeftRightCounter
 /**
  * A strategy for generating candidate splits
  */
-interface SplitStrategy
+interface SplitStrategy extends Serializable
 {
     /**
      * Generate all candidate splits using the current split strategy
@@ -735,7 +727,7 @@ class DiscretizedSplitStrategy implements SplitStrategy
 
 // <editor-fold defaultstate="collapsed" desc="===Search Strategies===">
 
-abstract class SearchStrategy
+abstract class SearchStrategy implements Serializable
 {
     /**
      * Build up the entire tree using this search strategy.
@@ -753,10 +745,10 @@ abstract class SearchStrategy
      *
      * @return the default root.
      */
-    protected RootSplitNode buildRoot()
+    protected RootSplitNode buildRoot(final TreeBuildingParams params)
     {
         // root starts at depth=0, with 2 prop-attr (indices 1 and 2).
-        RootSplitNode root = RootSplitNode.toRootNode(new SplitNode(1, 2, 0));
+        RootSplitNode root = RootSplitNode.toRootNode(new SplitNode(1, 2, 0), params.propStrategy);
         root.setNodeCount(1);
         return root;
     }
@@ -785,7 +777,7 @@ class BreadthFirstSearchStrategy extends SearchStrategy
     {
         // build the root:
         int nextPropIndex = 3;
-        RootSplitNode root = buildRoot();
+        RootSplitNode root = buildRoot(params);
         final BitSet rootIgnoredInst = new BitSet(instCount);
 
         if (isExpandable(root, params, rootIgnoredInst)) {
@@ -795,6 +787,7 @@ class BreadthFirstSearchStrategy extends SearchStrategy
         }
 
         // structure the tree into an queue via breadth-first-search:
+        final int numAttrPerRegion = params.propStrategy.getNumPropAttrPerRegion();
         int numNodes = 1;
         Queue<Pair<SplitNode,BitSet>> queue = new LinkedList<Pair<SplitNode,BitSet>>();
         queue.add(new Pair<SplitNode, BitSet>(root, rootIgnoredInst));
@@ -808,28 +801,28 @@ class BreadthFirstSearchStrategy extends SearchStrategy
             final int nextDepth = node.curDepth + 1;
 
             // partition the data-set into left and right sets:
-            BitSet leftIgnoredInst = new BitSet(instCount);
-            BitSet rightIgnoredInst = new BitSet(instCount);
-            LeftRightCounter counter = new LeftRightCounter();
-            node.filterDataset(trainingBags, ignoredInst, leftIgnoredInst, rightIgnoredInst, counter);
+            RegionPartitioner counter = new RegionPartitioner(instCount);
+            node.filterDataset(trainingBags, ignoredInst, counter);
 
             // build the left and right nodes
-            node.left = new SplitNode(nextPropIndex, nextPropIndex+1, nextDepth);
-            if (isExpandable(node.left, params, leftIgnoredInst))
+            node.left = new SplitNode(nextPropIndex, nextPropIndex+numAttrPerRegion, nextDepth);
+            if (isExpandable(node.left, params, counter.leftIgnore))
             {
-                node.left.computeBestSplit(params, leftIgnoredInst, root);
-                nextPropIndex += 2;
                 numNodes++;
-                queue.add(new Pair<SplitNode, BitSet>(node.left, leftIgnoredInst));
+                root.setNodeCount(numNodes);
+                node.left.computeBestSplit(params, counter.leftIgnore, root);
+                nextPropIndex += 2*numAttrPerRegion;
+                queue.add(new Pair<SplitNode, BitSet>(node.left, counter.leftIgnore));
             }
 
-            node.right = new SplitNode(nextPropIndex, nextPropIndex+1, nextDepth);
-            if (isExpandable(node.right, params, rightIgnoredInst))
+            node.right = new SplitNode(nextPropIndex, nextPropIndex+numAttrPerRegion, nextDepth);
+            if (isExpandable(node.right, params, counter.rightIgnore))
             {
-                node.right.computeBestSplit(params, rightIgnoredInst, root);
-                nextPropIndex += 2;
                 numNodes++;
-                queue.add(new Pair<SplitNode, BitSet>(node.right, rightIgnoredInst));
+                root.setNodeCount(numNodes);
+                node.right.computeBestSplit(params, counter.rightIgnore, root);
+                nextPropIndex += 2*numAttrPerRegion;
+                queue.add(new Pair<SplitNode, BitSet>(node.right, counter.rightIgnore));
             }
         }
 
@@ -847,7 +840,7 @@ class BestFirstSearchStrategy extends SearchStrategy
     {
         // build the root:
         int nextPropIndex = 3;
-        RootSplitNode root = buildRoot();
+        RootSplitNode root = buildRoot(params);
         final BitSet rootIgnoredInst = new BitSet(instCount);
 
         if (instCount >= params.minOccupancy) {
@@ -858,18 +851,17 @@ class BestFirstSearchStrategy extends SearchStrategy
 
         // structure the search by keeping a list of expandable nodes
         //  (i.e. those which have at least one empty child.
+        final int numAttrPerRegion = params.propStrategy.getNumPropAttrPerRegion();
         int nodeCount = 1;
         LinkedList<Pair<SplitNode, BitSet>> expandableLeafNodes = new LinkedList<Pair<SplitNode, BitSet>>();
 
         // initialise the border with the two children of the root.
         root.left = new SplitNode(-1, -1, 1);
         root.right = new SplitNode(-1, -1, 1);
-        BitSet rootLeftIgnore = new BitSet(instCount);
-        BitSet rootRightIgnore = new BitSet(instCount);
-        LeftRightCounter rootCounter = new LeftRightCounter();
-        root.filterDataset(trainingBags, rootIgnoredInst, rootLeftIgnore, rootRightIgnore, rootCounter);
-        expandableLeafNodes.add(new Pair<SplitNode, BitSet>(root.left, rootLeftIgnore));
-        expandableLeafNodes.add(new Pair<SplitNode, BitSet>(root.right, rootRightIgnore));
+        RegionPartitioner rootCounter = new RegionPartitioner(instCount);
+        root.filterDataset(trainingBags, rootIgnoredInst, rootCounter);
+        expandableLeafNodes.add(new Pair<SplitNode, BitSet>(root.left, rootCounter.leftIgnore));
+        expandableLeafNodes.add(new Pair<SplitNode, BitSet>(root.right, rootCounter.rightIgnore));
 
         while(!expandableLeafNodes.isEmpty() && nodeCount <= params.maxNodeCount)
         {
@@ -878,6 +870,10 @@ class BestFirstSearchStrategy extends SearchStrategy
             int bestSplitAttrIndex = -1;
             double minErr = Double.MAX_VALUE;
 
+            // adjust counters:
+            nodeCount++;
+            root.setNodeCount(nodeCount);
+
             for (Pair<SplitNode, BitSet> nodeMapPair: expandableLeafNodes)
             {
                 final SplitNode node = nodeMapPair.key;
@@ -885,7 +881,7 @@ class BestFirstSearchStrategy extends SearchStrategy
 
                 // try expansion:
                 node.propLeftIndex = nextPropIndex;
-                node.propRightIndex = nextPropIndex + 1;
+                node.propRightIndex = nextPropIndex + numAttrPerRegion;
                 node.computeBestSplit(params, ignoredInst, root);
 
                 final double nodeErr = node.trainingSetError;
@@ -905,6 +901,8 @@ class BestFirstSearchStrategy extends SearchStrategy
             if (bestSplit == null)
             {
                 // no best-split found.
+                nodeCount--;
+                root.setNodeCount(nodeCount);
                 break;
             }
             else
@@ -915,24 +913,19 @@ class BestFirstSearchStrategy extends SearchStrategy
                 final BitSet bestIgnoredInst = bestSplit.value;
                 bestNode.splitAttrIndex = bestSplitAttrIndex;
                 bestNode.propLeftIndex = nextPropIndex;
-                bestNode.propRightIndex = nextPropIndex + 1;
-
-                // adjust counters:
-                nodeCount++;
-                nextPropIndex += 2;
+                bestNode.propRightIndex = nextPropIndex + numAttrPerRegion;
+                nextPropIndex += 2*numAttrPerRegion;
 
                 // create 2 child nodes:
                 final int nextDepth = bestNode.curDepth + 1;
                 bestNode.left = new SplitNode(-1, -1, nextDepth);
                 bestNode.right = new SplitNode(-1, -1, nextDepth);
-                BitSet leftIgnore = new BitSet(instCount);
-                BitSet rightIgnore = new BitSet(instCount);
-                LeftRightCounter counter = new LeftRightCounter();
-                bestNode.filterDataset(params.trainingBags, bestIgnoredInst, leftIgnore, rightIgnore, counter);
+                RegionPartitioner counter = new RegionPartitioner(instCount);
+                bestNode.filterDataset(params.trainingBags, bestIgnoredInst, counter);
 
                 // add the child nodes to the expandable node border:
-                expandableLeafNodes.add(new Pair<SplitNode, BitSet>(bestNode.left, leftIgnore));
-                expandableLeafNodes.add(new Pair<SplitNode, BitSet>(bestNode.right, rightIgnore));
+                expandableLeafNodes.add(new Pair<SplitNode, BitSet>(bestNode.left, counter.leftIgnore));
+                expandableLeafNodes.add(new Pair<SplitNode, BitSet>(bestNode.right, counter.rightIgnore));
             }
         }
 
@@ -952,6 +945,187 @@ class BestFirstSearchStrategy extends SearchStrategy
     }
 }
 
+// </editor-fold>
+
+// <editor-fold defaultstate="collapsed" desc="===Propositionalisation Strategies===">
+
+/**
+ * Represents a method for propositionalisation of a set of instances.
+ * This strategy is used to convert a set of instances
+ * (i.e. those which fall into a region)
+ * into a vector of attributes.
+ */
+interface PropositionalisationStrategy extends Serializable
+{
+    /**
+     * Propositionalise the bag and place the resultant vector in the
+     *  result array, starting at the specified index.
+     *
+     * @param bag The bag of instances to propositionalise
+     * @param result The resultant array to place the results into.
+     * @param resultStartIndex The starting location (inclusive) to place the result.
+     */
+    public void propositionalise(Instances bag, BitSet ignore, double[] result, int resultStartIndex);
+
+    /**
+     * @return the number of attributes per region in the propositionalised data-set
+     */
+    public int getNumPropAttrPerRegion();
+
+    /**
+     * @return the attributes of the propositionalised data-set
+     */
+    public ArrayList<Attribute> getPropAttributes(final int numRegions);
+}
+
+class CountBasedPropositionalisationStrategy implements PropositionalisationStrategy
+{
+    @Override /** @inheritDoc */
+    public void propositionalise(final Instances bag, final BitSet ignore, final double[] result,
+                                 final int resultStartIndex)
+    {
+        // just place the count into the result
+        result[resultStartIndex] = bag.size() - ignore.cardinality();
+    }
+
+    @Override /** @inheritDoc */
+    public int getNumPropAttrPerRegion()
+    {
+        return 1; // only 1 per region
+    }
+
+    @Override /** @inheritDoc */
+    public ArrayList<Attribute> getPropAttributes(final int numRegions)
+    {
+        ArrayList<Attribute> attrInfo = new ArrayList<Attribute>(numRegions+1);
+        for (int i=0; i<numRegions; i++)
+        {
+            attrInfo.add(new Attribute("region " + i)); // TODO better names for attr?
+        }
+        return attrInfo;
+    }
+}
+
+class SummaryStatsBasedPropositionalisationStrategy implements PropositionalisationStrategy
+{
+    private final int numAttr;
+
+    SummaryStatsBasedPropositionalisationStrategy(final int numAttr)
+    {
+        this.numAttr = numAttr;
+    }
+
+    @Override /** @inheritDoc */
+    public void propositionalise(final Instances bag, final BitSet ignore, final double[] result,
+                                 final int resultStartIndex)
+    {
+        // compute each of the necessary summary stats, for each attribute.
+        for (int attrIndex=0; attrIndex<numAttr; attrIndex++)
+        {
+            SummaryStatCalculator sumStat = new SummaryStatCalculator(attrIndex);
+            for (Instance inst : bag) {
+                sumStat.addInstance(inst);
+            }
+            sumStat.storeResults(result, resultStartIndex + SummaryStatCalculator.NUM_ATTR * attrIndex);
+        }
+    }
+
+    @Override /** @inheritDoc */
+    public int getNumPropAttrPerRegion()
+    {
+        return this.numAttr * SummaryStatCalculator.NUM_ATTR;
+    }
+
+    @Override /** @inheritDoc */
+    public ArrayList<Attribute> getPropAttributes(final int numRegions)
+    {
+        final int propNumAttr = SummaryStatCalculator.NUM_ATTR;
+        ArrayList<Attribute> attrInfo = new ArrayList<Attribute>(numRegions*propNumAttr + 1);
+
+        for (int region=0; region<numRegions; region++)
+        {
+            // for each summary stat
+            for (int attr=0; attr<propNumAttr; attr++)
+            {
+                final String attrName = SummaryStatCalculator.SUMMARY_STATS[attr] + " region " + region;
+                attrInfo.add(new Attribute(attrName)); // TODO better names for attr?
+            }
+        }
+        return attrInfo;
+    }
+
+    /**
+     * Computes the summary statistics for one attribute
+     */
+    static class SummaryStatCalculator
+    {
+        static final String[] SUMMARY_STATS = { "count", "sum", "min", "max", "avg"};
+        static final int NUM_ATTR = SUMMARY_STATS.length;
+
+        private double min;
+        private double max;
+        private double sum;
+        private double count;
+
+        private final int attrIndex;
+
+        public SummaryStatCalculator(final int attrIndex)
+        {
+            this.attrIndex = attrIndex;
+
+            // set to default values
+            this.min = Double.MAX_VALUE;
+            this.max = - Double.MAX_VALUE;
+            this.count = 0;
+            this.sum = 0;
+        }
+
+        public void addInstance(final Instance instance)
+        {
+            final double attrVal = instance.value(attrIndex);
+
+            // update summary stats
+            this.count++;
+            this.sum += attrVal;
+            if (attrVal < this.min) {
+                this.min = attrVal;
+            }
+            if (attrVal > this.max) {
+                this.min = attrVal;
+            }
+        }
+
+        public void storeResults(final double[] result, final int resultStartIndex)
+        {
+            // store the summary stats
+            result[resultStartIndex    ] = this.count;
+            result[resultStartIndex + 1] = this.sum;
+            result[resultStartIndex + 2] = this.min;
+            result[resultStartIndex + 3] = this.max;
+            final double avg = (this.count == 0) ? 0 : this.sum / this.count;
+            result[resultStartIndex + 4] = avg;
+        }
+    }
+}
+
+/** A (mutable) data structure for keeping track of two counters and an instIndex. */
+class RegionPartitioner implements Serializable
+{
+    public int leftCount;
+    public final BitSet leftIgnore;
+    public int rightCount;
+    public final BitSet rightIgnore;
+    public int instIndex;
+
+    RegionPartitioner(int numInst)
+    {
+        leftCount = 0;
+        leftIgnore = new BitSet(numInst);
+        rightCount = 0;
+        rightIgnore = new BitSet(numInst);
+        instIndex = 0;
+    }
+}
 // </editor-fold>
 
 /**
@@ -1034,8 +1208,6 @@ class SplitNode implements Serializable
      * @param params The tree building parameters.
      * @param ignoredInst The instances in the data-set to ignore (because they fall outside the current node).
      * @param root The root of this tree.
-     * @return Whether this node was expanded (false iff this node remains a leaf).
-     * @throws Exception
      */
     void computeBestSplit(final TreeBuildingParams params, final BitSet ignoredInst, final RootSplitNode root)
             throws Exception
@@ -1049,7 +1221,7 @@ class SplitNode implements Serializable
         {
             this.splitAttrIndex = curSplit.key;
             this.splitPoint = curSplit.value;
-            double err = evaluateCurSplit(params.trainingBags, params.classifier, root);
+            double err = evaluateCurSplit(params.trainingBags, params.classifier, root, params.propStrategy);
             if (err < minErr)
             {
                 minErr = err;
@@ -1066,15 +1238,18 @@ class SplitNode implements Serializable
     /**
      * Build up the tree of splits.
      *
+     *
      * @param trainingBags the MI bags for use as training data. Must be Non-empty.
      * @param splitStrategy The strategy to split each node.
      * @param maxDepth The maximum depth of the tree.
      * @param minOccupancy The minimum occupancy of each node.
+     * @param propStrategy
      * @return The root of the split-tree
      */
-    public static RootSplitNode buildTree(Instances trainingBags, final SplitStrategy splitStrategy,
-                                          final int maxDepth, final int minOccupancy, final Classifier classifier,
-                                          final SearchStrategy searchStrategy) throws Exception
+    public static RootSplitNode buildTree(Instances trainingBags, final SplitStrategy splitStrategy, final int maxDepth,
+                                          final int minOccupancy, final Classifier classifier,
+                                          final SearchStrategy searchStrategy,
+                                          final PropositionalisationStrategy propStrategy) throws Exception
     {
         // count the number of instances in all the bags:
         int instCount = 0;
@@ -1085,7 +1260,7 @@ class SplitNode implements Serializable
 
         final int maxNodeCount = 1 << maxDepth;
         TreeBuildingParams params = new TreeBuildingParams(maxDepth, maxNodeCount, minOccupancy, trainingBags,
-                instCount, splitStrategy, classifier);
+                instCount, splitStrategy, propStrategy, classifier);
 
         return searchStrategy.buildTree(params, instCount, trainingBags);
 
@@ -1099,19 +1274,19 @@ class SplitNode implements Serializable
      * @param root The root node of the tree to propositionalise with.
      * @return The propositionalised version of the dataset.
      */
-    public static Instances propositionaliseDataset(Instances bags, RootSplitNode root)
+    public static Instances propositionaliseDataset(Instances bags, RootSplitNode root,
+                                                    PropositionalisationStrategy propStrategy)
     {
         // build up instance header
-        final int numAttr = root.getNodeCount();
         final ArrayList<Attribute> attrInfo = new ArrayList<Attribute>(root.getAttrInfo()); // shallow copy
         attrInfo.add((Attribute) bags.classAttribute().copy()); // class
 
         Instances propositionalisedDataset = new Instances(bags.relationName() +"-prop", attrInfo, bags.numInstances());
-        propositionalisedDataset.setClassIndex(numAttr);
+        propositionalisedDataset.setClassIndex(attrInfo.size() - 1);
 
         // propositionalise each bag and add it to the set
         for (Instance bag : bags) {
-            propositionalisedDataset.add(propositionaliseBag(bag, root, propositionalisedDataset));
+            propositionalisedDataset.add(propositionaliseBag(bag, root, propositionalisedDataset, propStrategy));
         }
 
         return propositionalisedDataset;
@@ -1126,16 +1301,21 @@ class SplitNode implements Serializable
      * @return The propositionalised instance.
      */
     public static Instance propositionaliseBag(final Instance bag, final RootSplitNode root,
-                                               final Instances propDatasetHeader)
+                                               final Instances propDatasetHeader,
+                                               final PropositionalisationStrategy propStrategy)
     {
-        int numInst = bag.relationalValue(AdaProp.REL_INDEX).size();
-        final double[] attrValues = new double[root.getNodeCount()+1];
-        attrValues[0] = numInst; // set root count
-        attrValues[root.getNodeCount()] = bag.classValue(); // set class val
+        final Instances bagInst = bag.relationalValue(AdaProp.REL_INDEX);
+        final int numInst = bagInst.size();
+        final BitSet ignore = new BitSet(numInst);
+        final int numPropAttr = root.getNumPropAttr();
+
+        final double[] attrValues = new double[numPropAttr+1];
+        propStrategy.propositionalise(bagInst, ignore, attrValues, 0); // set overall attributes
+        attrValues[numPropAttr] = bag.classValue(); // set class val
 
         // recursively fill in all the attribute values
         if (root.splitAttrIndex >= 0) {
-            root.propositionaliseBag(bag, attrValues, new BitSet(numInst));
+            root.propositionaliseBag(bagInst, attrValues, ignore, propStrategy);
         }
 
         Instance prop = new DenseInstance(1.0, attrValues);
@@ -1151,24 +1331,22 @@ class SplitNode implements Serializable
      * @param attrVals The array in which to place the results.
      * @param ignore The bitset of instances (index as per this bag!) to ignore.
      */
-    void propositionaliseBag(Instance bag, double[] attrVals, BitSet ignore)
+    void propositionaliseBag(Instances bag, double[] attrVals, BitSet ignore,
+                             PropositionalisationStrategy propStrategy)
     {
-        final int numInstances = bag.relationalValue(AdaProp.REL_INDEX).size();
+        final int numInstances = bag.size();
+        final RegionPartitioner counter = new RegionPartitioner(numInstances);
 
-        BitSet leftIgnore = new BitSet(numInstances);
-        BitSet rightIgnore = new BitSet(numInstances);
-
-        LeftRightCounter counter = new LeftRightCounter();
-        filterBag(bag, ignore, leftIgnore, rightIgnore, counter);
-        attrVals[propLeftIndex] = counter.leftCount;
-        attrVals[propRightIndex] = counter.rightCount;
+        filterBag(bag, ignore, counter);
+        propStrategy.propositionalise(bag, counter.leftIgnore, attrVals, propLeftIndex);
+        propStrategy.propositionalise(bag, counter.rightIgnore, attrVals, propRightIndex);
 
         // recursively fill in the remaining values:
         if (left != null && left.splitAttrIndex >= 0) {
-            left.propositionaliseBag(bag, attrVals, leftIgnore);
+            left.propositionaliseBag(bag, attrVals, counter.leftIgnore, propStrategy);
         }
         if (right != null && right.splitAttrIndex >= 0) {
-            right.propositionaliseBag(bag, attrVals,  rightIgnore);
+            right.propositionaliseBag(bag, attrVals,  counter.rightIgnore, propStrategy);
         }
     }
 
@@ -1177,30 +1355,26 @@ class SplitNode implements Serializable
      *
      * @param bags The dataset to filter.
      * @param ignore The bitset of which instances to ignore entirely (i.e. those which lie outside this node).
-     * @param leftIgnore The resultant bitset of the left subtree.
-     * @param rightIgnore The resultant bitset of the right subtree.
      * @param counter To keep track of the left and right instance counts.
      */
-    void filterDataset(Instances bags, BitSet ignore, BitSet leftIgnore, BitSet rightIgnore, LeftRightCounter counter)
+    void filterDataset(Instances bags, BitSet ignore,  RegionPartitioner counter)
     {
         for (Instance bag : bags) {
-            filterBag(bag, ignore, leftIgnore, rightIgnore, counter);
+            filterBag(bag.relationalValue(AdaProp.REL_INDEX), ignore, counter);
         }
     }
 
     /**
      * Filter the bag across the split of this node.
      *
-     * @param bag The bag to filter.
+     * @param bag The bag of instances to filter.
      * @param ignore The bitset of which instances to ignore entirely (i.e. those which lie outside this node).
-     * @param leftIgnore The resultant bitset of the left subtree.
-     * @param rightIgnore The resultant bitset of the right subtree.
      * @param counter To keep track of the left and right instance counts.
      */
-    void filterBag(Instance bag, BitSet ignore, BitSet leftIgnore, BitSet rightIgnore, LeftRightCounter counter)
+    void filterBag(Instances bag, BitSet ignore, RegionPartitioner counter)
     {
-        for (Instance inst : bag.relationalValue(AdaProp.REL_INDEX)) {
-            filterInst(inst, ignore, leftIgnore, rightIgnore, counter);
+        for (Instance inst : bag) {
+            filterInst(inst, ignore, counter);
         }
     }
 
@@ -1209,16 +1383,14 @@ class SplitNode implements Serializable
      *
      * @param inst The instance to filter.
      * @param ignore The bitset of which instances to ignore entirely (i.e. those which lie outside this node).
-     * @param leftIgnore The resultant bitset of the left subtree.
-     * @param rightIgnore The resultant bitset of the right subtree.
-     * @param counter To keep track of the left and right instance counts.
+     * @param regionPartitioner To partition the region
      */
-    private void filterInst(Instance inst, BitSet ignore, BitSet leftIgnore, BitSet rightIgnore, LeftRightCounter counter)
+    private void filterInst(final Instance inst, final BitSet ignore, final RegionPartitioner regionPartitioner)
     {
-        if (ignore.get(counter.instIndex))
+        if (ignore.get(regionPartitioner.instIndex))
         {
-            leftIgnore.set(counter.instIndex);
-            rightIgnore.set(counter.instIndex);
+            regionPartitioner.leftIgnore.set(regionPartitioner.instIndex);
+            regionPartitioner.rightIgnore.set(regionPartitioner.instIndex);
         }
         else
         {
@@ -1226,17 +1398,17 @@ class SplitNode implements Serializable
             if (inst.value(splitAttrIndex) <= splitPoint)
             {
                 // ignored in the right branch ==> this instance falls in the left-branch.
-                rightIgnore.set(counter.instIndex);
-                counter.leftCount++;
+                regionPartitioner.rightIgnore.set(regionPartitioner.instIndex);
+                regionPartitioner.leftCount++;
             }
             else
             {
-                leftIgnore.set(counter.instIndex);
-                counter.rightCount++;
+                regionPartitioner.leftIgnore.set(regionPartitioner.instIndex);
+                regionPartitioner.rightCount++;
             }
 
         }
-        counter.instIndex++;
+        regionPartitioner.instIndex++;
     }
     //</editor-fold>
 
@@ -1247,9 +1419,10 @@ class SplitNode implements Serializable
      * NOTE: currently very inefficient - performs the propositionalisation from scratch each time!
      * TODO A far better way is to keep parent's propositionalised dataset and call propBag from the current node.
      */
-    public static double evaluateCurSplit(Instances bags, Classifier classifier, RootSplitNode root) throws Exception
+    public static double evaluateCurSplit(Instances bags, Classifier classifier, RootSplitNode root,
+                                          final PropositionalisationStrategy propStrategy) throws Exception
     {
-        Instances propDataset = SplitNode.propositionaliseDataset(bags, root);
+        Instances propDataset = SplitNode.propositionaliseDataset(bags, root, propStrategy);
         classifier.buildClassifier(propDataset);
         Evaluation evaluation = new Evaluation(propDataset);
         evaluation.evaluateModel(classifier, propDataset);
@@ -1276,33 +1449,44 @@ class RootSplitNode extends SplitNode
     /** A list attributes in the propositionalised dataset. */
     private ArrayList<Attribute> attrInfo;
 
+    /** The propositionalisation strategy */
+    private final PropositionalisationStrategy propStrategy;
+
     /** Get the list of attributes */
     ArrayList<Attribute> getAttrInfo() { return this.attrInfo; }
 
     /** Update the list of attributes, with the new nodeCount */
     private void UpdateAttrInfo()
     {
-        attrInfo = new ArrayList<Attribute>();
-        for (int i=0; i<nodeCount; i++)
-        {
-            attrInfo.add(new Attribute("region " + i)); // TODO better names for attr?
-        }
+        attrInfo = propStrategy.getPropAttributes(getNumRegions());
     }
 
-    RootSplitNode(final int propLeftIndex, final int propRightIndex,
-                  final int splitAttrIndex, final double splitPoint, final SplitNode left,
-                  final SplitNode right, final int curDepth)
+    RootSplitNode(final int propLeftIndex, final int propRightIndex, final int splitAttrIndex, final double splitPoint,
+                  final SplitNode left, final SplitNode right, final int curDepth,
+                  final PropositionalisationStrategy propStrategy)
     {
         super(propLeftIndex, propRightIndex, splitAttrIndex, splitPoint, left, right, curDepth);
+        this.propStrategy = propStrategy;
         attrInfo = new ArrayList<Attribute>();
     }
 
     /**
      * Convert a node to a RootSplitNode
      */
-    public static RootSplitNode toRootNode(SplitNode node)
+    public static RootSplitNode toRootNode(SplitNode node, PropositionalisationStrategy propStrategy)
     {
         return new RootSplitNode(node.propLeftIndex, node.propRightIndex,
-                node.splitAttrIndex, node.splitPoint, node.left, node.right, node.curDepth);
+                node.splitAttrIndex, node.splitPoint, node.left, node.right, node.curDepth, propStrategy);
+    }
+
+    private int getNumRegions()
+    {
+        // 2 regions per node, plus an extra one for the entire bag
+        return 2*nodeCount+1;
+    }
+
+    public int getNumPropAttr()
+    {
+        return getNumRegions() * propStrategy.getNumPropAttrPerRegion();
     }
 }

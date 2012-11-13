@@ -29,7 +29,7 @@ public class AdaPropSplitNodeTest extends AdaPropTestBase
     private static void assertNodeIsNotExpanded(final int maxDepth, final int minOcc, final int instCount)
     {
         TreeBuildingParams params = new TreeBuildingParams(maxDepth, (1 << maxDepth), minOcc,
-                null, instCount, null, null);
+                null, instCount, null, new CountBasedPropositionalisationStrategy(), null);
         SplitNode node = new SplitNode(1, 2, 0);
         BreadthFirstSearchStrategy bfs = new BreadthFirstSearchStrategy();
         assertFalse(bfs.isExpandable(node, params, new BitSet(instCount)));

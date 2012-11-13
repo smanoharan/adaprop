@@ -99,8 +99,9 @@ public class AdaPropPropositionalisationTest extends AdaPropTestBase
         SplitNode splitNode4 = new SplitNode(7, 8, 0, -9, null, null, 3);
         SplitNode splitNode2 = new SplitNode(5, 6, 2, 50, null, null, 3);
         SplitNode splitNode1 = new SplitNode(3, 4, 1, 15, null, splitNode4, 5);
-        RootSplitNode root = RootSplitNode.toRootNode(new SplitNode(1, 2, 3, 31, splitNode1, splitNode2, 9));
-        root.setNodeCount(9);
+        RootSplitNode root = RootSplitNode.toRootNode(new SplitNode(1, 2, 3, 31, splitNode1, splitNode2, 9),
+                new CountBasedPropositionalisationStrategy());
+        root.setNodeCount(4);
 
         String[] exp = new String[] { // the following values were hand-computed:
                 "4, 4,0, 3,1, 0,0, 0,1,  0",
@@ -108,7 +109,7 @@ public class AdaPropPropositionalisationTest extends AdaPropTestBase
                 "4, 0,4, 0,0, 2,2, 0,0,  1"};
 
         final Instances expInstances = convertToDataset(10, exp);
-        final Instances actInstances = SplitNode.propositionaliseDataset(miData, root);
+        final Instances actInstances = SplitNode.propositionaliseDataset(miData, root, new CountBasedPropositionalisationStrategy());
         assertDatasetEquals(expInstances, actInstances);
     }
 
@@ -130,7 +131,7 @@ public class AdaPropPropositionalisationTest extends AdaPropTestBase
             {
                 double splitPt = instToLeft*NUM_ATTR + attrIndex - 0.5;
                 Instances expected = expectedPropositionalisedBagFor(instToLeft);
-                Instances actual = actualPropositionalisedBagFor(attrIndex, splitPt);
+                Instances actual = actualPropositionalisedBagFor(attrIndex, splitPt, new CountBasedPropositionalisationStrategy());
 
                 assertDatasetEquals(expected, actual);
             }
@@ -186,12 +187,14 @@ public class AdaPropPropositionalisationTest extends AdaPropTestBase
     /**
      * Compute the actual propositionalised bag when the tree has just one node (the root).
      *
+     *
      * @param attrIndex The attribute to split on (for the root node).
      * @param split The value to split along the specified attribute.
+     * @param propStrategy
      * @return The propositionalised set of instances.
      */
-    private static Instances actualPropositionalisedBagFor(
-            final int attrIndex, final double split) throws Exception
+    private static Instances actualPropositionalisedBagFor(final int attrIndex, final double split,
+                                                           final PropositionalisationStrategy propStrategy) throws Exception
     {
         final Instances result = new Instances(propHeader, NUM_BAGS);
         final RootSplitNode root = createRootSplit(attrIndex, split);
@@ -202,7 +205,7 @@ public class AdaPropPropositionalisationTest extends AdaPropTestBase
             final Instance bag = miData.get(bagIndex);
 
             // find actual value:
-            result.add(SplitNode.propositionaliseBag(bag, root, result));
+            result.add(SplitNode.propositionaliseBag(bag, root, result, propStrategy));
         }
 
         return result;
@@ -273,13 +276,14 @@ public class AdaPropPropositionalisationTest extends AdaPropTestBase
     {
         // build the single-node split tree:
         final RootSplitNode root = RootSplitNode.toRootNode(
-                new SplitNode(1, 2, splitAttrIndex, splitPoint, null, null, 3));
-        root.setNodeCount(3);
+                new SplitNode(1, 2, splitAttrIndex, splitPoint, null, null, 3),
+                new CountBasedPropositionalisationStrategy());
+        root.setNodeCount(1);
 
         // when propositionalised using one split, there are always 4 attributes:
         //      count(all) ; count(left-of-split) ; count(right-of-split) ; class-index
         final int numAttrInclClass = 4;
-        final Instances actual = SplitNode.propositionaliseDataset(miData, root);
+        final Instances actual = SplitNode.propositionaliseDataset(miData, root, new CountBasedPropositionalisationStrategy());
         final Instances expected = convertToDataset(numAttrInclClass, exp);
         assertDatasetEquals(expected, actual);
     }
