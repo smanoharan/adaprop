@@ -1023,8 +1023,13 @@ class SummaryStatsBasedPropositionalisationStrategy implements Propositionalisat
         for (int attrIndex=0; attrIndex<numAttr; attrIndex++)
         {
             SummaryStatCalculator sumStat = new SummaryStatCalculator(attrIndex);
-            for (Instance inst : bag) {
-                sumStat.addInstance(inst);
+            int instIndex = 0;
+            for (Instance inst : bag)
+            {
+                if (!ignore.get(instIndex++))
+                {
+                    sumStat.addInstance(inst);
+                }
             }
             sumStat.storeResults(result, resultStartIndex + SummaryStatCalculator.NUM_ATTR * attrIndex);
         }
@@ -1040,15 +1045,21 @@ class SummaryStatsBasedPropositionalisationStrategy implements Propositionalisat
     public ArrayList<Attribute> getPropAttributes(final int numRegions)
     {
         final int propNumAttr = SummaryStatCalculator.NUM_ATTR;
-        ArrayList<Attribute> attrInfo = new ArrayList<Attribute>(numRegions*propNumAttr + 1);
+        ArrayList<Attribute> attrInfo = new ArrayList<Attribute>(numAttr*numRegions*propNumAttr + 1);
 
+        // for each region
         for (int region=0; region<numRegions; region++)
         {
-            // for each summary stat
-            for (int attr=0; attr<propNumAttr; attr++)
+            // for each attribute
+            for (int attr=0; attr<numAttr; attr++)
             {
-                final String attrName = SummaryStatCalculator.SUMMARY_STATS[attr] + " region " + region;
-                attrInfo.add(new Attribute(attrName)); // TODO better names for attr?
+                // for each summary stat
+                for (int sumStat=0; sumStat<propNumAttr; sumStat++)
+                {
+                    final String attrName = SummaryStatCalculator.SUMMARY_STATS[sumStat] +
+                            "-of-attr-" + attr + " region " + region;
+                    attrInfo.add(new Attribute(attrName)); // TODO better names for attr?
+                }
             }
         }
         return attrInfo;
@@ -1091,7 +1102,7 @@ class SummaryStatsBasedPropositionalisationStrategy implements Propositionalisat
                 this.min = attrVal;
             }
             if (attrVal > this.max) {
-                this.min = attrVal;
+                this.max = attrVal;
             }
         }
 
@@ -1100,9 +1111,9 @@ class SummaryStatsBasedPropositionalisationStrategy implements Propositionalisat
             // store the summary stats
             result[resultStartIndex    ] = this.count;
             result[resultStartIndex + 1] = this.sum;
-            result[resultStartIndex + 2] = this.min;
-            result[resultStartIndex + 3] = this.max;
-            final double avg = (this.count == 0) ? 0 : this.sum / this.count;
+            result[resultStartIndex + 2] = (this.count == 0) ? 0.0 : this.min;
+            result[resultStartIndex + 3] = (this.count == 0) ? 0.0 : this.max;
+            final double avg = (this.count == 0) ? 0.0 : this.sum / this.count;
             result[resultStartIndex + 4] = avg;
         }
     }

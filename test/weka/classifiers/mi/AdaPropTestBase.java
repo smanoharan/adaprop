@@ -194,7 +194,7 @@ public class AdaPropTestBase
         // for each attribute
         for (int attrIndex = 0; attrIndex < numAttr; attrIndex++)
         {
-            String msgAttr = ", attribute: " + attrIndex;
+            String msgAttr = "\n attribute: " + attrIndex;
             assertEquals(msg + msgAttr, exp.value(attrIndex), act.value(attrIndex), TOLERANCE);
         }
     }
@@ -218,7 +218,9 @@ public class AdaPropTestBase
         {
             final Instance expInst = exp.get(instIndex);
             final Instance actInst = act.get(instIndex);
-            final String msg = "Instance: [" + instIndex + "] -- " + expInst.toString() + " -- " + actInst.toString();
+            final String msg =
+                    "Instance: [" + instIndex + "]:\n\tExp: " + expInst.toString()
+                    + "\n\tAct: " + actInst.toString();
 
             assertInstanceEquals(msg, expInst, actInst);
         }
