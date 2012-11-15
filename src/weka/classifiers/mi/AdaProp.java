@@ -29,10 +29,10 @@ public class AdaProp extends SingleClassifierEnhancer
     protected RootSplitNode splitTreeRoot;
 
     /** Contains the bags as propositionalised instances */
-    protected Instances m_propositionalisedDataset;
+    protected Instances propositionalisedDataset;
 
-    /** The propositionalisation strategy to use */
-    protected PropositionalisationStrategy propStrategy = new CountBasedPropositionalisationStrategy();
+    /** The current propositionalisation strategy (as an object) */
+    protected PropositionalisationStrategy propStrategy;
 
     /** The instIndex of the relational attribute in the bag instance */
     public static final int REL_INDEX = 1;
@@ -42,11 +42,17 @@ public class AdaProp extends SingleClassifierEnhancer
     private static final int SPLIT_MEDIAN = 2;
     private static final int SPLIT_DISCRETIZED = 3;
     private static final int SPLIT_RANGE = 4;
+    private static final int DEFAULT_SPLIT_STRATEGY = SPLIT_MEAN;
+
     private static final int SEARCH_BREADTH_FIRST = 1;
     private static final int SEARCH_BEST_FIRST = 2;
-    private static final int DEFAULT_SPLIT_STRATEGY = SPLIT_MEAN;
     private static final int DEFAULT_SEARCH_STRATEGY = SEARCH_BREADTH_FIRST;
-    private static final int DEFAULT_MAX_DEPTH = 3;
+
+    private static final int PROP_COUNT = 1;
+    private static final int PROP_SUMMARY = 2;
+    private static final int DEFAULT_PROP_STRATEGY = PROP_COUNT;
+
+    private static final int DEFAULT_MAX_TREE_SIZE = 8;
     private static final int DEFAULT_MIN_OCCUPANCY = 5;
 
     public static final Tag [] SPLIT_STRATEGIES =
@@ -63,17 +69,26 @@ public class AdaProp extends SingleClassifierEnhancer
         new Tag(SEARCH_BEST_FIRST, "Build the tree using best first search")
     };
 
+    public static final Tag [] PROP_STRATEGIES =
+    {
+        new Tag(PROP_COUNT, "Using counts of each region only"),
+        new Tag(PROP_SUMMARY, "Using summary statistics of each region")
+    };
+
     /** The id of the instance-space splitting strategy to use */
     protected int m_SplitStrategy = DEFAULT_SPLIT_STRATEGY;
 
+    /** The id of the tree building search strategy to use */
+    protected int m_SearchStrategy = DEFAULT_SEARCH_STRATEGY;
+
+    /** The id of the propositionalisation strategy to use */
+    protected int m_PropositionalisationStrategy = DEFAULT_PROP_STRATEGY;
+
     /** The effective maximum depth of the tree of splits (0 for unlimited) */
-    protected int m_MaxDepth = DEFAULT_MAX_DEPTH;
+    protected int m_MaxTreeSize = DEFAULT_MAX_TREE_SIZE;
 
     /** The minimum occupancy of each leaf node in the tree */
     protected int m_MinOccupancy = DEFAULT_MIN_OCCUPANCY;
-
-    /** The id of the tree building search strategy to use */
-    protected int m_SearchStrategy = DEFAULT_SEARCH_STRATEGY;
 
     /**
      * Gets the current instance-space splitting strategy
@@ -122,21 +137,44 @@ public class AdaProp extends SingleClassifierEnhancer
     }
 
     /**
-     * Gets the max tree depth
-     * @return the max depth
+     * Gets the propositionalisation strategy
+     * @return the current propositionalisation strategy
      */
-    public int getMaxDepth()
+    public SelectedTag getPropositionalisationStrategy()
     {
-        return m_MaxDepth;
+        return new SelectedTag(this.m_PropositionalisationStrategy, PROP_STRATEGIES);
     }
 
     /**
-     * Sets the max tree depth
-     * @param maxDepth The maximum tree depth
+     * Sets the propositionalisation strategy
+     * @param newStrategy the new propositionalisation strategy
      */
-    public void setMaxDepth(int maxDepth)
+    public void setPropositionalisationStrategy(final SelectedTag newStrategy)
     {
-        m_MaxDepth = maxDepth;
+        if (newStrategy.getTags() == PROP_STRATEGIES)
+        {
+            this.m_PropositionalisationStrategy = newStrategy.getSelectedTag().getID();
+        }
+        else throw new RuntimeException(
+                "Unknown tag (not a propositionalisation strategy tag): " + newStrategy);
+    }
+
+    /**
+     * Gets the max tree size
+     * @return the max tree size
+     */
+    public int getMaxTreeSize()
+    {
+        return m_MaxTreeSize;
+    }
+
+    /**
+     * Sets the max tree size
+     * @param maxTreeSize The maximum tree size
+     */
+    public void setMaxTreeSize(int maxTreeSize)
+    {
+        m_MaxTreeSize = maxTreeSize;
     }
 
     /**
@@ -210,14 +248,19 @@ public class AdaProp extends SingleClassifierEnhancer
                 "\tSearch strategy: 1=breadth-first (default), 2=best-first",
                 "search", 1, "-search <num>"));
 
-        // max depth
+        // prop strategy choice
         result.addElement(new Option(
-                "\tMaximum depth of the tree. 0 for unlimited (default).",
-                "maxDepth", 1, "-maxDepth <num>"));
+                "\tPropositionalisation strategy: 1=count-only (default), 2=all-summary-stats",
+                "prop", 1, "-prop <num>"));
+
+        // max tree size
+        result.addElement(new Option(
+                "\tMaximum size (number of nodes) of the tree. Default=8.",
+                "maxTreeSize", 1, "-maxTreeSize <num>"));
 
         // min occupancy
         result.addElement(new Option(
-                "\tMinimum occupancy of each node of the tree. Default=2",
+                "\tMinimum occupancy of each node of the tree. Default=5.",
                 "minOcc", 1, "-minOcc <num>"));
 
         Enumeration enu = super.listOptions();
@@ -254,11 +297,17 @@ public class AdaProp extends SingleClassifierEnhancer
                 Integer.parseInt(searchStrategyStr);
         this.setSearchStrategy(new SelectedTag(searchID, SEARCH_STRATEGIES));
 
-        String maxDepthStr = Utils.getOption("maxDepth", options);
-        this.setMaxDepth(maxDepthStr.isEmpty() ? DEFAULT_MAX_DEPTH : Integer.parseInt(maxDepthStr));
+        String propStrategyStr = Utils.getOption("prop", options);
+        final int propID = propStrategyStr.isEmpty() ?
+                DEFAULT_PROP_STRATEGY :
+                Integer.parseInt(propStrategyStr);
+        this.setPropositionalisationStrategy(new SelectedTag(propID, PROP_STRATEGIES));
+
+        String maxDepthStr = Utils.getOption("maxTreeSize", options);
+        this.setMaxTreeSize(maxDepthStr.isEmpty() ? DEFAULT_MAX_TREE_SIZE : Integer.parseInt(maxDepthStr));
 
         String minOccStr = Utils.getOption("minOcc", options);
-        this.setMinOccupancy(minOccStr.isEmpty() ? DEFAULT_MAX_DEPTH :Integer.parseInt(minOccStr));
+        this.setMinOccupancy(minOccStr.isEmpty() ? DEFAULT_MIN_OCCUPANCY :Integer.parseInt(minOccStr));
 
         super.setOptions(options);
     }
@@ -273,8 +322,10 @@ public class AdaProp extends SingleClassifierEnhancer
         result.add("" + m_SplitStrategy);
         result.add("-search");
         result.add("" + m_SearchStrategy);
-        result.add("-maxDepth");
-        result.add("" + m_MaxDepth);
+        result.add("-prop");
+        result.add("" + m_PropositionalisationStrategy);
+        result.add("-maxTreeSize");
+        result.add("" + m_MaxTreeSize);
         result.add("-minOcc");
         result.add("" + m_MinOccupancy);
 
@@ -300,7 +351,7 @@ public class AdaProp extends SingleClassifierEnhancer
     @Override
     public String toString()
     {
-        return "Tree of splits: \n\n" +
+        return "Tree of splits: \n---------------\n\n" +
                 (splitTreeRoot == null ? "not-yet-created." : splitTreeRoot.toString()) + "\n\n" +
                 (m_Classifier == null ? "no classifier model." : m_Classifier.toString());
     }
@@ -310,7 +361,7 @@ public class AdaProp extends SingleClassifierEnhancer
     {
         // propositionalise the bag
         Instance propositionalisedTrainingData =
-                SplitNode.propositionaliseBag(newBag, splitTreeRoot, m_propositionalisedDataset, propStrategy);
+                SplitNode.propositionaliseBag(newBag, splitTreeRoot, propositionalisedDataset, propStrategy);
 
         // use the base classifier for prediction.
         return m_Classifier.distributionForInstance(propositionalisedTrainingData);
@@ -367,14 +418,28 @@ public class AdaProp extends SingleClassifierEnhancer
                 throw new IllegalArgumentException("Unknown search strategy code: " + m_SearchStrategy);
         }
 
+        // find the propositionalisation strategy:
+        switch (m_PropositionalisationStrategy)
+        {
+            case PROP_COUNT:
+                this.propStrategy = new CountBasedPropositionalisationStrategy();
+                break;
+            case PROP_SUMMARY:
+                this.propStrategy = new SummaryStatsBasedPropositionalisationStrategy(numAttr);
+                break;
+            default:
+                throw new IllegalArgumentException("Unknown propositionalisation strategy code: " +
+                        m_SearchStrategy);
+        }
+
         // create the tree of splits:
-        splitTreeRoot = SplitNode.buildTree(trainingBags, splitStrategy, m_MaxDepth,
+        splitTreeRoot = SplitNode.buildTree(trainingBags, splitStrategy, m_MaxTreeSize,
                 m_MinOccupancy, m_Classifier, searchStrategy, propStrategy);
 
         // retrain m_classifier with the best attribute:
         Instances propositionalisedTrainingData = SplitNode.propositionaliseDataset(trainingBags, splitTreeRoot, propStrategy);
         m_Classifier.buildClassifier(propositionalisedTrainingData);
-        m_propositionalisedDataset = new Instances(propositionalisedTrainingData, 0);
+        propositionalisedDataset = new Instances(propositionalisedTrainingData, 0);
     }
 }
 
@@ -420,7 +485,6 @@ class CompPair<A extends Comparable<A>,B extends Comparable<B>> extends Pair<A,B
 /** Data structure for storing the tree-building param */
 final class TreeBuildingParams implements Serializable
 {
-    public final int maxDepth;
     public final int maxNodeCount;
     public final int minOccupancy;
     public final Instances trainingBags;
@@ -429,11 +493,10 @@ final class TreeBuildingParams implements Serializable
     public final PropositionalisationStrategy propStrategy;
     public final Classifier classifier;
 
-    TreeBuildingParams(final int maxDepth, final int maxNodeCount, final int minOccupancy, final Instances trainingBags,
+    TreeBuildingParams(final int maxNodeCount, final int minOccupancy, final Instances trainingBags,
                        final int instCount, final SplitStrategy splitStrategy,
                        final PropositionalisationStrategy propStrategy, final Classifier classifier)
     {
-        this.maxDepth = maxDepth;
         this.maxNodeCount = maxNodeCount;
         this.minOccupancy = minOccupancy;
         this.propStrategy = propStrategy;
@@ -768,7 +831,7 @@ class BreadthFirstSearchStrategy extends SearchStrategy
     protected boolean isExpandable(final SplitNode node, final TreeBuildingParams params, final BitSet ignoredInst)
     {
         final int numInstInNode = params.instCount - ignoredInst.cardinality();
-        return numInstInNode >= params.minOccupancy && node.curDepth < params.maxDepth;
+        return numInstInNode >= params.minOccupancy;
     }
 
     @Override /** @inheritDoc */
@@ -792,7 +855,7 @@ class BreadthFirstSearchStrategy extends SearchStrategy
         Queue<Pair<SplitNode,BitSet>> queue = new LinkedList<Pair<SplitNode,BitSet>>();
         queue.add(new Pair<SplitNode, BitSet>(root, rootIgnoredInst));
 
-        while(!queue.isEmpty())
+        while(!queue.isEmpty() && numNodes < params.maxNodeCount-1)
         {
             // take the first node, check if it's children can be expanded further:
             final Pair<SplitNode,BitSet> nodeMapPair = queue.remove();
@@ -863,7 +926,7 @@ class BestFirstSearchStrategy extends SearchStrategy
         expandableLeafNodes.add(new Pair<SplitNode, BitSet>(root.left, rootCounter.leftIgnore));
         expandableLeafNodes.add(new Pair<SplitNode, BitSet>(root.right, rootCounter.rightIgnore));
 
-        while(!expandableLeafNodes.isEmpty() && nodeCount <= params.maxNodeCount)
+        while(!expandableLeafNodes.isEmpty() && nodeCount < params.maxNodeCount)
         {
             // iterate over all split nodes and find the one with the least error
             Pair<SplitNode, BitSet> bestSplit = null;
@@ -1200,10 +1263,30 @@ class SplitNode implements Serializable
     @Override
     public String toString()
     {
-        return "\tSplit on attr" + splitAttrIndex + " at " + splitPoint +
-                ". left=" + propLeftIndex + ", right=" + propRightIndex + ".\n" +
-                (left == null ? "" : left.toString()) + (right == null ? "" : right.toString());
+        final StringBuilder result = new StringBuilder("region 0\n");
+        final String prefix = "|   ";
+        this.toStringRecursive(result, prefix);
+        return result.toString();
+    }
 
+    private void toStringRecursive(StringBuilder result, String prefix)
+    {
+        final String newPrefix = prefix + "|   ";
+        final String splitPtStr = String.format("%.3f", splitPoint);
+
+        if (this.left != null && this.left.splitAttrIndex >= 0)
+        {
+            result.append(prefix).append("attr-").append(splitAttrIndex).append(" <= ")
+                    .append(splitPtStr).append(": region ").append(propLeftIndex).append("\n");
+            this.left.toStringRecursive(result, newPrefix);
+        }
+
+        if (this.right != null && this.right.splitAttrIndex >= 0)
+        {
+            result.append(prefix).append("attr-").append(splitAttrIndex).append(" >  ")
+                    .append(splitPtStr).append(": region ").append(propRightIndex).append("\n");
+            this.right.toStringRecursive(result, newPrefix);
+        }
     }
     //</editor-fold>
 
@@ -1252,12 +1335,12 @@ class SplitNode implements Serializable
      *
      * @param trainingBags the MI bags for use as training data. Must be Non-empty.
      * @param splitStrategy The strategy to split each node.
-     * @param maxDepth The maximum depth of the tree.
+     * @param maxTreeSize The maximum size of the tree.
      * @param minOccupancy The minimum occupancy of each node.
      * @param propStrategy
      * @return The root of the split-tree
      */
-    public static RootSplitNode buildTree(Instances trainingBags, final SplitStrategy splitStrategy, final int maxDepth,
+    public static RootSplitNode buildTree(Instances trainingBags, final SplitStrategy splitStrategy, final int maxTreeSize,
                                           final int minOccupancy, final Classifier classifier,
                                           final SearchStrategy searchStrategy,
                                           final PropositionalisationStrategy propStrategy) throws Exception
@@ -1269,8 +1352,7 @@ class SplitNode implements Serializable
             instCount += bag.relationalValue(AdaProp.REL_INDEX).size();
         }
 
-        final int maxNodeCount = 1 << maxDepth;
-        TreeBuildingParams params = new TreeBuildingParams(maxDepth, maxNodeCount, minOccupancy, trainingBags,
+        TreeBuildingParams params = new TreeBuildingParams(maxTreeSize, minOccupancy, trainingBags,
                 instCount, splitStrategy, propStrategy, classifier);
 
         return searchStrategy.buildTree(params, instCount, trainingBags);
