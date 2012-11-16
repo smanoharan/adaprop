@@ -1,4 +1,4 @@
-package weka.classifiers.mi;
+package weka.classifiers.mi.adaprop;
 
 import org.junit.Test;
 import weka.core.Attribute;
@@ -13,11 +13,11 @@ import java.util.ArrayList;
  *  correctly given a tree of partitioning hyperplanes.
  *
  * All tests are performed on the example data-set
- *  built up in {@link AdaPropTestBase}.
+ *  built up in {@link TestBase}.
  *
  * @author Siva Manoharan, 1117707
  */
-public class AdaPropPropositionalisationTest extends AdaPropTestBase
+public class PropositionalisationTest extends TestBase
 {
     // <editor-fold desc="===Count Based Propositionalisation===">
 

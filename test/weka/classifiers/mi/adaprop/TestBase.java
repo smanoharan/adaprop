@@ -1,18 +1,20 @@
-package weka.classifiers.mi;
+package weka.classifiers.mi.adaprop;
 
 import org.junit.Before;
 import org.junit.BeforeClass;
-import weka.core.*;
+import weka.classifiers.mi.AdaProp;
+import weka.core.Attribute;
+import weka.core.DenseInstance;
+import weka.core.Instance;
+import weka.core.Instances;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
 
 /** Author: Siva Manoharan, 1117707 */
-public class AdaPropTestBase
+public class TestBase
 {
     public static final int NUM_ATTR = 5; // number of attr in si-dataset
     public static final int NUM_BAGS = 3; // number of mi bags
@@ -31,19 +33,7 @@ public class AdaPropTestBase
     protected static Instances propHeader;
 
     /** For comparing doubles */
-    static final double TOLERANCE = 0.000001;
-
-    /* TODO Tests:
-    *  - GetCapabilities
-    *  - MultiInstanceGetCapabilities
-    *  - ListOptions
-    *  - SetOptions
-    *  - GetOptions
-    *
-    *  - main? (e.g. with an artificial dataset)
-    *  - buildClassifier?
-    *  - distributionForInstance
-    */
+    public static final double TOLERANCE = 0.000001;
 
     @BeforeClass
     /** Setup the instance headers */
@@ -162,21 +152,6 @@ public class AdaPropTestBase
         this.adaProp = new AdaProp();
     }
 
-    // check that the string is not null and is not empty.
-    protected static void assertNotNullOrEmpty(String toTest)
-    {
-        assertNotNull(toTest);
-        assertTrue(toTest.length() > 0);
-    }
-
-    protected static void assertOptionEquals(
-            final Option actual, final String expDesc,
-            final int expNumArgs, final String expSynopsis)
-    {
-        assertEquals(actual.name() + " Desc: ",     expDesc,        actual.description());
-        assertEquals(actual.name() + " NumArgs: ",  expNumArgs,     actual.numArguments());
-        assertEquals(actual.name() + " Synopsis: ", expSynopsis,    actual.synopsis());
-    }
 
     /**
      * Assuming that exp and act have the same format,
@@ -226,9 +201,7 @@ public class AdaPropTestBase
         }
     }
 
-
-
-    protected static void assertListEquals(String msg, List<Double> exp, List<Double> act)
+    protected static void assertListOfDoublesEquals(String msg, List<Double> exp, List<Double> act)
     {
         // check sizes are equal
         assertEquals(msg + " size", exp.size(), act.size());
@@ -237,6 +210,18 @@ public class AdaPropTestBase
         for (int i=0;i<exp.size();i++)
         {
             assertEquals(msg + " index " + i, exp.get(i), act.get(i), TOLERANCE);
+        }
+    }
+
+    protected static <T> void assertListEquals(String msg, List<T> exp, List<T> act)
+    {
+        // check sizes are equal
+        assertEquals(msg + " size", exp.size(), act.size());
+
+        // check each elem
+        for (int i=0;i<exp.size();i++)
+        {
+            assertEquals(msg + " index " + i, exp.get(i), act.get(i));
         }
     }
 

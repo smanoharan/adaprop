@@ -1,4 +1,4 @@
-package weka.classifiers.mi;
+package weka.classifiers.mi.adaprop;
 
 import org.junit.Test;
 
@@ -12,7 +12,7 @@ import static org.junit.Assert.assertEquals;
 /**
  * Test the split strategies. TODO needs to be more extensive.
  */
-public class AdaPropSplitStrategyTest extends AdaPropTestBase
+public class SplitStrategyTest extends TestBase
 {
     @Test
     public void testFindMeanViaInstance() throws Exception
@@ -106,7 +106,7 @@ public class AdaPropSplitStrategyTest extends AdaPropTestBase
             final String msg = "Split points for attribute " + attrIndex;
 
             final ArrayList<Double> act = DiscretizedSplitStrategy.findDiscretizedSplits(miData, attrIndex, new BitSet(numInst));
-            assertListEquals(msg, exp, act);
+            assertListOfDoublesEquals(msg, exp, act);
         }
     }
 
