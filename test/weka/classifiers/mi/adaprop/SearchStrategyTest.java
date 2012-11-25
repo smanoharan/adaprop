@@ -2,6 +2,7 @@ package weka.classifiers.mi.adaprop;
 
 import org.junit.BeforeClass;
 import org.junit.Test;
+import weka.classifiers.Evaluation;
 import weka.classifiers.rules.OneR;
 import weka.core.Attribute;
 import weka.core.Instances;
@@ -10,6 +11,7 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.List;
 
 import static org.junit.Assert.*;
@@ -85,7 +87,7 @@ public class SearchStrategyTest extends TestBase
         shouldHaveNAttr(3, root);
 
         // we expect a split on attr2 (index=1) @ 1.3
-        assertNodeEquals(root, 1, 1.3, 1, 2);
+        assertNodeEquals("root", root, 1, 1.3, 1, 2);
     }
 
     private static void shouldHaveNAttr(int numAttr, RootSplitNode root)
@@ -99,54 +101,98 @@ public class SearchStrategyTest extends TestBase
         assertAttributeListEquals(root.getAttrInfo(), expAttrs);
     }
 
-//    public void shouldBeASingleNodeTreeWhenMaxTreeSizeIsOne() throws Exception
-//    {
-//        SearchStrategy searchStrategy = new BreadthFirstSearchStrategy();
-//        searchStrategy = new BestFirstSearchStrategy();
-//
-//
-//
-//        // find the expected split point:
-//        double minErr = Double.MAX_VALUE;
-//        CompPair<Integer, Double> bestSplit = null;
-//        List<CompPair<Integer, Double>> splits =
-//                params.splitStrategy.generateSplitPoints(simpleMIdata, new BitSet(instCount));
-//        for (CompPair<Integer, Double> split : splits)
-//        {
-//            // train & eval
-//            RootSplitNode newRoot = new RootSplitNode(1,2,split.key, split.value, null, null, 0, params.propStrategy);
-//            newRoot.setNodeCount(1);
-//            Instances propositionalisedTrainingData = SplitNode.propositionaliseDataset(
-//                    simpleMIdata, newRoot, params.propStrategy);
-//            System.out.println(propositionalisedTrainingData);
-//            params.classifier.buildClassifier(propositionalisedTrainingData);
-//            Evaluation evaluation = new Evaluation(propositionalisedTrainingData);
-//            evaluation.evaluateModel(params.classifier, propositionalisedTrainingData);
-//            double curErr = evaluation.incorrect();
-//            System.out.println(split + " " + curErr);
-//            if (curErr < minErr)
-//            {
-//
-//                minErr = curErr;
-//                bestSplit = split;
-//            }
-//        }
-//
-//        // check those are equal
-//        assertNotNull(bestSplit);
-//
-//    }
+    private static SplitNode deepCopySubtree(SplitNode node)
+    {
+        SplitNode left = (node.left == null ? null : deepCopySubtree(node.left));
+        SplitNode right = (node.right == null ? null : deepCopySubtree(node.right));
+        return new SplitNode(node.propLeftIndex, node.propRightIndex, node.splitAttrIndex, node.splitPoint,
+                left, right, node.curDepth);
+    }
 
-    // TODO complete rewrite
+    private static RootSplitNode deepCopyTree(RootSplitNode root, final PropositionalisationStrategy propStrategy)
+    {
+        SplitNode left = (root.left == null ? null : deepCopySubtree(root.left));
+        SplitNode right = (root.right == null ? null : deepCopySubtree(root.right));
+
+        return new RootSplitNode(root.propLeftIndex, root.propRightIndex, root.splitAttrIndex,
+                root.splitPoint, left, right, root.curDepth, propStrategy);
+    }
+
+    private static double findErrorOnTrainingSet(final TreeBuildingParams params, final Instances trainingData,
+                                                 final RootSplitNode root) throws Exception
+    {
+        final Instances propositionalisedTrainingData = SplitNode.propositionaliseDataset(trainingData, root, params.propStrategy);
+        params.classifier.buildClassifier(propositionalisedTrainingData);
+        Evaluation evaluation = new Evaluation(propositionalisedTrainingData);
+        evaluation.evaluateModel(params.classifier, propositionalisedTrainingData);
+        return evaluation.incorrect();
+    }
+
+    private static void splitShouldBeOptimal(SplitNode node, RootSplitNode root, TreeBuildingParams params,
+                                             Instances trainingData, BitSet nodeIgnore) throws Exception
+    {
+        List<CompPair<Integer, Double>> splits =
+                params.splitStrategy.generateSplitPoints(trainingData, nodeIgnore);
+        int curBestSplitIndex = node.splitAttrIndex;
+        double curBestSplitVal = node.splitPoint;
+        double expLeastErr = findErrorOnTrainingSet(params, trainingData, root);
+
+        for (CompPair<Integer, Double> split : splits)
+        {
+            // set split to cur-split, eval, check error is not less than least error
+            node.splitAttrIndex = split.key;
+            node.splitPoint = split.value;
+            double curErr = findErrorOnTrainingSet(params, trainingData, root);
+            assertTrue(split + " should not be a better split than original", curErr <= expLeastErr);
+        }
+
+        // reset node
+        node.splitAttrIndex = curBestSplitIndex;
+        node.splitPoint = curBestSplitVal;
+
+    }
+
+    private static void assertTreeEquals(String msg, SplitNode act, SplitNode exp)
+    {
+        // check that the current nodes have the same split ; same indices:
+        assertNodeEquals(msg, act, exp);
+
+        // check that both left-children are null or equal
+        final String leftMsg = msg + ".left";
+        final String rightMsg = msg + ".right";
+
+        if (exp.left == null) { assertNull(leftMsg, act.left); }
+        else
+        {
+            assertNotNull(leftMsg, act.left);
+            assertTreeEquals(leftMsg, act.left, exp.left);
+        }
+
+        if (exp.right == null) { assertNull(rightMsg, act.right); }
+        else
+        {
+            assertNotNull(rightMsg, act.right);
+            assertTreeEquals(rightMsg, act.right, exp.right);
+        }
+    }
+
+    // TODO : should be subtree of
+
+    /** Check that the node is equal to the expected node */
+    private static void assertNodeEquals(String msg, SplitNode actNode, SplitNode expNode)
+    {
+        assertNodeEquals(msg, actNode, expNode.splitAttrIndex, expNode.splitPoint, expNode.propLeftIndex,
+                expNode.propRightIndex);
+    }
 
     /** Check that the node is equal to the expected values */
-    private static void assertNodeEquals(SplitNode actNode, int expSplitAttrIndex, double expSplitPt,
+    private static void assertNodeEquals(String msg, SplitNode actNode, int expSplitAttrIndex, double expSplitPt,
                                          int expPropLeft, int expPropRight)
     {
-        assertEquals("splitAttrIndex", expSplitAttrIndex, actNode.splitAttrIndex);
-        assertEquals("splitPoint", expSplitPt, actNode.splitPoint, TOLERANCE);
-        assertEquals("left", expPropLeft, actNode.propLeftIndex);
-        assertEquals("right", expPropRight, actNode.propRightIndex);
+        assertEquals(msg + "splitAttrIndex", expSplitAttrIndex, actNode.splitAttrIndex);
+        assertEquals(msg + "splitPoint", expSplitPt, actNode.splitPoint, TOLERANCE);
+        assertEquals(msg + "left-index", expPropLeft, actNode.propLeftIndex);
+        assertEquals(msg + "right-index", expPropRight, actNode.propRightIndex);
     }
 
     private void assertNullOrLeaf(String msg, SplitNode node)
@@ -182,14 +228,14 @@ public class SearchStrategyTest extends TestBase
         assertEquals("NodeCount", maxNodeCount, root.getNodeCount());
 
         // root should be as per before
-        assertNodeEquals(root, 1, 1.3, 1, 2);
+        assertNodeEquals("root", root, 1, 1.3, 1, 2);
 
         // the next node should be on the left (not right)
         assertNotNullNorLeaf("root.left", root.left);
         assertNullOrLeaf("root.right", root.right);
 
         // expect left to split on attr1 (index=0) @ 0.64 (all splits are equal here though)
-        assertNodeEquals(root.left, 0, 0.638462, 3, 4);
+        assertNodeEquals("root.left", root.left, 0, 0.638462, 3, 4);
     }
 
     @Test
@@ -203,16 +249,16 @@ public class SearchStrategyTest extends TestBase
         assertEquals("NodeCount", maxNodeCount, root.getNodeCount());
 
         // root should be as per before
-        assertNodeEquals(root, 1, 1.3, 1, 2);
+        assertNodeEquals("root", root, 1, 1.3, 1, 2);
 
         // the next two nodes should be also present
         assertNotNullNorLeaf("root.left", root.left);
         assertNotNullNorLeaf("root.right", root.right);
 
         // expect left to split on attr1 (index=0) @ 0.638 (all splits are equal here though)
-        assertNodeEquals(root.left, 0, 0.638462, 3, 4);
+        assertNodeEquals("root.left", root.left, 0, 0.638462, 3, 4);
         // expect right to split on attr1 @ 0.642 (all splits are equal here though)
-        assertNodeEquals(root.right, 0, 0.6416667, 5, 6);
+        assertNodeEquals("root.right", root.right, 0, 0.6416667, 5, 6);
     }
 
 
@@ -228,7 +274,7 @@ public class SearchStrategyTest extends TestBase
         assertEquals("NodeCount", maxNodeCount, root.getNodeCount());
 
         // root should have two leaf nodes:
-        assertNodeEquals(root, 0, 0.28, 1, 2);
+        assertNodeEquals("root", root, 0, 0.28, 1, 2);
         assertNullOrLeaf("root.left", root.left);
         assertNullOrLeaf("root.right", root.right);
     }
@@ -244,10 +290,10 @@ public class SearchStrategyTest extends TestBase
         assertEquals("NodeCount", maxNodeCount, root.getNodeCount());
 
         // root should have left-non-leaf and right-leaf nodes
-        assertNodeEquals(root, 0, 0.28, 1, 2);
+        assertNodeEquals("root", root, 0, 0.28, 1, 2);
         assertNullOrLeaf("root.right", root.right);
         assertNotNullNorLeaf("root.left", root.left);
-        assertNodeEquals(root.left, 1, 0.25, 3, 4);
+        assertNodeEquals("root.left", root.left, 1, 0.25, 3, 4);
         assertNullOrLeaf("root.left.left", root.left.left);
         assertNullOrLeaf("root.left.right", root.left.right);
     }
@@ -263,17 +309,17 @@ public class SearchStrategyTest extends TestBase
         assertEquals("NodeCount", maxNodeCount, root.getNodeCount());
 
         // root should have two internal nodes as children
-        assertNodeEquals(root, 0, 0.28, 1, 2);
+        assertNodeEquals("root", root, 0, 0.28, 1, 2);
         assertNotNullNorLeaf("root.left", root.left);
         assertNotNullNorLeaf("root.right", root.right);
 
         // root.left - should have two leaf nodes
-        assertNodeEquals(root.left, 1, 0.25, 3, 4);
+        assertNodeEquals("root.left", root.left, 1, 0.25, 3, 4);
         assertNullOrLeaf("root.left.left", root.left.left);
         assertNullOrLeaf("root.left.right", root.left.right);
 
         // root.right - should have two leaf nodes
-        assertNodeEquals(root.right, 0, 0.428571, 5, 6);
+        assertNodeEquals("root.right", root.right, 0, 0.428571, 5, 6);
         assertNullOrLeaf("root.right.left", root.right.left);
         assertNullOrLeaf("root.right.right", root.right.right);
     }
