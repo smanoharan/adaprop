@@ -1,14 +1,11 @@
 package weka.classifiers.mi.adaprop;
 
-import org.junit.BeforeClass;
 import org.junit.Test;
 import weka.classifiers.Evaluation;
 import weka.classifiers.rules.OneR;
 import weka.core.Attribute;
 import weka.core.Instances;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -21,18 +18,6 @@ import static org.junit.Assert.*;
  */
 public class SearchStrategyTest extends TestBase
 {
-    private static Instances simpleMIdata;
-    private static Instances complexMIdata;
-
-    @BeforeClass
-    public static void initSimpleMIData() throws Exception
-    {
-        simpleMIdata = new Instances(new BufferedReader(new FileReader("test/weka/classifiers/mi/test-mi.arff")));
-        simpleMIdata.setClassIndex(2);
-        complexMIdata = new Instances(new BufferedReader(new FileReader("test/weka/classifiers/mi/test-2-mi.arff")));
-        complexMIdata.setClassIndex(2);
-    }
-
     private static void assertAttributeListEquals(List<Attribute> act, String ... exp)
     {
         List<String> actNames = new ArrayList<String>(act.size());
@@ -53,7 +38,7 @@ public class SearchStrategyTest extends TestBase
         TreeBuildingParams params = new TreeBuildingParams(
                 maxNodeCount, 1, simpleMIdata, instCount,
                 new MeanSplitStrategy(numAttr), new CountBasedPropositionalisationStrategy(),
-                classifier);
+                new MisClassificationErrorEvaluationStrategy(), classifier);
 
         // build root
         return strategy.buildTree(params, instCount, simpleMIdata);
@@ -69,7 +54,7 @@ public class SearchStrategyTest extends TestBase
         TreeBuildingParams params = new TreeBuildingParams(
                 maxNodeCount, 1, complexMIdata, instCount,
                 new MeanSplitStrategy(numAttr), new CountBasedPropositionalisationStrategy(),
-                classifier);
+                new MisClassificationErrorEvaluationStrategy(), classifier);
 
         // build root
         return strategy.buildTree(params, instCount, complexMIdata);

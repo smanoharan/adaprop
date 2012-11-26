@@ -1,7 +1,6 @@
 package weka.classifiers.mi.adaprop;
 
 import weka.classifiers.Classifier;
-import weka.classifiers.Evaluation;
 import weka.classifiers.mi.AdaProp;
 import weka.core.Attribute;
 import weka.core.DenseInstance;
@@ -128,7 +127,11 @@ public class SplitNode implements Serializable
         {
             this.splitAttrIndex = curSplit.key;
             this.splitPoint = curSplit.value;
-            double err = evaluateCurSplit(params.trainingBags, params.classifier, root, params.propStrategy);
+
+            // evaluate error on split:
+            final Instances propDataset = SplitNode.propositionaliseDataset(params.trainingBags, root, params.propStrategy);
+            double err = params.evalStrategy.evaluateDataset(propDataset, params.classifier);
+
             if (err < minErr)
             {
                 minErr = err;
@@ -156,7 +159,8 @@ public class SplitNode implements Serializable
     public static RootSplitNode buildTree(Instances trainingBags, final SplitStrategy splitStrategy, final int maxTreeSize,
                                           final int minOccupancy, final Classifier classifier,
                                           final SearchStrategy searchStrategy,
-                                          final PropositionalisationStrategy propStrategy) throws Exception
+                                          final PropositionalisationStrategy propStrategy,
+                                          final EvaluationStrategy evalStrategy) throws Exception
     {
         // count the number of instances in all the bags:
         int instCount = 0;
@@ -166,7 +170,7 @@ public class SplitNode implements Serializable
         }
 
         TreeBuildingParams params = new TreeBuildingParams(maxTreeSize, minOccupancy, trainingBags,
-                instCount, splitStrategy, propStrategy, classifier);
+                instCount, splitStrategy, propStrategy, evalStrategy, classifier);
 
         return searchStrategy.buildTree(params, instCount, trainingBags);
 
@@ -318,22 +322,6 @@ public class SplitNode implements Serializable
     }
     //</editor-fold>
 
-    //<editor-fold defaultstate="collapsed" desc="===Split Evaulation===">
-    /**
-     * A way to evaluate each split point -- TODO
-     * NOTE: currently very inefficient - performs the propositionalisation from scratch each time!
-     * TODO A far better way is to keep parent's propositionalised dataset and call propBag from the current node.
-     */
-    public static double evaluateCurSplit(Instances bags, Classifier classifier, RootSplitNode root,
-                                          final PropositionalisationStrategy propStrategy) throws Exception
-    {
-        Instances propDataset = SplitNode.propositionaliseDataset(bags, root, propStrategy);
-        classifier.buildClassifier(propDataset);
-        Evaluation evaluation = new Evaluation(propDataset);
-        evaluation.evaluateModel(classifier, propDataset);
-        return evaluation.incorrect();
-    }
-    //</editor-fold>
 }
 
 /** Data structure for storing the tree-building param */
@@ -345,15 +333,18 @@ final class TreeBuildingParams implements Serializable
     public final int instCount;
     public final SplitStrategy splitStrategy;
     public final PropositionalisationStrategy propStrategy;
+    public final EvaluationStrategy evalStrategy;
     public final Classifier classifier;
 
     TreeBuildingParams(final int maxNodeCount, final int minOccupancy, final Instances trainingBags,
                        final int instCount, final SplitStrategy splitStrategy,
-                       final PropositionalisationStrategy propStrategy, final Classifier classifier)
+                       final PropositionalisationStrategy propStrategy, final EvaluationStrategy evalStrategy,
+                       final Classifier classifier)
     {
         this.maxNodeCount = maxNodeCount;
         this.minOccupancy = minOccupancy;
         this.propStrategy = propStrategy;
+        this.evalStrategy = evalStrategy;
         this.classifier = classifier;
         this.trainingBags = trainingBags;
         this.instCount = instCount;

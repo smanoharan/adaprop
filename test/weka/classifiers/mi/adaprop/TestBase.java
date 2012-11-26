@@ -8,6 +8,8 @@ import weka.core.DenseInstance;
 import weka.core.Instance;
 import weka.core.Instances;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -35,6 +37,15 @@ public class TestBase
     /** For comparing doubles */
     public static final double TOLERANCE = 0.000001;
 
+    /** For comparing values originally computed from WEKA explorer */
+    public static final double LARGE_TOLERANCE = 0.0001;
+
+    /** A Simple dataset, manually created, loaded from file */
+    protected static Instances simpleMIdata;
+
+    /** A somewhat more complex (XOR) dataset, manually created, loaded from file */
+    protected static Instances complexMIdata;
+
     @BeforeClass
     /** Setup the instance headers */
     public static void setupClass() throws Exception
@@ -42,18 +53,7 @@ public class TestBase
         setupSingleInstanceHeader();
         setupMultiInstanceData();
         setupPropositionalisedHeader();
-    }
-
-    /** Setup the dataset for the propositionalised instances */
-    private static void setupPropositionalisedHeader()
-    {
-        final ArrayList<Attribute> attInfo = new ArrayList<Attribute>();
-        attInfo.add(new Attribute("total"));
-        attInfo.add(new Attribute("less-than"));
-        attInfo.add(new Attribute("greater-than"));
-        attInfo.add((Attribute) miData.classAttribute().copy());
-        propHeader = new Instances("prop-header", attInfo, 0);
-        propHeader.setClassIndex(3);
+        setupSimpleMIData();
     }
 
     /** Initialise the siHeader */
@@ -71,6 +71,54 @@ public class TestBase
 
         siHeader = new Instances("si-header", attInfo, 0);
         siHeader.setClassIndex(NUM_ATTR);
+    }
+
+    /** Initialise the miData, assuming siHeader has been init'd */
+    private static void setupMultiInstanceData()
+    {
+        // this has 3 attr: bag-id (numeric), bag (relational), class (numeric)
+        final ArrayList<Attribute> attInfo = new ArrayList<Attribute>();
+        attInfo.add(new Attribute("bag-id"));
+        attInfo.add(createRelationAttribute());
+        attInfo.add(createClassAttribute());
+
+        miData = new Instances("mi-header", attInfo, 0);
+        miData.setClassIndex(2);
+
+        // populate mi-header
+        for (int bagIndex = 0; bagIndex < NUM_BAGS; bagIndex++)
+        {
+            Instance bag = new DenseInstance(3);
+            bag.setValue(0, bagIndex);
+            bag.setValue(1, bagIndex);
+            int bagClass = bagIndex < 2 ? 0 : 1;
+            bag.setValue(2, bagClass);
+
+            // add bag to dataset
+            bag.setDataset(miData);
+            miData.add(bag);
+        }
+    }
+
+    /** Setup the dataset for the propositionalised instances */
+    private static void setupPropositionalisedHeader()
+    {
+        final ArrayList<Attribute> attInfo = new ArrayList<Attribute>();
+        attInfo.add(new Attribute("total"));
+        attInfo.add(new Attribute("less-than"));
+        attInfo.add(new Attribute("greater-than"));
+        attInfo.add((Attribute) miData.classAttribute().copy());
+        propHeader = new Instances("prop-header", attInfo, 0);
+        propHeader.setClassIndex(3);
+    }
+
+    /** Load datasets from files */
+    private static void setupSimpleMIData() throws Exception
+    {
+        simpleMIdata = new Instances(new BufferedReader(new FileReader("test/weka/classifiers/mi/test-mi.arff")));
+        simpleMIdata.setClassIndex(2);
+        complexMIdata = new Instances(new BufferedReader(new FileReader("test/weka/classifiers/mi/test-2-mi.arff")));
+        complexMIdata.setClassIndex(2);
     }
 
     // initialise numInst new single-instances and return the set.
@@ -116,33 +164,6 @@ public class TestBase
         attributeValues.add("class-0");
         attributeValues.add("class-1");
         return new Attribute("class", attributeValues);
-    }
-
-    /** Initialise the miData, assuming siHeader has been init'd */
-    private static void setupMultiInstanceData()
-    {
-        // this has 3 attr: bag-id (numeric), bag (relational), class (numeric)
-        final ArrayList<Attribute> attInfo = new ArrayList<Attribute>();
-        attInfo.add(new Attribute("bag-id"));
-        attInfo.add(createRelationAttribute());
-        attInfo.add(createClassAttribute());
-
-        miData = new Instances("mi-header", attInfo, 0);
-        miData.setClassIndex(2);
-
-        // populate mi-header
-        for (int bagIndex = 0; bagIndex < NUM_BAGS; bagIndex++)
-        {
-            Instance bag = new DenseInstance(3);
-            bag.setValue(0, bagIndex);
-            bag.setValue(1, bagIndex);
-            int bagClass = bagIndex < 2 ? 0 : 1;
-            bag.setValue(2, bagClass);
-
-            // add bag to dataset
-            bag.setDataset(miData);
-            miData.add(bag);
-        }
     }
 
     @Before

@@ -3,14 +3,20 @@ package weka.classifiers.mi;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import weka.classifiers.mi.adaprop.EvaluationStrategy;
+import weka.classifiers.mi.adaprop.PropositionalisationStrategy;
+import weka.classifiers.mi.adaprop.SearchStrategy;
+import weka.classifiers.mi.adaprop.SplitStrategy;
 import weka.core.Option;
 import weka.core.SelectedTag;
+import weka.core.Tag;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Enumeration;
+import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 /**
  * Tests the option handling and other global methods
@@ -114,6 +120,20 @@ public class AdaPropOptionsTest
             assertOptionEquals(opt, "\t" + desc, 1, "-" + key + " <num>");
         }
     }
+
+    private static void assertHasAllStrategies(String msg, ArrayList<String> act, String ... exp)
+    {
+        // check size is equal:
+        assertEquals(msg + " size", exp.length, act.size());
+
+        // convert exp to list
+        List<String> expList = Arrays.asList(exp);
+
+        // subset equality
+        final String fullMsg = msg + "\n\tact: " + act.toString() + "\n\texp: " + expList.toString() + "\n\t";
+        assertTrue(fullMsg + "act not subsetof exp", expList.containsAll(act));
+        assertTrue(fullMsg + "exp not subsetof act", act.containsAll(expList));
+    }
     // </editor-fold>
 
     // <editor-fold desc="===Split Strategy===">
@@ -143,6 +163,34 @@ public class AdaPropOptionsTest
         }
     }
 
+    @Test
+    public void testSplitStrategyObjects()
+    {
+        ArrayList<String> strategies = new ArrayList<String>();
+        for (Tag t : SplitStrategy.STRATEGIES)
+        {
+            strategies.add(SplitStrategy.getStrategy(t.getID(), 3).getClass().getSimpleName());
+        }
+        assertHasAllStrategies("Split Strategy", strategies,
+                "MeanSplitStrategy",
+                "MedianSplitStrategy",
+                "DiscretizedSplitStrategy",
+                "RangeSplitStrategy");
+    }
+
+    @Test
+    public void shouldThrowExceptionForInvalidSplitStrategyCode()
+    {
+        try
+        {
+            SplitStrategy.getStrategy(999, 3);
+            fail("Expected IllegalArgumentException");
+        }
+        catch (IllegalArgumentException iae)
+        {
+            assertEquals("Unknown split strategy code: 999", iae.getMessage());
+        }
+    }
     // </editor-fold>
 
     // <editor-fold desc="===Search Strategy===">
@@ -172,6 +220,32 @@ public class AdaPropOptionsTest
         }
     }
 
+    @Test
+    public void testSearchStrategyObjects()
+    {
+        ArrayList<String> strategies = new ArrayList<String>();
+        for (Tag t : SearchStrategy.STRATEGIES)
+        {
+            strategies.add(SearchStrategy.getStrategy(t.getID()).getClass().getSimpleName());
+        }
+        assertHasAllStrategies("Search Strategy", strategies,
+                "BestFirstSearchStrategy",
+                "BreadthFirstSearchStrategy");
+    }
+
+    @Test
+    public void shouldThrowExceptionForInvalidSearchStrategyCode()
+    {
+        try
+        {
+            SearchStrategy.getStrategy(999);
+            fail("Expected IllegalArgumentException");
+        }
+        catch (IllegalArgumentException iae)
+        {
+            assertEquals("Unknown search strategy code: 999", iae.getMessage());
+        }
+    }
     // </editor-fold>
 
     // <editor-fold desc="===Propositionalisation Strategy===">
@@ -201,6 +275,87 @@ public class AdaPropOptionsTest
         }
     }
 
+    @Test
+    public void testPropStrategyObjects()
+    {
+        ArrayList<String> strategies = new ArrayList<String>();
+        for (Tag t : PropositionalisationStrategy.STRATEGIES)
+        {
+            strategies.add(PropositionalisationStrategy.getStrategy(t.getID(), 3).getClass().getSimpleName());
+        }
+        assertHasAllStrategies("Prop Strategy", strategies,
+                "CountBasedPropositionalisationStrategy",
+                "SummaryStatsBasedPropositionalisationStrategy");
+    }
+
+    @Test
+    public void shouldThrowExceptionForInvalidPropStrategyCode()
+    {
+        try
+        {
+            PropositionalisationStrategy.getStrategy(999, 3);
+            fail("Expected IllegalArgumentException");
+        }
+        catch (IllegalArgumentException iae)
+        {
+            assertEquals("Unknown propositionalisation strategy code: 999", iae.getMessage());
+        }
+    }
+    // </editor-fold>
+
+    // <editor-fold desc="===Evaluation Strategy===">
+    @Test
+    public void testEvalStrategyOptionsAreListed() // in .listOptions();
+    {
+        assertOptionsAreListed("eval",
+                "Split Evaluation strategy: 1=mis-classification-error (default), 2=root-mean-squared-error");
+    }
+
+    @Test
+    public void testGetAndSetEvalOptions() throws Exception
+    {
+        final String key = "-eval";
+
+        // by default: prop strategy should be set to 1;
+        int val = 1;
+        assertOptionValueEquals(adaProp.getOptions(), key, Integer.toString(val));
+        assertSelectedTagIs(val, adaProp.getPropositionalisationStrategy(), key);
+
+        // try setting it to all possible values & use get to verify
+        for (val = 2; val >= 1; val--)
+        {
+            adaProp.setOptions(new String[]{key, Integer.toString(val)});
+            assertOptionValueEquals(adaProp.getOptions(), key, Integer.toString(val));
+            assertSelectedTagIs(val, adaProp.getEvalStrategy(), key);
+        }
+    }
+
+    @Test
+    public void testEvalStrategyObjects()
+    {
+        ArrayList<String> strategies = new ArrayList<String>();
+        for (Tag t : EvaluationStrategy.STRATEGIES)
+        {
+            strategies.add(EvaluationStrategy.getStrategy(t.getID()).getClass().getSimpleName());
+        }
+        assertHasAllStrategies("Eval Strategy", strategies,
+                "MisClassificationErrorEvaluationStrategy",
+                "RMSEEvaluationStrategy");
+    }
+
+    @Test
+    public void shouldThrowExceptionForInvalidEvalStrategyCode()
+    {
+        try
+        {
+            EvaluationStrategy.getStrategy(999);
+            fail("Expected IllegalArgumentException");
+        }
+        catch (IllegalArgumentException iae)
+        {
+            assertEquals("Unknown evaluation strategy code: 999", iae.getMessage());
+        }
+    }
     // </editor-fold>
 
     // <editor-fold desc="===Max Tree Size===">

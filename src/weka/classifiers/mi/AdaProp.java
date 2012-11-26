@@ -42,6 +42,7 @@ public class AdaProp extends SingleClassifierEnhancer
     public static final String SPLIT_KEY = "split";
     public static final String SEARCH_KEY = "search";
     public static final String PROP_KEY = "prop";
+    public static final String EVAL_KEY = "eval";
     public static final String MAX_TREE_KEY = "maxTreeSize";
     public static final String MIN_OCC_KEY = "minOcc";
     public static final String MAX_TREE_DESCRIPTION =
@@ -57,6 +58,9 @@ public class AdaProp extends SingleClassifierEnhancer
 
     /** The id of the propositionalisation strategy to use */
     protected int m_PropositionalisationStrategy = PropositionalisationStrategy.DEFAULT_STRATEGY;
+
+    /** The id of the evaluation strategy to use */
+    protected int m_EvalStrategy = EvaluationStrategy.DEFAULT_STRATEGY;
 
     /** The effective maximum depth of the tree of splits (0 for unlimited) */
     protected int m_MaxTreeSize = DEFAULT_MAX_TREE_SIZE;
@@ -135,6 +139,24 @@ public class AdaProp extends SingleClassifierEnhancer
     {
         this.m_PropositionalisationStrategy =
                 getID(newStrategy, PropositionalisationStrategy.STRATEGIES);
+    }
+
+    /**
+     * Gets the current tree building search strategy
+     * @return the current search strategy
+     */
+    public SelectedTag getEvalStrategy()
+    {
+        return new SelectedTag(this.m_EvalStrategy, EvaluationStrategy.STRATEGIES);
+    }
+
+    /**
+     * Sets the tree building search strategy
+     * @param newStrategy the new search strategy
+     */
+    public void setEvalStrategy(final SelectedTag newStrategy)
+    {
+        this.m_EvalStrategy = getID(newStrategy, EvaluationStrategy.STRATEGIES);
     }
 
     /**
@@ -226,6 +248,7 @@ public class AdaProp extends SingleClassifierEnhancer
         result.addElement(toUnaryOption(SplitStrategy.DESCRIPTION, SPLIT_KEY));
         result.addElement(toUnaryOption(SearchStrategy.DESCRIPTION, SEARCH_KEY));
         result.addElement(toUnaryOption(PropositionalisationStrategy.DESCRIPTION, PROP_KEY));
+        result.addElement(toUnaryOption(EvaluationStrategy.DESCRIPTION, EVAL_KEY));
         result.addElement(toUnaryOption(MAX_TREE_DESCRIPTION, MAX_TREE_KEY));
         result.addElement(toUnaryOption(MIN_OCC_DESCRIPTION, MIN_OCC_KEY));
 
@@ -277,9 +300,12 @@ public class AdaProp extends SingleClassifierEnhancer
         setSearchStrategy(parseTag(SEARCH_KEY, options,
                 SearchStrategy.DEFAULT_STRATEGY, SearchStrategy.STRATEGIES));
 
-        setPropositionalisationStrategy(parseTag(PROP_KEY,
-                options, PropositionalisationStrategy.DEFAULT_STRATEGY,
+        setPropositionalisationStrategy(parseTag(PROP_KEY, options,
+                PropositionalisationStrategy.DEFAULT_STRATEGY,
                 PropositionalisationStrategy.STRATEGIES));
+
+        setEvalStrategy(parseTag(EVAL_KEY, options,
+                EvaluationStrategy.DEFAULT_STRATEGY, EvaluationStrategy.STRATEGIES));
 
         final String maxDepthStr = Utils.getOption(MAX_TREE_KEY, options);
         this.setMaxTreeSize(maxDepthStr.isEmpty() ? DEFAULT_MAX_TREE_SIZE : Integer.parseInt(maxDepthStr));
@@ -302,6 +328,8 @@ public class AdaProp extends SingleClassifierEnhancer
         result.add("" + m_SearchStrategy);
         result.add("-" + PROP_KEY);
         result.add("" + m_PropositionalisationStrategy);
+        result.add("-" + EVAL_KEY);
+        result.add("" + m_EvalStrategy);
         result.add("-" + MAX_TREE_KEY);
         result.add("" + m_MaxTreeSize);
         result.add("-" + MIN_OCC_KEY);
@@ -380,10 +408,11 @@ public class AdaProp extends SingleClassifierEnhancer
         SplitStrategy splitStrategy = SplitStrategy.getStrategy(m_SplitStrategy, numAttr);
         SearchStrategy searchStrategy = SearchStrategy.getStrategy(m_SearchStrategy);
         propStrategy = PropositionalisationStrategy.getStrategy(m_PropositionalisationStrategy, numAttr);
+        EvaluationStrategy evalStrategy = EvaluationStrategy.getStrategy(m_EvalStrategy);
 
         // create the tree of splits:
         splitTreeRoot = SplitNode.buildTree(trainingBags, splitStrategy, m_MaxTreeSize,
-                m_MinOccupancy, m_Classifier, searchStrategy, propStrategy);
+                m_MinOccupancy, m_Classifier, searchStrategy, propStrategy, evalStrategy);
 
         // retrain m_classifier with the best attribute:
         Instances propositionalisedTrainingData = SplitNode.propositionaliseDataset(
