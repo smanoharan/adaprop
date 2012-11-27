@@ -348,16 +348,13 @@ public class AdaProp extends SingleClassifierEnhancer
 
     public AdaProp()
     {
-        RandomForest randomForest = new RandomForest();
-        randomForest.setMaxDepth(10);
-        randomForest.setNumTrees(100);
-        super.m_Classifier = randomForest;
+        super.m_Classifier = new RandomForest();
     }
 
     @Override
     protected String defaultClassifierString()
     {
-        return "weka.classifiers.trees.RandomForest -I 100 -depth 10";
+        return "weka.classifiers.trees.RandomForest";
     }
 
     /** @return a String describing this classifier. */

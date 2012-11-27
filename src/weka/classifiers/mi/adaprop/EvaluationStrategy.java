@@ -5,10 +5,12 @@ import weka.classifiers.Evaluation;
 import weka.core.Instances;
 import weka.core.Tag;
 
+import java.io.Serializable;
+
 /**
  * Defines the strategy for evaluating datasets
  */
-public abstract class EvaluationStrategy
+public abstract class EvaluationStrategy implements Serializable
 {
     /**
      * Evaluate the classifier on the dataset, returning the chosen metric
