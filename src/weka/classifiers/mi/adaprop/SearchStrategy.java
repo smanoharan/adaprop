@@ -88,7 +88,8 @@ class BreadthFirstSearchStrategy extends SearchStrategy
     protected boolean isExpandable(final SplitNode node, final TreeBuildingParams params, final BitSet ignoredInst)
     {
         final int numInstInNode = params.instCount - ignoredInst.cardinality();
-        return numInstInNode >= params.minOccupancy;
+        return (params.splitStrategy.canExpand(params.trainingBags, ignoredInst))
+                && (numInstInNode >= params.minOccupancy);
     }
 
     @Override /** @inheritDoc */
@@ -101,9 +102,10 @@ class BreadthFirstSearchStrategy extends SearchStrategy
         RootSplitNode root = buildRoot(params);
         final BitSet rootIgnoredInst = new BitSet(instCount);
 
-        if (isExpandable(root, params, rootIgnoredInst)) {
+        if (params.maxNodeCount > 0 && isExpandable(root, params, rootIgnoredInst)) {
             root.computeBestSplit(params, rootIgnoredInst, root);
         } else {
+            root.setNodeCount(0);
             return root; // computation is complete.
         }
 
@@ -164,9 +166,10 @@ class BestFirstSearchStrategy extends SearchStrategy
         RootSplitNode root = buildRoot(params);
         final BitSet rootIgnoredInst = new BitSet(instCount);
 
-        if (instCount >= params.minOccupancy) {
+        if (instCount >= params.minOccupancy && params.maxNodeCount > 0) {
             root.computeBestSplit(params, rootIgnoredInst, root);
         } else {
+            root.setNodeCount(0);
             return root; // computation is complete.
         }
 
@@ -180,8 +183,14 @@ class BestFirstSearchStrategy extends SearchStrategy
         root.right = new SplitNode(-1, -1, 1);
         RegionPartitioner rootCounter = new RegionPartitioner(instCount);
         root.filterDataset(trainingBags, rootIgnoredInst, rootCounter);
-        expandableLeafNodes.add(new Pair<SplitNode, BitSet>(root.left, rootCounter.leftIgnore));
-        expandableLeafNodes.add(new Pair<SplitNode, BitSet>(root.right, rootCounter.rightIgnore));
+        if (params.splitStrategy.canExpand(params.trainingBags, rootCounter.leftIgnore))
+        {
+            expandableLeafNodes.add(new Pair<SplitNode, BitSet>(root.left, rootCounter.leftIgnore));
+        }
+        if (params.splitStrategy.canExpand(params.trainingBags, rootCounter.rightIgnore))
+        {
+            expandableLeafNodes.add(new Pair<SplitNode, BitSet>(root.right, rootCounter.rightIgnore));
+        }
 
         while(!expandableLeafNodes.isEmpty() && nodeCount < params.maxNodeCount)
         {
@@ -244,8 +253,14 @@ class BestFirstSearchStrategy extends SearchStrategy
                 bestNode.filterDataset(params.trainingBags, bestIgnoredInst, counter);
 
                 // add the child nodes to the expandable node border:
-                expandableLeafNodes.add(new Pair<SplitNode, BitSet>(bestNode.left, counter.leftIgnore));
-                expandableLeafNodes.add(new Pair<SplitNode, BitSet>(bestNode.right, counter.rightIgnore));
+                if (params.splitStrategy.canExpand(params.trainingBags, counter.leftIgnore))
+                {
+                    expandableLeafNodes.add(new Pair<SplitNode, BitSet>(bestNode.left, counter.leftIgnore));
+                }
+                if (params.splitStrategy.canExpand(params.trainingBags, counter.rightIgnore))
+                {
+                    expandableLeafNodes.add(new Pair<SplitNode, BitSet>(bestNode.right, counter.rightIgnore));
+                }
             }
         }
 

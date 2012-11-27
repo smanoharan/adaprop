@@ -21,8 +21,14 @@ public abstract class SplitStrategy implements Serializable
      * @param ignore The bitSet of instances to ignore.
      * @return A list of candidate splits
      */
-    abstract List<CompPair<Integer, Double>> generateSplitPoints(final Instances trainingData,
+    public abstract List<CompPair<Integer, Double>> generateSplitPoints(final Instances trainingData,
                                                                  final BitSet ignore);
+
+    public boolean canExpand(Instances dataset, BitSet ignoreMask)
+    {
+        return true;
+    }
+
     // <editor-fold desc="===Option Handling===">
     private static final int SPLIT_MEAN = 1;
     private static final int SPLIT_MEDIAN = 2;
@@ -325,5 +331,36 @@ class DiscretizedSplitStrategy extends SplitStrategy
         }
 
         return splits;
+    }
+
+    /** @inheritDoc */
+    @Override
+    public boolean canExpand(final Instances dataset, final BitSet ignoreMask)
+    {
+        // check if bag is pure:
+        boolean hasClass0 = false;
+        boolean hasClass1 = false;
+        for (Instance inst : dataset)
+        {
+            if (inst.classValue() < 0.5)
+            {
+                // this inst is class 0
+                hasClass0 = true;
+                if (hasClass1)
+                {
+                    return true;
+                }
+            }
+            else
+            {
+                hasClass1 = true;
+                if (hasClass0)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }
