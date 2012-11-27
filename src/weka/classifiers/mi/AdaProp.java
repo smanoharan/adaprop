@@ -2,6 +2,7 @@ package weka.classifiers.mi;
 
 import weka.classifiers.SingleClassifierEnhancer;
 import weka.classifiers.mi.adaprop.*;
+import weka.classifiers.trees.RandomForest;
 import weka.core.*;
 
 import java.util.Arrays;
@@ -315,6 +316,20 @@ public class AdaProp extends SingleClassifierEnhancer
     public static void main(String[] args)
     {
         runClassifier(new AdaProp(), args);
+    }
+
+    public AdaProp()
+    {
+        RandomForest randomForest = new RandomForest();
+        randomForest.setMaxDepth(10);
+        randomForest.setNumTrees(100);
+        super.m_Classifier = randomForest;
+    }
+
+    @Override
+    protected String defaultClassifierString()
+    {
+        return "weka.classifiers.trees.RandomForest -I 100 -depth 10";
     }
 
     /** @return a String describing this classifier. */
