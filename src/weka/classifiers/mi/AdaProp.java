@@ -23,7 +23,7 @@ public class AdaProp extends SingleClassifierEnhancer
      * For serialization:
      *  format: 1[dd][mm][yyyy]00..0[digit revision number]L
      */
-    public static final long serialVersionUID = 1221120120000019L;
+    public static final long serialVersionUID = 1271120120000021L;
 
     /** The tree of splits */
     protected RootSplitNode splitTreeRoot;
