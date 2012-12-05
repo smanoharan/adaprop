@@ -11,10 +11,7 @@ import weka.core.Option;
 import weka.core.SelectedTag;
 import weka.core.Tag;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Enumeration;
-import java.util.List;
+import java.util.*;
 
 import static org.junit.Assert.*;
 
@@ -307,8 +304,13 @@ public class AdaPropOptionsTest
     @Test
     public void testEvalStrategyOptionsAreListed() // in .listOptions();
     {
-        assertOptionsAreListed("eval",
-                "Split Evaluation strategy: 1=mis-classification-error (default), 2=root-mean-squared-error");
+        assertOptionsAreListed("eval", "Split Evaluation strategy: " +
+                "1=mis-classification error (default), " +
+                "2=cross-validated mis-classification error, " +
+                "3=root mean squared error, " +
+                "4=cross-validated root mean squared error, " +
+                "5=gain ratio, " +
+                "6=cross-validated gain ratio");
     }
 
     @Test
@@ -322,7 +324,7 @@ public class AdaPropOptionsTest
         assertSelectedTagIs(val, adaProp.getPropositionalisationStrategy(), key);
 
         // try setting it to all possible values & use get to verify
-        for (val = 2; val >= 1; val--)
+        for (val = 6; val >= 1; val--)
         {
             adaProp.setOptions(new String[]{key, Integer.toString(val)});
             assertOptionValueEquals(adaProp.getOptions(), key, Integer.toString(val));
@@ -336,11 +338,15 @@ public class AdaPropOptionsTest
         ArrayList<String> strategies = new ArrayList<String>();
         for (Tag t : EvaluationStrategy.STRATEGIES)
         {
-            strategies.add(EvaluationStrategy.getStrategy(t.getID()).getClass().getSimpleName());
+            strategies.add(EvaluationStrategy.getStrategy(t.getID(), new Random()).getClass().getSimpleName());
         }
         assertHasAllStrategies("Eval Strategy", strategies,
                 "MisClassificationErrorEvaluationStrategy",
-                "RMSEEvaluationStrategy");
+                "MisClassificationCrossValidatedErrorEvaluationStrategy",
+                "RMSEEvaluationStrategy",
+                "RMSECrossValidatedErrorEvaluationStrategy",
+                "InfoGainEvaluationStrategy",
+                "InfoGainCrossValidatedErrorEvaluationStrategy");
     }
 
     @Test
@@ -348,7 +354,7 @@ public class AdaPropOptionsTest
     {
         try
         {
-            EvaluationStrategy.getStrategy(999);
+            EvaluationStrategy.getStrategy(999, new Random());
             fail("Expected IllegalArgumentException");
         }
         catch (IllegalArgumentException iae)

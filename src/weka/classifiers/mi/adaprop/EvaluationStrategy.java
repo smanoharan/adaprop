@@ -37,21 +37,30 @@ public abstract class EvaluationStrategy implements Serializable
             throws Exception;
 
     // <editor-fold desc="===Option Handling===">
+    private static final int NUM_CV_FOLDS = 5;
     private static final int EVAL_MISCLASSIFICATION_ERROR = 1;
-    private static final int EVAL_RMSE = 2;
-    private static final int EVAL_CV_MISCLASSIFICATION_ERROR = 3;
+    private static final int EVAL_CV_MISCLASSIFICATION_ERROR = 2;
+    private static final int EVAL_RMSE = 3;
     private static final int EVAL_CV_RMSE = 4;
+    private static final int EVAL_INFO_GAIN = 5;
+    private static final int EVAL_CV_INFO_GAIN = 6;
     public static final int DEFAULT_STRATEGY = EVAL_MISCLASSIFICATION_ERROR;
-    public static final String DESCRIPTION =
-            "Split Evaluation strategy: 1=mis-classification-error (default), 2=root-mean-squared-error, " +
-                    "3=cross-validated-mis-classification-error, 4=cross-validated-root-mean-squared-error";
+    public static final String DESCRIPTION = "Split Evaluation strategy: " +
+            "1=mis-classification error (default), " +
+            "2=cross-validated mis-classification error, " +
+            "3=root mean squared error, " +
+            "4=cross-validated root mean squared error, " +
+            "5=gain ratio, " +
+            "6=cross-validated gain ratio";
 
     public static final Tag[] STRATEGIES =
             {
                     new Tag(EVAL_MISCLASSIFICATION_ERROR, "By Misclassification error"),
-                    new Tag(EVAL_RMSE, "By Root mean squared error"),
                     new Tag(EVAL_CV_MISCLASSIFICATION_ERROR, "By Cross-validated Misclassification error"),
-                    new Tag(EVAL_CV_RMSE, "By Cross-validated Root mean squared error")
+                    new Tag(EVAL_RMSE, "By Root mean squared error"),
+                    new Tag(EVAL_CV_RMSE, "By Cross-validated Root mean squared error"),
+                    new Tag(EVAL_INFO_GAIN, "By Information Gain ratio"),
+                    new Tag(EVAL_CV_INFO_GAIN, "By Cross-validated Informatio Gain ratio")
             };
 
     /**
@@ -61,18 +70,22 @@ public abstract class EvaluationStrategy implements Serializable
      * @param strategyID The ID representing the strategy
      * @return The strategy object corresponding to the strategyID
      */
-    public static EvaluationStrategy getStrategy(final int strategyID)
+    public static EvaluationStrategy getStrategy(final int strategyID, Random random)
     {
         switch (strategyID)
         {
             case EVAL_MISCLASSIFICATION_ERROR:
                 return new MisClassificationErrorEvaluationStrategy();
+            case EVAL_CV_MISCLASSIFICATION_ERROR:
+                return new MisClassificationCrossValidatedErrorEvaluationStrategy(random, NUM_CV_FOLDS);
             case EVAL_RMSE:
                 return new RMSEEvaluationStrategy();
-            case EVAL_CV_MISCLASSIFICATION_ERROR:
-                return new MisClassificationCrossValidatedErrorEvaluationStrategy(new Random(), 2);
             case EVAL_CV_RMSE:
-                return new RMSECrossValidatedErrorEvaluationStrategy(new Random(), 2);
+                return new RMSECrossValidatedErrorEvaluationStrategy(random, NUM_CV_FOLDS);
+            case EVAL_INFO_GAIN:
+                return new InfoGainEvaluationStrategy();
+            case EVAL_CV_INFO_GAIN:
+                return new InfoGainCrossValidatedErrorEvaluationStrategy(random, NUM_CV_FOLDS);
             default:
                 throw new IllegalArgumentException(
                         "Unknown evaluation strategy code: " + strategyID);
@@ -101,6 +114,18 @@ class RMSEEvaluationStrategy extends EvaluationStrategy
 
         eval.evaluateModel(classifier, dataset);
         return eval.rootMeanSquaredError();
+    }
+}
+
+class InfoGainEvaluationStrategy extends EvaluationStrategy
+{
+    @Override
+    public double evaluateModel(final Evaluation eval, Classifier classifier, Instances dataset)
+            throws Exception
+    {
+
+        eval.evaluateModel(classifier, dataset);
+        return  -eval.SFMeanEntropyGain(); // negated, to get a monotonic error function
     }
 }
 
@@ -141,5 +166,25 @@ class RMSECrossValidatedErrorEvaluationStrategy extends EvaluationStrategy
     {
         eval.crossValidateModel(classifier, dataset, numFolds, random);
         return eval.rootMeanSquaredError();
+    }
+}
+
+class InfoGainCrossValidatedErrorEvaluationStrategy extends EvaluationStrategy
+{
+    private final Random random;
+    private final int numFolds;
+
+    public InfoGainCrossValidatedErrorEvaluationStrategy(Random random, int numFolds)
+    {
+        this.random = random;
+        this.numFolds = numFolds;
+    }
+
+    @Override
+    public double evaluateModel(final Evaluation eval, Classifier classifier, Instances dataset)
+            throws Exception
+    {
+        eval.crossValidateModel(classifier, dataset, numFolds, random);
+        return -eval.SFMeanEntropyGain(); // negated, to get a monotonic error function.
     }
 }

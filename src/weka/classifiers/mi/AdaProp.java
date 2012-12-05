@@ -7,6 +7,7 @@ import weka.core.*;
 
 import java.util.Arrays;
 import java.util.Enumeration;
+import java.util.Random;
 import java.util.Vector;
 
 /**
@@ -23,7 +24,7 @@ public class AdaProp extends SingleClassifierEnhancer
      * For serialization:
      *  format: 1[dd][mm][yyyy]00..0[digit revision number]L
      */
-    public static final long serialVersionUID = 1271120120000021L;
+    public static final long serialVersionUID = 1041220120000022L;
 
     /** The tree of splits */
     protected RootSplitNode splitTreeRoot;
@@ -67,6 +68,9 @@ public class AdaProp extends SingleClassifierEnhancer
 
     /** The minimum occupancy of each leaf node in the tree */
     protected int m_MinOccupancy = DEFAULT_MIN_OCCUPANCY;
+
+    /** For randomization (when performing CV) */
+    protected Random m_Random = new Random(1);
 
     /**
      * Helper function to select the correct ID for the
@@ -405,7 +409,7 @@ public class AdaProp extends SingleClassifierEnhancer
         SplitStrategy splitStrategy = SplitStrategy.getStrategy(m_SplitStrategy, numAttr);
         SearchStrategy searchStrategy = SearchStrategy.getStrategy(m_SearchStrategy);
         propStrategy = PropositionalisationStrategy.getStrategy(m_PropositionalisationStrategy, numAttr);
-        EvaluationStrategy evalStrategy = EvaluationStrategy.getStrategy(m_EvalStrategy);
+        EvaluationStrategy evalStrategy = EvaluationStrategy.getStrategy(m_EvalStrategy, m_Random);
 
         // create the tree of splits:
         splitTreeRoot = SplitNode.buildTree(trainingBags, splitStrategy, m_MaxTreeSize,
