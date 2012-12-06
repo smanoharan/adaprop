@@ -71,6 +71,7 @@ public class AdaPropOptionsTest
         assertEquals(actual.name() + " NumArgs: ",  expNumArgs,     actual.numArguments());
         assertEquals(actual.name() + " Synopsis: ", expSynopsis,    actual.synopsis());
     }
+
     // find the option corresponding to the name in the enumeration
     private static Option findOption(final Enumeration opts, final String key)
     {
@@ -100,12 +101,29 @@ public class AdaPropOptionsTest
         Assert.fail("Option " + key + " not found in getOptions");
     }
 
+    private static void assertFlagStatusIs(String[] options, String key, boolean expected)
+    {
+        final List<String> optionList = Arrays.asList(options);
+        final String msg = "Flag " + key + " in " + optionList + "?\n\t";
+        assertEquals(msg, expected, optionList.contains(key));
+    }
+
+    private static void assertFlagIsSet(String[] options, String key)
+    {
+        assertFlagStatusIs(options, key, true);
+    }
+
+    private static void assertFlagIsNotSet(String[] options, String key)
+    {
+        assertFlagStatusIs(options, key, false);
+    }
+
     private static void assertSelectedTagIs(int exp, SelectedTag tag, String key)
     {
         assertEquals("Value for option " + key, exp, tag.getSelectedTag().getID());
     }
 
-    private void assertOptionsAreListed(String key, String desc)
+    private void assertOptionIsListed(String key, String desc)
     {
         Option opt = findOption(adaProp.listOptions(), key);
         if (opt == null)
@@ -115,6 +133,19 @@ public class AdaPropOptionsTest
         else
         {
             assertOptionEquals(opt, "\t" + desc, 1, "-" + key + " <num>");
+        }
+    }
+
+    private void assertFlagIsListed(String key, String desc)
+    {
+        Option opt = findOption(adaProp.listOptions(), key);
+        if (opt == null)
+        {
+            Assert.fail("Option -" + key + " not found");
+        }
+        else
+        {
+            assertOptionEquals(opt, "\t" + desc, 0, "[-" + key + "]");
         }
     }
 
@@ -137,8 +168,7 @@ public class AdaPropOptionsTest
     @Test
     public void testSplitPointOptionsAreListed() // in .listOptions();
     {
-        assertOptionsAreListed("split",
-                "Split point criterion: 1=mean (default), 2=median, 3=discretized, 4=range");
+        assertOptionIsListed("split", "Split point criterion: 1=mean (default), 2=median, 3=discretized, 4=range");
     }
 
     @Test
@@ -194,8 +224,7 @@ public class AdaPropOptionsTest
     @Test
     public void testSearchStrategyOptionsAreListed() // in .listOptions();
     {
-        assertOptionsAreListed("search",
-                "Search strategy: 1=breadth-first (default), 2=best-first");
+        assertOptionIsListed("search", "Search strategy: 1=breadth-first (default), 2=best-first");
     }
 
     @Test
@@ -249,8 +278,7 @@ public class AdaPropOptionsTest
     @Test
     public void testPropStrategyOptionsAreListed() // in .listOptions();
     {
-        assertOptionsAreListed("prop",
-            "Propositionalisation strategy: 1=count-only (default), 2=all-summary-stats");
+        assertOptionIsListed("prop", "Propositionalisation strategy: 1=count-only (default), 2=all-summary-stats");
     }
 
     @Test
@@ -304,7 +332,7 @@ public class AdaPropOptionsTest
     @Test
     public void testEvalStrategyOptionsAreListed() // in .listOptions();
     {
-        assertOptionsAreListed("eval", "Split Evaluation strategy: " +
+        assertOptionIsListed("eval", "Split Evaluation strategy: " +
                 "1=mis-classification error (default), " +
                 "2=cross-validated mis-classification error, " +
                 "3=root mean squared error, " +
@@ -369,15 +397,14 @@ public class AdaPropOptionsTest
     @Test
     public void testMaxTreeSizeOptionsAreListed() // in .listOptions();
     {
-        assertOptionsAreListed("maxTreeSize",
-                "Maximum size (number of nodes) of the tree. Default=8.");
+        assertOptionIsListed("maxTreeSize", "Maximum size (number of nodes) of the tree. Default=8.");
     }
 
     @Test
     public void testGetAndSetMaxTreeSizeOptions() throws Exception
     {
         final String key = "-maxTreeSize";
-        final String message = "Value for -" + key;
+        final String message = "Value for " + key;
 
         // by default: max tree size should be set to 8:
         int val = 8;
@@ -398,17 +425,16 @@ public class AdaPropOptionsTest
     @Test
     public void testMinOccupancyOptionsAreListed() // in .listOptions();
     {
-        assertOptionsAreListed("minOcc",
-                "Minimum occupancy of each node of the tree. Default=5.");
+        assertOptionIsListed("minOcc", "Minimum occupancy of each node of the tree. Default=5.");
     }
 
     @Test
     public void testGetAndSetMinOccupancyOptions() throws Exception
     {
         final String key = "-minOcc";
-        final String message = "Value for -" + key;
+        final String message = "Value for " + key;
 
-        // by default: max tree size should be set to 5:
+        // by default: min occupancy should be set to 5:
         int val = 5;
         assertOptionValueEquals(adaProp.getOptions(), key, Integer.toString(val));
         assertEquals(message, val, adaProp.getMinOccupancy());
@@ -420,6 +446,34 @@ public class AdaPropOptionsTest
             assertOptionValueEquals(adaProp.getOptions(), key, Integer.toString(val));
             assertEquals(message, val, adaProp.getMinOccupancy());
         }
+    }
+    // </editor-fold>
+
+    // <editor-fold desc="===Parameter Selection===">
+    @Test
+    public void testDoParameterSelectionOptionsAreListed()
+    {
+        assertFlagIsListed("paramSel", "Perform Cross-validated Tree Size Parameter Selection. " + "Default=False.");
+    }
+
+    @Test
+    public void testGetAndSetDoParameterSelectionOptions() throws Exception
+    {
+        final String key = "-paramSel";
+
+        // by default: no parameter selection:
+        assertFlagIsNotSet(adaProp.getOptions(), key);
+        assertFalse("Flag " + key + "should not be set", adaProp.getDoCVParameterSelection());
+
+        // try setting it to some possible values & use get to verify
+        adaProp.setOptions(new String[]{key});
+        assertFlagIsSet(adaProp.getOptions(), key);
+        assertTrue("Flag " + key + "should be set", adaProp.getDoCVParameterSelection());
+
+        adaProp.setOptions(new String[]{});
+        assertFlagIsNotSet(adaProp.getOptions(), key);
+        assertFalse("Flag " + key + "should not be set", adaProp.getDoCVParameterSelection());
+
     }
     // </editor-fold>
 

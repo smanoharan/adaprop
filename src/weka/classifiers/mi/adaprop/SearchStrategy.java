@@ -26,14 +26,14 @@ public abstract class SearchStrategy implements Serializable
      *
      * @return the default root.
      */
-    protected RootSplitNode buildRoot(final TreeBuildingParams params)
+    public RootSplitNode buildRoot(final PropositionalisationStrategy propStrategy)
     {
         // root starts at depth=0, with 2 prop-attr (indices 1 and 2).
-        int propLeftIndex = params.propStrategy.getNumPropAttrPerRegion();
+        int propLeftIndex = propStrategy.getNumPropAttrPerRegion();
         int propRightIndex = propLeftIndex*2;
         RootSplitNode root = RootSplitNode.toRootNode(
                 new SplitNode(propLeftIndex, propRightIndex, 0),
-                params.propStrategy);
+                propStrategy);
         root.setNodeCount(1);
         return root;
     }
@@ -85,7 +85,9 @@ class BreadthFirstSearchStrategy extends SearchStrategy
      * @param ignoredInst The bitset indicating which instances are to be ignored.
      * @return true if the node can be expanded, false otherwise.
      */
-    protected boolean isExpandable(final SplitNode node, final TreeBuildingParams params, final BitSet ignoredInst)
+    protected static boolean isExpandable(
+            final SplitNode node, final TreeBuildingParams params,
+            final BitSet ignoredInst)
     {
         final int numInstInNode = params.instCount - ignoredInst.cardinality();
         return (params.splitStrategy.canExpand(params.trainingBags, ignoredInst))
@@ -98,8 +100,8 @@ class BreadthFirstSearchStrategy extends SearchStrategy
     {
         // build the root:
         final int numAttrPerRegion = params.propStrategy.getNumPropAttrPerRegion();
-        int nextPropIndex = 3*numAttrPerRegion;
-        RootSplitNode root = buildRoot(params);
+        //int nextPropIndex = 3*numAttrPerRegion;
+        RootSplitNode root = buildRoot(params.propStrategy);
         final BitSet rootIgnoredInst = new BitSet(instCount);
 
         if (params.maxNodeCount > 0 && isExpandable(root, params, rootIgnoredInst)) {
@@ -111,13 +113,13 @@ class BreadthFirstSearchStrategy extends SearchStrategy
 
         // structure the tree into an queue via breadth-first-search:
         int numNodes = 1;
-        Queue<Pair<SplitNode,BitSet>> queue = new LinkedList<Pair<SplitNode,BitSet>>();
-        queue.add(new Pair<SplitNode, BitSet>(root, rootIgnoredInst));
+        Queue<Pair<SplitNode,BitSet>> border = new LinkedList<Pair<SplitNode,BitSet>>();
+        border.add(new Pair<SplitNode, BitSet>(root, rootIgnoredInst));
 
-        while(!queue.isEmpty() && numNodes < params.maxNodeCount)
+        while(!border.isEmpty() && numNodes < params.maxNodeCount)
         {
             // take the first node, check if it's children can be expanded further:
-            final Pair<SplitNode,BitSet> nodeMapPair = queue.remove();
+            final Pair<SplitNode,BitSet> nodeMapPair = border.remove();
             final SplitNode node = nodeMapPair.key;
             final BitSet ignoredInst = nodeMapPair.value;
             final int nextDepth = node.curDepth + 1;
@@ -127,29 +129,48 @@ class BreadthFirstSearchStrategy extends SearchStrategy
             node.filterDataset(trainingBags, ignoredInst, counter);
 
             // build the left and right nodes
-            node.left = new SplitNode(nextPropIndex, nextPropIndex+numAttrPerRegion, nextDepth);
-            if (isExpandable(node.left, params, counter.leftIgnore))
-            {
+            node.left = newChildNode(numNodes, nextDepth, numAttrPerRegion);
+            if (expandChild(params, root, numNodes, border, node.left, counter.leftIgnore)) {
                 numNodes++;
-                root.setNodeCount(numNodes);
-                node.left.computeBestSplit(params, counter.leftIgnore, root);
-                nextPropIndex += 2*numAttrPerRegion;
-                queue.add(new Pair<SplitNode, BitSet>(node.left, counter.leftIgnore));
             }
 
-            node.right = new SplitNode(nextPropIndex, nextPropIndex+numAttrPerRegion, nextDepth);
-            if (numNodes < params.maxNodeCount && isExpandable(node.right, params, counter.rightIgnore))
-            {
+            if (numNodes >= params.maxNodeCount) {
+                break;
+            }
+
+            node.right = newChildNode(numNodes, nextDepth, numAttrPerRegion);
+            if (expandChild(params, root, numNodes, border, node.right, counter.rightIgnore)) {
                 numNodes++;
-                root.setNodeCount(numNodes);
-                node.right.computeBestSplit(params, counter.rightIgnore, root);
-                nextPropIndex += 2*numAttrPerRegion;
-                queue.add(new Pair<SplitNode, BitSet>(node.right, counter.rightIgnore));
             }
         }
 
         root.setNodeCount(numNodes);
         return root;
+    }
+
+    /** Construct a new node, given the numNodes and depth so far */
+    private static SplitNode newChildNode(
+            final int numNodes, final int nextDepth, final int numAttrPerRegion)
+    {
+        int leftIndex = ((2*numNodes)+1)*numAttrPerRegion;
+        int rightIndex = leftIndex + numAttrPerRegion;
+        return new SplitNode(leftIndex, rightIndex, nextDepth);
+    }
+
+    /** Attempt to expand the child node */
+    private static boolean expandChild(
+            final TreeBuildingParams params, final RootSplitNode root,
+            int numNodes, final Queue<Pair<SplitNode, BitSet>> border,
+            final SplitNode node, final BitSet ignore) throws Exception
+    {
+        if (isExpandable(node, params, ignore)) {
+            root.setNodeCount(numNodes + 1);
+            node.computeBestSplit(params, ignore, root);
+            border.add(new Pair<SplitNode, BitSet>(node, ignore));
+            return true;
+        } else {
+            return false;
+        }
     }
 }
 
@@ -162,8 +183,8 @@ class BestFirstSearchStrategy extends SearchStrategy
     {
         // build the root:
         final int numAttrPerRegion = params.propStrategy.getNumPropAttrPerRegion();
-        int nextPropIndex = 3 * numAttrPerRegion;
-        RootSplitNode root = buildRoot(params);
+        //int nextPropIndex = 3 * numAttrPerRegion;
+        RootSplitNode root = buildRoot(params.propStrategy);
         final BitSet rootIgnoredInst = new BitSet(instCount);
 
         if (instCount >= params.minOccupancy && params.maxNodeCount > 0) {
@@ -176,7 +197,7 @@ class BestFirstSearchStrategy extends SearchStrategy
         // structure the search by keeping a list of expandable nodes
         //  (i.e. those which have at least one empty child.
         int nodeCount = 1;
-        LinkedList<Pair<SplitNode, BitSet>> expandableLeafNodes = new LinkedList<Pair<SplitNode, BitSet>>();
+        LinkedList<Pair<SplitNode, BitSet>> border = new LinkedList<Pair<SplitNode, BitSet>>();
 
         // initialise the border with the two children of the root.
         root.left = new SplitNode(-1, -1, 1);
@@ -185,87 +206,28 @@ class BestFirstSearchStrategy extends SearchStrategy
         root.filterDataset(trainingBags, rootIgnoredInst, rootCounter);
         if (params.splitStrategy.canExpand(params.trainingBags, rootCounter.leftIgnore))
         {
-            expandableLeafNodes.add(new Pair<SplitNode, BitSet>(root.left, rootCounter.leftIgnore));
+            border.add(new Pair<SplitNode, BitSet>(root.left, rootCounter.leftIgnore));
         }
         if (params.splitStrategy.canExpand(params.trainingBags, rootCounter.rightIgnore))
         {
-            expandableLeafNodes.add(new Pair<SplitNode, BitSet>(root.right, rootCounter.rightIgnore));
+            border.add(new Pair<SplitNode, BitSet>(root.right, rootCounter.rightIgnore));
         }
 
-        while(!expandableLeafNodes.isEmpty() && nodeCount < params.maxNodeCount)
+        while(!border.isEmpty() && nodeCount < params.maxNodeCount)
         {
-            // iterate over all split nodes and find the one with the least error
-            Pair<SplitNode, BitSet> bestSplit = null;
-            int bestSplitAttrIndex = -1;
-            double minErr = Double.MAX_VALUE;
-
             // adjust counters:
             nodeCount++;
             root.setNodeCount(nodeCount);
-
-            for (Pair<SplitNode, BitSet> nodeMapPair: expandableLeafNodes)
+            if (!expandNode(params, instCount, numAttrPerRegion, root, nodeCount, border))
             {
-                final SplitNode node = nodeMapPair.key;
-                final BitSet ignoredInst = nodeMapPair.value;
-
-                // try expansion:
-                node.propLeftIndex = nextPropIndex;
-                node.propRightIndex = nextPropIndex + numAttrPerRegion;
-                node.computeBestSplit(params, ignoredInst, root);
-
-                final double nodeErr = node.trainingSetError;
-                if (nodeErr < minErr)
-                {
-                    bestSplit = nodeMapPair;
-                    bestSplitAttrIndex = node.splitAttrIndex;
-                    minErr = nodeErr;
-                }
-
-                // reset the node (so that the other nodes in the border are unaffected):
-                node.splitAttrIndex = -1;
-                node.propLeftIndex = -1;
-                node.propRightIndex = -1;
-            }
-
-            if (bestSplit == null)
-            {
-                // no best-split found.
                 nodeCount--;
                 root.setNodeCount(nodeCount);
                 break;
             }
-            else
-            {
-                // "use up" the bestSplit:
-                expandableLeafNodes.remove(bestSplit);
-                final SplitNode bestNode = bestSplit.key;
-                final BitSet bestIgnoredInst = bestSplit.value;
-                bestNode.splitAttrIndex = bestSplitAttrIndex;
-                bestNode.propLeftIndex = nextPropIndex;
-                bestNode.propRightIndex = nextPropIndex + numAttrPerRegion;
-                nextPropIndex += 2*numAttrPerRegion;
-
-                // create 2 child nodes:
-                final int nextDepth = bestNode.curDepth + 1;
-                bestNode.left = new SplitNode(-1, -1, nextDepth);
-                bestNode.right = new SplitNode(-1, -1, nextDepth);
-                RegionPartitioner counter = new RegionPartitioner(instCount);
-                bestNode.filterDataset(params.trainingBags, bestIgnoredInst, counter);
-
-                // add the child nodes to the expandable node border:
-                if (params.splitStrategy.canExpand(params.trainingBags, counter.leftIgnore))
-                {
-                    expandableLeafNodes.add(new Pair<SplitNode, BitSet>(bestNode.left, counter.leftIgnore));
-                }
-                if (params.splitStrategy.canExpand(params.trainingBags, counter.rightIgnore))
-                {
-                    expandableLeafNodes.add(new Pair<SplitNode, BitSet>(bestNode.right, counter.rightIgnore));
-                }
-            }
         }
 
         // clear (reset) the remaining leaf nodes:
-        for (Pair<SplitNode, BitSet> nodeMapPair: expandableLeafNodes)
+        for (Pair<SplitNode, BitSet> nodeMapPair: border)
         {
             final SplitNode node = nodeMapPair.key;
             node.left = null;
@@ -277,6 +239,76 @@ class BestFirstSearchStrategy extends SearchStrategy
 
         root.setNodeCount(nodeCount);
         return root;
+    }
+
+    private boolean expandNode(final TreeBuildingParams params,
+                               final int instCount, final int numAttrPerRegion,
+                               final RootSplitNode root, final int nodeCount,
+                               final LinkedList<Pair<SplitNode, BitSet>> border) throws Exception
+    {
+        // iterate over all split nodes and find the one with the least error
+        Pair<SplitNode, BitSet> bestSplit = null;
+
+        int bestSplitAttrIndex = -1;
+        double minErr = Double.MAX_VALUE;
+        for (Pair<SplitNode, BitSet> nodeMapPair : border)
+        {
+            final SplitNode node = nodeMapPair.key;
+            final BitSet ignoredInst = nodeMapPair.value;
+
+            // try expansion:
+            node.propLeftIndex = ((2*nodeCount)-1)*numAttrPerRegion;
+            node.propRightIndex = node.propLeftIndex + numAttrPerRegion;
+            node.computeBestSplit(params, ignoredInst, root);
+
+            final double nodeErr = node.trainingSetError;
+            if (nodeErr < minErr)
+            {
+                bestSplit = nodeMapPair;
+                bestSplitAttrIndex = node.splitAttrIndex;
+                minErr = nodeErr;
+            }
+
+            // reset the node (so that the other nodes in the border are unaffected):
+            node.splitAttrIndex = -1;
+            node.propLeftIndex = -1;
+            node.propRightIndex = -1;
+        }
+
+        if (bestSplit == null)
+        {
+            // no best-split found.
+            return false;
+        }
+        else
+        {
+            // "use up" the bestSplit:
+            border.remove(bestSplit);
+            final SplitNode bestNode = bestSplit.key;
+            final BitSet bestIgnoredInst = bestSplit.value;
+            bestNode.splitAttrIndex = bestSplitAttrIndex;
+            bestNode.propLeftIndex = ((2*nodeCount)-1)*numAttrPerRegion;
+            bestNode.propRightIndex = bestNode.propLeftIndex + numAttrPerRegion;
+            //nextPropIndex += 2*numAttrPerRegion;
+
+            // create 2 child nodes:
+            final int nextDepth = bestNode.curDepth + 1;
+            bestNode.left = new SplitNode(-1, -1, nextDepth);
+            bestNode.right = new SplitNode(-1, -1, nextDepth);
+            RegionPartitioner counter = new RegionPartitioner(instCount);
+            bestNode.filterDataset(params.trainingBags, bestIgnoredInst, counter);
+
+            // add the child nodes to the expandable node border:
+            if (params.splitStrategy.canExpand(params.trainingBags, counter.leftIgnore))
+            {
+                border.add(new Pair<SplitNode, BitSet>(bestNode.left, counter.leftIgnore));
+            }
+            if (params.splitStrategy.canExpand(params.trainingBags, counter.rightIgnore))
+            {
+                border.add(new Pair<SplitNode, BitSet>(bestNode.right, counter.rightIgnore));
+            }
+            return true;
+        }
     }
 }
 
