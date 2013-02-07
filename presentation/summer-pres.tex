@@ -1,121 +1,149 @@
 \documentclass{beamer}
 
-\usetheme{Rochester}
-
-\beamertemplatenavigationsymbolsempty
 \usepackage[english]{babel}
 \usepackage{xcolor}
-\usecolortheme{beaver}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage{pgfplotstable}
+\usetikzlibrary{plotmarks}
 
 %\usefonttheme{serif}
 %\usepackage{palatino}
+\usetheme{Rochester}
+\usecolortheme{beaver}
+\beamertemplatenavigationsymbolsempty
 
-\title{ ~ \\ ~ \\ {\huge{AdaProp}} \\ ~ \\ 
+\title{ ~ \\ ~ \\ {\huge AdaProp} \\ ~ \\ 
     {\large Adaptive Propositionalisation of Multi-Instance Data Towards Image Classification} \\ ~ }
 \subtitle{}
-
-\author{~ \\ ~\\ Siva~Manoharan \\~\\ Supervisor: Dr.~Eibe~Frank}
-
+\author{~ \\ ~ \\ Siva~Manoharan \\ ~ \\ Supervisor: Dr.~Eibe~Frank}
 \date{}
 
-% Customizing colours:
-\definecolor{primaryfg}{RGB}{170, 0, 0}
-\setbeamercolor*{item}{fg=darkred!60!black}
-%\setbeamercolor{itemize subitem}{fg=primaryfg}
-%\setbeamercolor{itemize subsubitem}{fg=primaryfg}
-%\setbeamercolor{enumerate item}{fg=primaryfg}
-%\setbeamercolor{enumerate subitem}{fg=primaryfg}
-%\setbeamercolor{enumerate subsubitem}{fg=primaryfg}
+%% Customizing colours:
+\colorlet{primaryRed}{darkred!60!black} % For most Reds
+\colorlet{secondaryRed}{darkred!80!black} % When Red is surrounded by grey
+\colorlet{bgWhite}{white!97!black} % Near white, for page backgrounds
+\colorlet{headerGrey}{white!90!black} % For Header backgrounds
+\colorlet{fillGrey}{white!80!black} % For filling areas, e.g. chart areas
+\colorlet{edgeGrey}{white!60!black} % For increasing apparent sharpness
 
-\setbeamercolor{title}{fg=darkred!80!black} 
-\setbeamercolor{background canvas}{bg=white!97!black}
-\setbeamercolor{headline}{bg=white!90!black}
+\setbeamercolor*{item}{fg=primaryRed}
+\setbeamercolor{title}{fg=secondaryRed} 
+\setbeamercolor{background canvas}{bg=bgWhite}
+\setbeamercolor{headline}{bg=headerGrey}
 \setbeamertemplate{headline}[text line]{%
-  %\begin{beamercolorbox}[wd=\paperwidth,ht=2cm, dp=.2cm, leftskip=.5cm,rightskip=.3cm]{headline}%
   \begin{beamercolorbox}[wd=\paperwidth,ht=2cm]{headline}%
   \end{beamercolorbox}%
 }
 
+%% A Macro for a column with an image and a caption
+%% args: image, caption
+\newcommand{\ImageAndCaptionColumn}[2]{%
+    \begin{center} 
+        \includegraphics[scale=0.25]{img/#1} \\~\\ 
+        {\Large #2} 
+    \end{center}
+}
 
-% If you have a file called "university-logo-filename.xxx", where xxx
-% is a graphic format that can be processed by latex or pdflatex,
-% resp., then you can add a logo as follows:
+%% A Macro for frame template: a bullet point above two images, each with caption
+%% args: bullet-text, img-left, caption-left, img-right, caption-right
+\newcommand{\TextAndTwoImageFrame}[5]{%
+    %% Default spacing is too large for just one bullet point.
+    %% Reduce it:
+    \vspace{-0.5cm}    
+    \begin{itemize}
+        \item #1
+    \end{itemize}    
+    \vspace{-0.5cm} % again, reducing spacing
+    
+    %% Two columns of image+caption pairs:
+    \begin{columns}[T]
+    
+        \begin{column}{.5\textwidth}
+            \ImageAndCaptionColumn{#2}{#3}
+        \end{column}
+        
+        \begin{column}{.5\textwidth}
+            \ImageAndCaptionColumn{#4}{#5}
+        \end{column}
+        
+    \end{columns}
+}
 
-% \pgfdeclareimage[height=0.5cm]{university-logo}{university-logo-filename}
-% \logo{\pgfuseimage{university-logo}}
+%% A Macro for a column and line graph for our datasets:
+%% args: 
+\newcommand{\ColumnAndLineGraph}[4]{%
+    \begin{axis}[
+        % Fixed size graph
+        width=11cm, height=7cm, bar width=0.35cm,
+%
+        % draw only left and bottom lines
+        axis x line*=bottom, axis y line*=left, draw=edgeGrey,
+%
+        % y-axis: 40-95, with major=10, minor=5
+        ymin=40, ymax=95, minor y tick num=1,  ytick={50,60,70,80,90},
+        axis y discontinuity=crunch, ylabel={Accuracy (\%)},
+%
+        % x-axis: category axis
+        symbolic x coords={atoms,bonds,chains,musk1,musk2,trx,tiger,fox,eleph,people,bikes,cars},
+        xtick=data, x tick label style={rotate=90,anchor=east}, 
+%
+        % Legend: at bottom right, place line first, then bar.
+        reverse legend, legend pos=south east
+    ]
+ 
+        % Background bar plot
+        \addplot[ybar,fill=fillGrey, draw=edgeGrey, area legend] 
+            coordinates {#2};
+        \addlegendentry{#1}
+        
+        % Foreground line plot
+        \addplot+[ycomb,mark=-,draw=primaryRed,very thick,mark size=0.175cm, line legend] 
+            coordinates {#4};
+        \addlegendentry{#3}
+    \end{axis}
+}
 
+%% uncomment for logo
+%\pgfdeclareimage[height=0.5cm]{university-logo}{university-logo-filename}
+%\logo{\pgfuseimage{university-logo}}
 
-
-% Delete this, if you do not want the table of contents to pop up at
-% the beginning of each subsection:
-%\AtBeginSubsection[]
-%{
-%  \begin{frame}<beamer>{Outline}
-%    \tableofcontents[currentsection,currentsubsection]
-%  \end{frame}
-%}
-
-
-% If you wish to uncover everything in a step-wise fashion, uncomment
-% the following command: 
-
+%% uncomment for stepwise appearence (of bullet points etc)
 %\beamerdefaultoverlayspecification{<+->}
 
-
 \begin{document}
-{
-%\setbeamertemplate{headline}{}
-\makeatletter % to change template
-    \setbeamercolor{headline}{bg=white!97!black}
-    %\setbeamertemplate{headline}[default] % not mandatory, but I though it was better to set it blank
-    \def\beamer@entrycode{\vspace*{-\headheight}} % here is the part we are interested in :)
-\makeatother
 
-\begin{frame}
-  \titlepage
-\end{frame}
+%% remove header bar for the titlepage
+{
+    \makeatletter
+        \setbeamercolor{headline}{bg=white!97!black}
+        \def\beamer@entrycode{\vspace*{-0.8\headheight}}
+    \makeatother
+
+    \begin{frame}
+        \titlepage
+    \end{frame}
 }
 
 \begin{frame}{Image Classification}
-\vspace{-0.5cm}
-    \begin{itemize}
-        \item Does the Image contain a specific object?
-    \end{itemize}
-\vspace{-0.5cm}
-  \begin{columns}[T]
-    \begin{column}{.5\textwidth}
-    \begin{center} \includegraphics[scale=0.25]{img/cars1} \\~\\ {\Large Car} \end{center}
-    \end{column}
-    \begin{column}{.5\textwidth}
-    \begin{center} \includegraphics[scale=0.25]{img/none1} \\~\\ {\Large None}  \end{center}
-    \end{column}
-  \end{columns}
-  
+    \TextAndTwoImageFrame
+        {Does the Image contain a specific object?}
+        {cars1}{Car}{none1}{None}
 \end{frame}
 
 \begin{frame}{Image Classification}
-\vspace{-0.5cm}
-    \begin{itemize}
-        \item Not easy in practice (for computers)
-    \end{itemize}
-\vspace{-0.5cm}
-  \begin{columns}[T]
-    \begin{column}{.5\textwidth}
-    \begin{center} \includegraphics[scale=0.25]{img/cars2} \\~\\ {\Large Partial Occlusion} \end{center}
-    \end{column}
-    \begin{column}{.5\textwidth}
-    \begin{center} \includegraphics[scale=0.25]{img/cars3} \\~\\ {\Large Not in Foreground}  \end{center}
-    \end{column}
-  \end{columns}
-  
+    \TextAndTwoImageFrame
+        {Not easy in practice (for computers)}
+        {cars2}{Partial Occlusion}{cars3}{Not in Foreground}
 \end{frame}
 
-
-\begin{frame}{Multi-Instance Learning}
+\begin{frame}{Multi-Instance (MI) Learning}
 
     \begin{itemize}
-        \item A good fit for Image Classification \\ ~
-        \item Also used for Text and Chemical datasets \\ ~
+        \item Natural for Image Classification \\ ~
+        \item Text Classification and Chemical datasets \\ ~
         \item Key: Bags of Instances
     \end{itemize}
     % TODO: show splitting? (not enough time)
@@ -124,9 +152,9 @@
 \begin{frame}{Propositionalisation}
 
     \begin{itemize}
-        \item \dots \\ ~
-        \item \dots \\ ~
-        \item \dots
+        \item Multi-instance $\to$ Single-instance \\ ~
+        \item Advantage: Existing algorithms \\ ~
+        \item Disadvantage: Lossy conversion
     \end{itemize}
     % TODO: Lots more algorithms in stardard mi
 \end{frame}
@@ -134,32 +162,46 @@
 \begin{frame}{AdaProp: Adaptive Propositionalisation}
 
     \begin{itemize}
-        \item \dots \\ ~
-        \item \dots \\ ~
-        \item \dots
+        \item Use the base learner \\ ~
+        \item Tree of decisions / partitions \\ ~
+        \item Count by region
     \end{itemize}
     % TODO: Needs diagram
-    % Mention WEKA? Screenshot of params?
+
+    
 \end{frame}
 
-\begin{frame}{Results: Impact of \dots}
+\begin{frame}{WEKA}
+  \vspace{-0.5cm}
+  \ImageAndCaptionColumn{weka3}{}  
+\end{frame}
+
+\begin{frame}{Results: Impact of Parameter Selection}
 
     \begin{itemize}
         \item \dots \\ ~
         \item \dots \\ ~
         \item \dots
     \end{itemize}
-    % TODO: 
+    % TODO: needs graph
 \end{frame}
 
-\begin{frame}{Results: \dots vs \dots}
+\begin{frame}{AdaProp vs. Other MI algorithms}
 
-    \begin{itemize}
-        \item \dots \\ ~
-        \item \dots \\ ~
-        \item \dots
-    \end{itemize}
-    % TODO: 
+    \begin{tikzpicture}
+        \ColumnAndLineGraph{Others}{
+            (atoms,83.90) (bonds,87.96) (chains,88.56)
+            (musk1,90.68) (musk2,85.89) (trx,90.32)
+            (tiger,84.3) (fox,67) (eleph,85.5)
+            (people,82.6) (bikes,83.5)(cars,77.22)
+        }{AdaProp}{
+            (atoms,87.52) (bonds,89.44) (chains,89.86)
+            (musk1,85.76) (musk2,82.26) (trx,88.64)
+            (tiger,84.2) (fox,68.2) (eleph,84.75)
+            (people,81.88) (bikes,82.5)(cars,77.08)
+        }
+    \end{tikzpicture}
+    
 \end{frame}
 
 \begin{frame}{Summary}
@@ -167,11 +209,11 @@
   % Keep the summary *very short*.
   \begin{itemize}
   \item
-    The \alert{first main message} of your talk in one or two lines. \\ ~
+      MI representation is \alert{natural} for Image Classification. \\ ~
   \item
-    The \alert{second main message} of your talk in one or two lines. \\ ~
+      AdaProp propositionalises MI data using the \alert{base learner}. \\ ~
   \item
-    To do in the future \alert{third message}
+      \alert{Comparable performance} to other MI algorithms. % TODO need this?
   \end{itemize}
   
 \end{frame}
