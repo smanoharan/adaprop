@@ -15,36 +15,56 @@
 \usecolortheme{beaver}
 \beamertemplatenavigationsymbolsempty
 
-\title{ ~ \\ ~ \\ {\huge AdaProp} \\ ~ \\ 
-    {\large Adaptive Propositionalisation of Multi-Instance Data Towards Image Classification} \\ ~ }
-\subtitle{}
-\author{~ \\ ~ \\ Siva~Manoharan \\ ~ \\ Supervisor: Dr.~Eibe~Frank}
-\date{}
+\title{ 
+    ~\\~\\ 
+    {\huge AdaProp} 
+    \\~\\
+    {\large Adaptive Propositionalisation of Multi-Instance Data Towards Image Classification}
+    \\~
+}
+\author{
+    ~\\~\\
+    Siva~Manoharan
+    \\~\\
+    Supervisor:~Dr~Eibe~Frank
+}
+\date{} %% no date
 
 %% Customizing colours:
-\colorlet{primaryRed}{darkred!60!black} % For most Reds
-\colorlet{secondaryRed}{darkred!80!black} % When Red is surrounded by grey
-\colorlet{bgWhite}{white!97!black} % Near white, for page backgrounds
-\colorlet{headerGrey}{white!90!black} % For Header backgrounds
-\colorlet{fillGrey}{white!80!black} % For filling areas, e.g. chart areas
-\colorlet{edgeGrey}{white!60!black} % For increasing apparent sharpness
+\colorlet{primaryRed}{darkred!60!black}       %% For most Reds
+\colorlet{secondaryRed}{darkred!80!black}     %% When Red is surrounded by grey
+\colorlet{bgWhite}{white!97!black}            %% Near white, for page backgrounds
+\colorlet{headerGrey}{white!90!black}         %% For Header backgrounds
+\colorlet{fillGrey}{white!80!black}           %% For filling areas, e.g. chart areas
+\colorlet{edgeGrey}{white!60!black}           %% For increasing apparent sharpness
 
-\setbeamercolor*{item}{fg=primaryRed}
-\setbeamercolor{title}{fg=secondaryRed} 
+\setbeamercolor*{item}{fg=primaryRed}         %% Bullet points
+\setbeamercolor{title}{fg=secondaryRed}       
 \setbeamercolor{background canvas}{bg=bgWhite}
 \setbeamercolor{headline}{bg=headerGrey}
 \setbeamertemplate{headline}[text line]{%
-  \begin{beamercolorbox}[wd=\paperwidth,ht=2cm]{headline}%
+  \begin{beamercolorbox}%
+      [wd=\paperwidth,ht=2cm]{headline}%
   \end{beamercolorbox}%
 }
 
-%% A Macro for a column with an image and a caption
+%% A Macro for a image and a caption
+%% args: image, caption
+\newcommand{\CenteredImage}[1]{%
+    \begin{center} 
+        \includegraphics[scale=0.25]{img/#1}
+    \end{center}
+}
+
+%% A Macro for a image and a caption in a column
 %% args: image, caption
 \newcommand{\ImageAndCaptionColumn}[2]{%
-    \begin{center} 
-        \includegraphics[scale=0.25]{img/#1} \\~\\ 
-        {\Large #2} 
-    \end{center}
+    \begin{column}{.5\textwidth}
+        \begin{center} 
+            \includegraphics[scale=0.25]{img/#1} \\~\\ 
+            {\Large #2}
+        \end{center} 
+    \end{column}
 }
 
 %% A Macro for frame template: a bullet point above two images, each with caption
@@ -53,53 +73,59 @@
     %% Default spacing is too large for just one bullet point.
     %% Reduce it:
     \vspace{-0.5cm}    
+    
     \begin{itemize}
         \item #1
-    \end{itemize}    
-    \vspace{-0.5cm} % again, reducing spacing
+    \end{itemize}
+    
+    \vspace{-0.5cm} %% again, reducing spacing
     
     %% Two columns of image+caption pairs:
     \begin{columns}[T]
-    
-        \begin{column}{.5\textwidth}
-            \ImageAndCaptionColumn{#2}{#3}
-        \end{column}
-        
-        \begin{column}{.5\textwidth}
-            \ImageAndCaptionColumn{#4}{#5}
-        \end{column}
-        
+        \ImageAndCaptionColumn{#2}{#3}
+        \ImageAndCaptionColumn{#4}{#5}
     \end{columns}
 }
 
+%% A Macro for frame template: 3 bullet points
+%% args: bullet1, bullet2, bullet3
+\newcommand{\ThreeBulletFrame}[3]{%
+    \begin{itemize}
+        \item {#1} \\ ~
+        \item {#2} \\ ~
+        \item {#3}
+    \end{itemize}
+}
+
 %% A Macro for a column and line graph for our datasets:
-%% args: 
+%% args: bg-label, bg-coords, fg-label, fg-coords ; where
+%%    bg: background datapoints, fg: foreground datapoints.
 \newcommand{\ColumnAndLineGraph}[4]{%
     \begin{axis}[
-        % Fixed size graph
+        %% Fixed size graph
         width=11cm, height=7cm, bar width=0.35cm,
 %
-        % draw only left and bottom lines
+        %% draw only left and bottom lines
         axis x line*=bottom, axis y line*=left, draw=edgeGrey,
 %
-        % y-axis: 40-95, with major=10, minor=5
+        %% y-axis: 40-95, with major=10, minor=5
         ymin=40, ymax=95, minor y tick num=1,  ytick={50,60,70,80,90},
         axis y discontinuity=crunch, ylabel={Accuracy (\%)},
 %
-        % x-axis: category axis
+        %% x-axis: category axis
         symbolic x coords={atoms,bonds,chains,musk1,musk2,trx,tiger,fox,eleph,people,bikes,cars},
         xtick=data, x tick label style={rotate=90,anchor=east}, 
 %
-        % Legend: at bottom right, place line first, then bar.
+        %% Legend: at bottom right, place line first, then bar.
         reverse legend, legend pos=south east
     ]
  
-        % Background bar plot
+        %% Background bar plot
         \addplot[ybar,fill=fillGrey, draw=edgeGrey, area legend] 
             coordinates {#2};
         \addlegendentry{#1}
         
-        % Foreground line plot
+        %% Foreground line plot
         \addplot+[ycomb,mark=-,draw=primaryRed,very thick,mark size=0.175cm, line legend] 
             coordinates {#4};
         \addlegendentry{#3}
@@ -110,15 +136,12 @@
 %\pgfdeclareimage[height=0.5cm]{university-logo}{university-logo-filename}
 %\logo{\pgfuseimage{university-logo}}
 
-%% uncomment for stepwise appearence (of bullet points etc)
-%\beamerdefaultoverlayspecification{<+->}
-
 \begin{document}
 
 %% remove header bar for the titlepage
 {
     \makeatletter
-        \setbeamercolor{headline}{bg=white!97!black}
+        \setbeamercolor{headline}{bg=bgWhite}
         \def\beamer@entrycode{\vspace*{-0.8\headheight}}
     \makeatother
 
@@ -128,62 +151,75 @@
 }
 
 \begin{frame}{Image Classification}
-    \TextAndTwoImageFrame
-        {Does the Image contain a specific object?}
-        {cars1}{Car}{none1}{None}
+
+    \TextAndTwoImageFrame{
+        Does the Image contain a specific object?
+    }{cars1}{Car}{none1}{None}
+    
 \end{frame}
 
 \begin{frame}{Image Classification}
-    \TextAndTwoImageFrame
-        {Not easy in practice (for computers)}
-        {cars2}{Partial Occlusion}{cars3}{Not in Foreground}
+
+    \TextAndTwoImageFrame{
+        Not easy in practice (for computers)
+    }{cars2}{Partial Occlusion}{cars3}{Not in Foreground}
+    
 \end{frame}
 
-\begin{frame}{Multi-Instance (MI) Learning}
-
-    \begin{itemize}
-        \item Natural for Image Classification \\ ~
-        \item Text Classification and Chemical datasets \\ ~
-        \item Key: Bags of Instances
-    \end{itemize}
-    % TODO: show splitting? (not enough time)
+\begin{frame}{Multi-Instance Learning}
+    
+    \ThreeBulletFrame
+        {Natural for Image Classification}
+        {Text Classification and Chemical datasets}
+        {Key: Bags of Instances}
+        
 \end{frame}
 
 \begin{frame}{Propositionalisation}
 
-    \begin{itemize}
-        \item Multi-instance $\to$ Single-instance \\ ~
-        \item Advantage: Existing algorithms \\ ~
-        \item Disadvantage: Lossy conversion
-    \end{itemize}
-    % TODO: Lots more algorithms in stardard mi
+    \ThreeBulletFrame
+        {Multi-instance $\to$ Single-instance}
+        {Advantage: Existing algorithms}
+        {Disadvantage: Lossy conversion}
+
+    %% TODO: Needs diagram    
+    
 \end{frame}
 
 \begin{frame}{AdaProp: Adaptive Propositionalisation}
 
-    \begin{itemize}
-        \item Use the base learner \\ ~
-        \item Tree of decisions / partitions \\ ~
-        \item Count by region
-    \end{itemize}
-    % TODO: Needs diagram
-
+    \ThreeBulletFrame
+        {Use the base learner}
+        {Tree of decisions / partitions}
+        {Count by region}
+    
+    %% TODO: Needs diagram
     
 \end{frame}
 
 \begin{frame}{WEKA}
+
   \vspace{-0.5cm}
-  \ImageAndCaptionColumn{weka3}{}  
+  \CenteredImage{weka3}
+  
 \end{frame}
 
-\begin{frame}{Results: Impact of Parameter Selection}
+\begin{frame}{Impact of Parameter Selection}
 
-    \begin{itemize}
-        \item \dots \\ ~
-        \item \dots \\ ~
-        \item \dots
-    \end{itemize}
-    % TODO: needs graph
+    \begin{tikzpicture}
+        \ColumnAndLineGraph{Without}{
+            (atoms,83.90) (bonds,87.96) (chains,88.56)
+            (musk1,90.68) (musk2,85.89) (trx,90.32)
+            (tiger,84.3) (fox,67) (eleph,85.5)
+            (people,82.6) (bikes,83.5)(cars,77.22)
+        }{With ParamSel}{
+            (atoms,87.52) (bonds,89.44) (chains,89.86)
+            (musk1,85.76) (musk2,82.26) (trx,88.64)
+            (tiger,84.2) (fox,68.2) (eleph,84.75)
+            (people,81.88) (bikes,82.5)(cars,77.08)
+        }
+    \end{tikzpicture} 
+    
 \end{frame}
 
 \begin{frame}{AdaProp vs. Other MI algorithms}
@@ -206,7 +242,7 @@
 
 \begin{frame}{Summary}
 
-  % Keep the summary *very short*.
+  % must be *very short*.
   \begin{itemize}
   \item
       MI representation is \alert{natural} for Image Classification. \\ ~
@@ -217,8 +253,6 @@
   \end{itemize}
   
 \end{frame}
-
-
 
 \end{document}
 
