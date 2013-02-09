@@ -7,7 +7,7 @@
 \usepackage{tikz}
 \usepackage{pgfplots}
 \usepackage{pgfplotstable}
-\usetikzlibrary{plotmarks}
+\usetikzlibrary{plotmarks,arrows,shapes,backgrounds}
 
 %\usefonttheme{serif}
 %\usepackage{palatino}
@@ -22,12 +22,7 @@
     {\large Adaptive Propositionalisation of Multi-Instance Data Towards Image Classification}
     \\~
 }
-\author{
-    ~\\~\\
-    Siva~Manoharan
-    \\~\\
-    Supervisor:~Dr~Eibe~Frank
-}
+\author{~\\~\\Siva~Manoharan\\~\\Supervisor:~Dr~Eibe~Frank}
 \date{} %% no date
 
 %% Customizing colours:
@@ -132,6 +127,20 @@
     \end{axis}
 }
 
+%% A Macro for drawing a Bag Of Vectors inside a TikZpicture.
+%% Args: 
+%%    xEllipse, yEllipse, yTopDots, yFirstVec, 
+%%    yMidDots, ySecondVec, yBottomDots, yLabel
+\newcommand{\BagOfVectors}[8]{%
+    \draw [dashed, fill=white!92!black, draw=edgeGrey, very thick] (#1,#2) ellipse (0.8cm and 1.9cm);
+    \node at (#1,#3) { \Large $\vdots$ };
+    \node at (#1,#4) {\large $\left\langle {X_i} \right\rangle$};
+    \node at (#1,#5) { \Large $\vdots$ };
+    \node at (#1,#6) {\large $\left\langle {X_j} \right\rangle$};
+    \node at (#1,#7) { \Large $\vdots$ };        
+    \node at (#1,#8) { \Large Bag of vectors };
+}
+
 %% uncomment for logo
 %\pgfdeclareimage[height=0.5cm]{university-logo}{university-logo-filename}
 %\logo{\pgfuseimage{university-logo}}
@@ -154,7 +163,7 @@
 
     \TextAndTwoImageFrame{
         Does the Image contain a specific object?
-    }{cars1}{Car}{none1}{None}
+    }{cars1}{Car}{none1}{No car}
     
 \end{frame}
 
@@ -162,18 +171,94 @@
 
     \TextAndTwoImageFrame{
         Not easy in practice (for computers)
-    }{cars2}{Partial Occlusion}{cars3}{Not in Foreground}
+    }{cars3}{Not in Foreground}{cars2}{Partial Occlusion}
     
 \end{frame}
 
 \begin{frame}{Multi-Instance Learning}
     
-    \ThreeBulletFrame
-        {Natural for Image Classification}
-        {Text Classification and Chemical datasets}
-        {Key: Bags of Instances}
+    \vspace{-0.355cm}
+    \begin{itemize}
+        \item Natural fit for Image Classification %% (also Chemical, Text)
+    \end{itemize}
+    \vspace{0.215cm}
+    
+    \makebox[\linewidth]{\parbox{11.5cm}{%
+        \begin{tikzpicture}%[every text node part/.style={align=center}]
         
+        %% include the car picture
+        \node [inner sep=0pt,below right] {\includegraphics[scale=0.25]{img/cars4}};
+        
+        %% Draw the bag of vectors:        
+        \def\yCaption{-5};
+        \BagOfVectors{10.4}{-1.8}{-0.30}{-1.10}{-1.60}{-2.45}{-3.00}{\yCaption}
+        
+        %% Intermediate points
+        \def\xZ{5.77};
+        \def\xY{6.65};
+        \def\xX{10.00};        
+        
+        %% Define a point 'A' near the car
+        \def\yA{-1.05};
+        \path [->, primaryRed, ultra thick] (1.45,\yA) edge (\xZ,\yA);
+        \path [->, primaryRed, ultra thick] (\xY,\yA) edge (\xX,\yA);
+        
+        %% Define a point 'B' away from the car
+        \def\yB{-2.40};
+        \path [->, primaryRed, ultra thick] (2.80,\yB) edge (\xZ,\yB);
+        \path [->, primaryRed, ultra thick] (\xY,\yB) edge (\xX,\yB);
+      
+        %% Captions:
+        \node at (3.00, \yCaption) { \Large Sub-regions };
+        \node[%draw=edgeGrey, dashed, very thick,text height=1cm, text depth=1cm,
+            text width=2.2cm, 
+            every text node part/.style={align=center}] at (8.2, -1.7) 
+            { \Large Feature Extraction };
+        \end{tikzpicture}
+    }}
+
+    %% Don't forget: not as many algorithms
+    % TODO: diagram -- showing split up of images.
+    % Combine first two bullet points? 
+
 \end{frame}
+
+\begin{frame}{Propositionalisation}
+
+    \vspace{-0.355cm}
+    \begin{itemize}
+        \item Multi-instance $\to$ Single-instance %% (lossy, existing algorithms)
+    \end{itemize}
+    \vspace{0.215cm}
+    
+    \makebox[\linewidth]{\parbox{11.5cm}{%
+        \tikzstyle{background grid}=[draw, black!50,step=1cm]
+        \begin{tikzpicture}[show background grid]%[every text node part/.style={align=center}]
+        
+        %% Draw the bag of vectors:        
+        \def\yCaption{-5};
+        \BagOfVectors{1.4}{-1.8}{-0.30}{-1.10}{-1.60}{-2.45}{-3.00}{\yCaption}
+        
+        \node[draw=edgeGrey, very thick, text height=1cm, text depth=0.7cm,
+            rotate=90,
+            every text node part/.style={align=center}]
+            at (4, -1.7)
+            {\Large Propositionalisation};
+%        %% Ellipse, for the bag
+%        \def\xE{10.4}
+%        \draw [dashed, fill=white!92!black, draw=edgeGrey, very thick] (\xE,-1.8) ellipse (0.8cm and 1.9cm);
+    \end{tikzpicture}
+    }}
+            
+\end{frame}
+
+
+%\begin{frame}{Multi-Instance Learning}
+%    \ThreeBulletFrame
+%        {Natural for Image Classification}
+%        {Text Classification and Chemical datasets}
+%        {Key: Bags of Instances}
+%\end{frame}
 
 \begin{frame}{Propositionalisation}
 
@@ -183,6 +268,7 @@
         {Disadvantage: Lossy conversion}
 
     %% TODO: Needs diagram    
+    %% Combine with AdaProp slide?
     
 \end{frame}
 
@@ -219,6 +305,8 @@
             (people,76.27) (bikes,77.24)  (cars,68.76)
         }
     \end{tikzpicture} 
+    
+    %% TODO: Skip for 7min pres    
     
 \end{frame}
 
