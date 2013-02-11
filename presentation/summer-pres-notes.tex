@@ -1,0 +1,107 @@
+%\documentclass[12pt,a4paper,notitlepage]{article}
+\documentclass[13pt,handout]{beamer}
+
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+
+\usepackage{tikz}
+\usepackage{pgfpages}
+\pgfpagesuselayout{8 on 1}[a4paper, border shrink=2mm]
+
+\usetheme{Rochester}
+\usecolortheme{beaver}
+\beamertemplatenavigationsymbolsempty
+
+\setbeamertemplate{background canvas}{
+    \tikz \draw[ultra thick,fill=none] (current page.north west) rectangle (current page.south east);
+}
+
+\setbeamertemplate{headline}[text line]{%
+  \begin{beamercolorbox}%
+      [wd=\paperwidth,ht=2cm]{headline}%
+  \end{beamercolorbox}%
+}
+
+\setbeamercolor*{item}{fg=darkred!60!black}
+
+\newenvironment{wideitemize}{\itemize\addtolength{\itemsep}{20pt}}{\enditemize}
+
+%\renewcommand{\familydefault}{\sfdefault}
+
+\author{Siva Manoharan}
+\title{Speaker Notes - AdaProp}
+\begin{document}
+
+%\maketitle
+\Huge
+
+\begin{frame}{Title, Image Classification (1)}
+%\subsection*{Image Classification (1)}
+    \begin{wideitemize}
+    \item Title: 520 {\bf B Sem}
+    \item Binary Image Cls.
+    \item ML pipeline
+    \end{wideitemize}
+\end{frame}
+
+\begin{frame}{Image Classification (2)}
+%\subsection*{Image Classification (2)}
+    \begin{wideitemize}
+    \item {\bf For Computers!}
+    \item Small (3k pixels of 300k)
+    \item Partially visible, separated by other objects [segmentation]
+    \end{wideitemize}
+\end{frame}
+
+\begin{frame}{MI Learning (1)}
+%\subsection*{MI Learning (1)}
+    \begin{wideitemize}
+    \item Extract sub-regions
+    \item Interest pts, Segmentation, Windowing
+    \end{wideitemize}
+\end{frame}
+
+\begin{frame}{MI Learning (2)}
+\begin{wideitemize}
+    \item Each subregion $\to$ vector.
+    \item MI: If any subregion, any part of the car $\to$ positive.
+    \item Disadv: Lack of algorithms.
+\end{wideitemize}
+\end{frame}
+
+\begin{frame}{Prop}
+\begin{wideitemize}
+    \item MI $\to$ Single instance
+    \item Adv: use SI BL ({\bf Base Learner})
+    \item Lossy, how to keep max info?
+\end{wideitemize}
+\end{frame}
+
+\begin{frame}{AdaProp}
+\begin{wideitemize}
+    \item Let the BL decide
+    \item AdaProp: Series of decisions, influenced by BL
+    \item Novel, fits BL, {\bf expensive}
+\end{wideitemize}
+\end{frame}
+
+\begin{frame}{WEKA}
+\begin{wideitemize}
+    \item ML workbench, Waikato
+    \item Has SI algo, 10 $\times$ 10-fold cv
+    \item 8 options (4 impl summer)
+\end{wideitemize}
+\end{frame}
+
+\begin{frame}{Results}
+\begin{itemize}
+    \item 6 chem, 6 img datasets
+    \item best-adaprop, best-other
+    \item 1-3 good, 4-6 bad; rest equal
+    \item comp to best, poor runtime
+\end{itemize}
+\end{frame}
+
+\end{document}

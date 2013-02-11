@@ -140,13 +140,29 @@
     \node at (#1,#5) { \Large $\vdots$ };
     \node at (#1,#6) {\large $\left\langle {X_j} \right\rangle$};
     \node at (#1,#7) { \Large $\vdots$ };        
-    \node at (#1,#8) { \Large Bag of vectors };
+    \node at (#1,#8) {\Large{}Bag of Instances~~~};
 }
 
 %% A Macro for horizontal, red, thick arrows.
 %% Args: x-start, x-end, y-coord
 \newcommand{\HorizArrow}[3]{%
     \path [->, primaryRed, ultra thick] (#1,#3) edge (#2,#3);
+}
+
+%% A Macro for horizontal, grey, thick arrows.
+%% Args: x-start, x-end, y-coord
+\newcommand{\HorizGreyArrow}[3]{%
+    \path [->, edgeGrey, ultra thick] (#1,#3) edge (#2,#3);
+}
+
+%% A Macro for 90-degree rotated text nodes.
+%% Args: xPos, yPos, text, text height, text depth
+\newcommand{\RotatedTextNode}[5]{%
+    \node[draw=edgeGrey, very thick, text height=#4, text depth=#5,
+        rotate=90, text width=4.5cm,
+        every text node part/.style={align=center}]
+        at (#1, #2)
+        {\Large #3};
 }
 
 %% uncomment for logo
@@ -195,20 +211,31 @@
         \begin{tikzpicture}%[every text node part/.style={align=center}]
         
         %% include the car picture
-        \node [inner sep=0pt,below right] {\includegraphics[scale=0.25]{img/cars4}};
+        \only<1>{
+            \node [inner sep=0pt,below right] at (0,0) {\includegraphics[scale=0.25]{img/cars4}};
+        }
+        \only<2>{
+            \node [inner sep=0pt,below right] at (0,0) {\includegraphics[scale=0.25]{img/cars5}};
+        }
         
         %% Intermediate points
         \def\xZ{5.77};
         \def\xY{6.65};
         \def\xX{10.00};        
         
-        %% Define some points: 'A' near the car, 'B' away from the car
+        %% Define some floats: 'A' near the car, 'B' away from the car
         \def\yA{-1.05};
         \def\yB{-2.40};
         
         %% Arrows from image to floats
-        \HorizArrow{1.45}{\xZ}{\yA};
-        \HorizArrow{2.80}{\xZ}{\yB};
+        \only<1>{
+            \HorizArrow{1.475}{\xZ}{\yA};
+            \HorizArrow{2.845}{\xZ}{\yB};
+        }
+        \only<2>{
+            \HorizGreyArrow{1.475}{\xZ}{\yA};
+            \HorizGreyArrow{2.845}{\xZ}{\yB};
+        }
       
         %% Captions:
         \def\yCaption{-5};
@@ -218,7 +245,8 @@
         \uncover<2>{
             \BagOfVectors{10.4}{-1.8}{-0.30}{-1.10}{-1.60}{-2.45}{-3.00}{\yCaption}
             \HorizArrow{\xY}{\xX}{\yA}; 
-            \HorizArrow{\xY}{\xX}{\yB};     
+            \HorizArrow{\xY}{\xX}{\yB};    
+
             \node[%draw=edgeGrey, dashed, very thick,text height=1cm, text depth=1cm,
                 text width=2.2cm, 
                 every text node part/.style={align=center}] at (8.2, -1.7) 
@@ -232,55 +260,54 @@
 \begin{frame}{Propositionalisation}
 
     \makebox[\linewidth]{\parbox{11.5cm}{%
-        \tikzstyle{background grid}=[draw, black!50,step=0.5cm]
+        %\tikzstyle{background grid}=[draw, black!50,step=0.5cm]
         \begin{tikzpicture}%[show background grid]%[every text node part/.style={align=center}]
         
         %% Bag of vectors ellipse:
-        \def\xEllipse{1.5}
+        \def\xEllipse{1.5};
         \def\yBase{-1.8};     
         \def\yCaption{-5};
-        \BagOfVectors{\xEllipse}{\yBase}{-0.30}{-1.10}{-1.60}{-2.45}{-3.00}{\yCaption}
+        \BagOfVectors{\xEllipse}{\yBase}{-0.30}{-1.10}{-1.60}{-2.45}{-3.00}{\yCaption};
         
         %% Propositionalisation node:
         \def\xProp{4.5};
-        \node[draw=edgeGrey, very thick, text height=1cm, text depth=0.7cm,
-            rotate=90, text width=4.5cm,
-            every text node part/.style={align=center}]
-            at (\xProp, \yBase)
-            {\Large Propositionalisation};
+        \RotatedTextNode{\xProp}{\yBase}{Propositionalisation}{1cm}{0.7cm};
             
         %% Single vector circle:
         \def\xCirc{7.25};        
         \draw [dashed, fill=white!92!black, draw=edgeGrey, very thick] (\xCirc,\yBase) circle (0.7cm);
         \node at (\xCirc,\yBase) { \large $\left\langle {Y} \right\rangle$ };
-        \node at (\xCirc,\yCaption) { \Large Single vector };
+        \node at (\xCirc,\yCaption) { \Large Single Instance };
+        
+        %% Base Learner node:
+        \RotatedTextNode{10}{\yBase}{Standard ML Algorithm}{0.85cm}{0.85cm};        
         
         %% Arrows:
         \def\yA{-1.095};
         \def\yB{-2.445};
         \def\xZ{1.90};
         \def\xY{3.45};
-        \HorizArrow{\xZ}{\xY}{\yA};
-        \HorizArrow{\xZ}{\xY}{\yB};
-        \HorizArrow{5.50}{6.475}{\yBase};
-        
-        %% Base Learner node:
-        \uncover<2->{
+        \only<1>{
+            \HorizArrow{\xZ}{\xY}{\yA};
+            \HorizArrow{\xZ}{\xY}{\yB};
+            \HorizArrow{5.50}{6.475}{\yBase};
             \HorizArrow{7.95}{8.95}{\yBase};
-            \node[draw=edgeGrey, very thick, text height=0.85cm, text depth=0.85cm,
-                rotate=90, text width=4.5cm,
-                every text node part/.style={align=center}]
-                at (10, \yBase)
-                {\Large Standard ML Algorithm};          
         }
+        \only<2>{
+            \HorizGreyArrow{\xZ}{\xY}{\yA};
+            \HorizGreyArrow{\xZ}{\xY}{\yB};
+            \HorizGreyArrow{5.50}{6.475}{\yBase};
+            \HorizGreyArrow{7.95}{8.95}{\yBase};
+        }
+        
         
         %% Adaptive arrow
         \def\yAda{0};
-        \only<3>{
+        \only<2>{
             \frametitle{Adaptive Propositionalisation}       
         }
-        \uncover<3>{
-            \path [->, primaryRed, ultra thick, line width=0.1cm] (9,0) edge (5.55,0);
+        \uncover<2>{
+            \path [->, primaryRed, ultra thick, line width=0.1cm] (9,\yAda) edge (5.55,\yAda);
             \node[color=primaryRed] at (\xCirc,0.3) { \Large Adaptive };
         }
         
@@ -360,7 +387,6 @@
 
 \begin{frame}{Summary}
 
-  % must be *very short*.
   \begin{itemize}
   \item
       MI representation is \alert{natural} for Image Classification. \\ ~
