@@ -1,0 +1,139 @@
+\documentclass[a4paper,12pt]{article} % use larger type; default would be 10pt
+
+\parindent0cm%
+\newenvironment*{shorttitle}{\begin{LARGE}}{\end{LARGE}\\[1.5ex]}%
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+%\usepackage[parfill]{parskip} % Begin paragraphs with an empty line rather than an indent
+\usepackage{apacite} % apa style citations and references
+\usepackage{fullpage} % reduce margins
+\usepackage{booktabs}
+\usepackage{multirow} 
+\usepackage{paralist} % very flexible & customisable lists (eg. enumerate/itemize, etc.)
+\usepackage{url} % for rendering urls (in bibliography)
+\usepackage{xspace} % for spaces after macros
+\usepackage{setspace}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{comment}
+
+% For figures and subfigures
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{subcaption}
+
+\usepackage{pgfplots} % For plots
+\pgfplotsset{compat=1.5}
+\usepackage[section]{placeins} % avoid figures leaving sections
+
+\usepackage{tikz} % For graphs 
+\usetikzlibrary{positioning}
+
+%% ABBREVIATIONS
+\newcommand{\AdaProp}{\texttt{AdaProp}\xspace}
+\newcommand{\real}{\mathbb{R}}
+\newcommand{\mcl}[1]{\mathcal{#1}}
+\newcommand{\power}{\mathbb{P}}
+\newcommand{\vect}[1]{\boldsymbol{#1}}
+%\linespread{1.3} % 1.3 *is* one-and-a-half spacing
+
+\title{\ \\ \  \\ Adaptive Propositionalisation of Multi-Instance Data Towards Image Classification}
+\author{Siva Manoharan, supervised by Eibe Frank}
+\date{} % No date
+
+
+\begin{document}
+\onehalfspacing
+
+%\maketitle 
+\pagenumbering{gobble}
+
+\begin{center}
+\LARGE
+Adaptive Propositionalisation of Multi-Instance Data Towards Image Classification
+\end{center}
+
+%\section*{Adaptive Propositionalisation of MI Data Towards Image Classification}
+
+\subsection*{Project Summary}
+
+In this project, 
+    we investigate AdaProp, an
+    adaptive approach for propositionalising
+    multi-instance data, 
+    where the propositionalisation 
+    is influenced by 
+    the base learner.
+We also examine the effectiveness of 
+    AdaProp when applied to the 
+    image classification problem, 
+    for which the multi instance representation
+    is a natural fit.
+
+%\subsection*{Algorithm Overview}
+
+%AdaProp uses the base learner to make decisions.
+
+\subsection*{Features Implemented}
+
+During the project, 
+    the following features were implemented:
+
+\begin{description}
+    \item[Cross-validated Tree Size selection]
+        AdaProp generates a tree of splits, 
+            which must be limited in size to prevent
+            overfitting.
+        Therefore, 
+            cross-validated tree size selection was implemented, 
+            where the tree size is determined by 
+            5-fold internal cross validation.
+            
+    \item[Summary Based Propositionalisation]
+        AdaProp partitions the instance space into 
+            regions and propositionalises the dataset
+            based on the instances of each bag which lie in
+            each region.
+        One approach for this propositionalisation implemented
+            was to compute summary statistics (min, max and average) 
+            for each region.
+        Compared to count-based propositionalisation, 
+            summary based propositionalisation 
+            improves performance significantly, 
+            but at the cost of significant increase in runtime.
+            
+    \item[Randomized Bagging]
+        Experiments indicated that 
+            AdaProp overfitted some datasets significantly.
+        In order to reduce the overfitting, 
+            bagging (with 50 iterations) was used, 
+            along with randomization in attributes.
+        Randomized Bagging improved performance on 
+            some datasets (e.g.\ musk1) by upto 10\%.
+    
+    \item[RMSE (Root Mean Squared Error) Evaluation]
+        AdaProp originally used the classification 
+            error as the evaluation metric for selecting
+            the partitions.
+        Since classification error is just a 0-1 error 
+            metric (and therefore contains no information
+            about the confidence of the prediction),
+        RMSE evaluation was also implemented.
+        Experiments showed that RMSE performed 
+            consistently better than classification error and 
+            thus was adopted as the default evaluation metric.
+
+\begin{flushright}
+~ \\ Siva Manoharan, Supervised by Dr Eibe Frank
+\end{flushright}
+
+\end{description}
+
+%\subsection*{Key Results}
+
+%Results achieved were comparable to 
+%    existing multi instance algorithms.
+
+
+\end{document}

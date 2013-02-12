@@ -11,6 +11,8 @@
 \usepackage{pgfplotstable}
 \usetikzlibrary{plotmarks,arrows,shapes,backgrounds}
 
+\usepackage{etoolbox} %% For If-statements
+
 %\usefonttheme{serif}
 %\usepackage{palatino}
 \usetheme{Rochester}
@@ -28,12 +30,33 @@
 \date{} %% no date
 
 %% Customizing colours:
+\newtoggle{normaltheme}
+\newtoggle{darktheme}
+\toggletrue{normaltheme}
+\togglefalse{darktheme}
+
 \colorlet{primaryRed}{darkred!60!black}       %% For most Reds
 \colorlet{secondaryRed}{darkred!80!black}     %% When Red is surrounded by grey
-\colorlet{bgWhite}{white!97!black}            %% Near white, for page backgrounds
-\colorlet{headerGrey}{white!90!black}         %% For Header backgrounds
-\colorlet{fillGrey}{white!80!black}           %% For filling areas, e.g. chart areas
 \colorlet{edgeGrey}{white!60!black}           %% For increasing apparent sharpness
+\iftoggle{normaltheme}{
+    \colorlet{bgWhite}{white!97!black}            %% Near white, for page backgrounds
+    \colorlet{headerGrey}{white!90!black}         %% For Header backgrounds
+    \colorlet{fillGrey}{white!80!black}           %% For filling areas, e.g. chart areas
+    \colorlet{diagFillGrey}{white!92!black}       %% For filling diagram areas
+
+}{
+\iftoggle{darktheme}{
+    \colorlet{bgWhite}{white!80!black}            %% Near white, for page backgrounds
+    \colorlet{headerGrey}{white!75!black}         %% For Header backgrounds
+    \colorlet{fillGrey}{white!70!black}           %% For filling areas, e.g. chart areas
+    \colorlet{diagFillGrey}{white!75!black}       %% For filling diagram areas
+}{ %% medium theme
+    \colorlet{bgWhite}{white!90!black}            %% Near white, for page backgrounds
+    \colorlet{headerGrey}{white!83!black}         %% For Header backgrounds
+    \colorlet{fillGrey}{white!75!black}           %% For filling areas, e.g. chart areas
+    \colorlet{diagFillGrey}{white!85!black}       %% For filling diagram areas
+}
+}
 
 \setbeamercolor*{item}{fg=primaryRed}         %% Bullet points
 \setbeamercolor{title}{fg=secondaryRed}       
@@ -134,7 +157,7 @@
 %%    xEllipse, yEllipse, yTopDots, yFirstVec, 
 %%    yMidDots, ySecondVec, yBottomDots, yLabel
 \newcommand{\BagOfVectors}[8]{%
-    \draw [dashed, fill=white!92!black, draw=edgeGrey, very thick] (#1,#2) ellipse (0.8cm and 1.9cm);
+    \draw [dashed, fill=diagFillGrey, draw=edgeGrey, very thick] (#1,#2) ellipse (0.8cm and 1.9cm);
     \node at (#1,#3) { \Large $\vdots$ };
     \node at (#1,#4) {\large $\left\langle {X_i} \right\rangle$};
     \node at (#1,#5) { \Large $\vdots$ };
@@ -274,8 +297,8 @@
         \RotatedTextNode{\xProp}{\yBase}{Propositionalisation}{1cm}{0.7cm};
             
         %% Single vector circle:
-        \def\xCirc{7.25};        
-        \draw [dashed, fill=white!92!black, draw=edgeGrey, very thick] (\xCirc,\yBase) circle (0.7cm);
+        \def\xCirc{7.25};
+        \draw [dashed, fill=diagFillGrey, draw=edgeGrey, very thick] (\xCirc,\yBase) circle (0.7cm);
         \node at (\xCirc,\yBase) { \large $\left\langle {Y} \right\rangle$ };
         \node at (\xCirc,\yCaption) { \Large Single Instance };
         
@@ -379,7 +402,7 @@
             (atoms,87.52)  (bonds,89.44)  (chains,89.86)
             (musk1,85.76)  (musk2,82.26)  (trx,88.64)
             (tiger,84.20)  (fox,68.20)    (eleph,84.75)
-            (people,81.88) (bikes,82.50)  (cars,77.08)
+            (people,81.88) (bikes,82.84)  (cars,77.08)
         }
     \end{tikzpicture}
     
