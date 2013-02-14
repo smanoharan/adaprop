@@ -78,54 +78,56 @@ We also examine the effectiveness of
 \subsection*{Features Implemented}
 
 During the project, 
-    the following features were implemented:
+    the following features of AdaProp were implemented:
 
 \begin{description}
-    \item[Cross-validated Tree Size selection]
+    \item[Cross-validated Tree Size selection:]
         AdaProp generates a tree of splits, 
             which must be limited in size to prevent
             overfitting.
         Therefore, 
             cross-validated tree size selection was implemented, 
             where the tree size is determined by 
-            5-fold internal cross validation.
+            5-fold cross validation.
             
-    \item[Summary Based Propositionalisation]
-        AdaProp partitions the instance space into 
-            regions and propositionalises the dataset
-            based on the instances of each bag which lie in
-            each region.
-        One approach for this propositionalisation implemented
-            was to compute summary statistics (min, max and average) 
-            for each region.
+    \item[Summary based Propositionalisation:]
+        AdaProp divides the instance space into multiple regions. 
+        The propositionalisation was originally
+            performed by counting the number of instances which 
+            lie in each region.
+        Summary based propositionalisation, 
+            where summary statistics are computed for each region,
+            was also implemented.
         Compared to count-based propositionalisation, 
-            summary based propositionalisation 
-            improves performance significantly, 
-            but at the cost of significant increase in runtime.
+            the summary-based method
+            improves the performance significantly, 
+            but at the cost of increased runtime.
             
-    \item[Randomized Bagging]
+    \item[Randomized Bagging:]
         Experiments indicated that 
             AdaProp overfitted some datasets significantly.
         In order to reduce the overfitting, 
             bagging (with 50 iterations) was used, 
             along with randomization in attributes.
         Randomized Bagging improved performance on 
-            some datasets (e.g.\ musk1) by upto 10\%.
+            some datasets (e.g.\ musk1) by up-to 10\%.
     
-    \item[RMSE (Root Mean Squared Error) Evaluation]
+    \item[RMSE (Root Mean Squared Error) Evaluation:]
         AdaProp originally used the classification 
             error as the evaluation metric for selecting
-            the partitions.
+            split points.
         Since classification error is just a 0-1 error 
             metric (and therefore contains no information
-            about the confidence of the prediction),
+            about the confidence of each prediction),
         RMSE evaluation was also implemented.
         Experiments showed that RMSE performed 
             consistently better than classification error and 
             thus was adopted as the default evaluation metric.
 
+\vfill
+
 \begin{flushright}
-~ \\ Siva Manoharan, Supervised by Dr Eibe Frank
+~ \\ \emph{Siva Manoharan, Supervised by Dr Eibe Frank}
 \end{flushright}
 
 \end{description}
