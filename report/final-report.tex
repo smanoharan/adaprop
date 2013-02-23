@@ -1,0 +1,1149 @@
+\documentclass[a4paper,12pt]{report} % use larger type; default would be 10pt
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage[parfill]{parskip} % Begin paragraphs with an empty line rather than an indent
+\usepackage{apacite} % apa style citations and references
+\usepackage{fullpage} % reduce margins
+\usepackage{booktabs}
+\usepackage{multirow} 
+\usepackage{paralist} % very flexible & customisable lists (eg. enumerate/itemize, etc.)
+\usepackage{url} % for rendering urls (in bibliography)
+\usepackage{xspace} % for spaces after macros
+\usepackage{setspace}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{comment}
+
+% For figures and subfigures
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{subcaption}
+
+\usepackage{pgfplots} % For plots
+\pgfplotsset{compat=1.5}
+\usepackage[section]{placeins} % avoid figures leaving sections
+
+\usepackage{tikz} % For graphs 
+\usetikzlibrary{positioning}
+
+%% ABBREVIATIONS
+\newcommand{\AdaProp}{\texttt{AdaProp}\xspace}
+\newcommand{\real}{\mathbb{R}}
+\newcommand{\mcl}[1]{\mathcal{#1}}
+\newcommand{\power}{\mathbb{P}}
+\newcommand{\vect}[1]{\boldsymbol{#1}}
+
+\DeclareMathOperator{\avg}{avg}
+\DeclareMathOperator{\tsum}{sum}
+
+%\linespread{1.3} % 1.3 *is* one-and-a-half spacing
+
+\title{\ \\ \  \\ Adaptive Propositionalisation of Multi-Instance Data Towards Image Classification}
+\author{Siva Manoharan, supervised by Eibe Frank}
+\date{} % No date
+
+
+\begin{document}
+\onehalfspacing
+\pagenumbering{gobble}  % don't render a page number on the first page
+
+\maketitle 
+%\ \\ \ \\ \ \\ \ \\ \ \\ \ \\ \ % Some blank lines
+\begin{abstract}
+Multi-instance learning is a type of supervised machine learning 
+    where the class labels are attached to bags of instances. 
+This is in contrast to single-instance learning 
+    where each individual instance is given a class label.
+Propositionalisation is the process of 
+    converting a multi-instance dataset into a single-instance dataset, 
+    allowing standard machine learning algorithms to learn the converted dataset. 
+In this project, 
+    we examine an adaptive approach to propositionalising multi-instance data, 
+    where the single-instance base learner is 
+    used to guide the propositionalisation process, 
+    resulting in a converted dataset 
+    which is more suited to the specific base learner.
+In the future, 
+    we will also examine the application of multi-instance learning 
+    to image classification and 
+    evaluate the algorithm developed in this project 
+    on existing image classification datasets.
+\end{abstract}
+
+\thispagestyle{empty}
+\clearpage
+\pagenumbering{arabic}  
+
+\chapter{Introduction} 
+
+Multi-instance (MI) learning is 
+    machine learning over multi-instance data, 
+    where the instances are grouped together into bags and 
+    the learning is performed over the bags 
+    rather than the individual instances.
+Multi-instance learning was originally proposed 
+    in the context of drug-activity prediction.
+One approach to handling multi-instance data is propositionalisation, 
+    where each bag of instances is converted into 
+    a single feature vector. 
+This converted dataset can be used with 
+    standard single-instance machine learning algorithms 
+    such as SVMs and neural networks.
+This project explores adaptive propositionalisation, 
+    where the single-instance base learner is used to 
+    make decisions when propositionalising the dataset. 
+The propositionalisation approach considered is the 
+    partitioning of the instance space into regions, 
+    where each region corresponds to 
+    one or more features in the propositionalised dataset.
+
+An application of multi-instance learning is image classification,
+    where, for example, 
+    an image is represented as a bag of segments and 
+    the interaction between the segments contributes 
+    to the class of the image. 
+In this context, 
+    each segment is an instance and 
+    thus each image is a bag of instances. 
+In the future, we will examine this application of multi-instance learning.
+
+\tableofcontents
+
+\chapter{Background}
+
+[TODO]
+\section{Multi Instance Learning}
+\section{Propositionalisation}
+\section{Application to Image Classification}
+
+Multi-instance learning was introduced by \citeA{Diet97} 
+    in the context of drug activity prediction. 
+The multi-instance learning problem was 
+    defined as a two-class supervised learning problem where 
+    the classification occurs over bags of instances 
+    rather than the individual instances. 
+\citeA{Diet97} assumed that each instance had a hidden class label and 
+    that a bag belongs to the positive class if and only if 
+    at least one of the instances in the bag belongs to the positive class. 
+This assumption is known as the ``standard MI assumption'' and 
+    fits the original domain of drug activity prediction well.
+
+Multi-instance learning has also been applied to other domains 
+    such as image classification and text classification where 
+    the standard MI assumption is less appropriate. 
+Therefore, a number of generalisations to the multi-instance problem have been proposed.
+\citeA{Chen2006} proposed a generalised MI assumption in which 
+    the label of each bag is determined by the 
+    distance of the bag's instances to some hidden target points in instance space.
+Similarly, \citeA{Weidmann2003} proposed a hierarchy of MI assumptions where 
+    the bag's class is determined by the number of instances 
+    of the bag which are located in certain regions of instance space.
+This project uses the same generalised MI assumptions as \citeA{Weidmann2003}.
+
+There have been a number of proposed algorithms 
+    for dealing with multi-instance data. 
+The original algorithm proposed by \citeA{Diet97} 
+    used axis parallel rectangles to identify the regions of the instance space 
+    where the positive instances lay. 
+The algorithm was designed to find the regions which 
+    contained at least one instance from each positive bag 
+    but no instances from the negative class. 
+\citeA{Maron98mil} proposed the Diverse Density algorithm, 
+    where the aim was to find target points in instance space 
+    which are close to at least one instance from each positive bag and 
+    far away from all instances in negative bags.
+
+\citeA{Weidmann2003} proposed a two level approach for dealing with multi-instance data 
+    subject to the generalised MI assumptions. 
+In the first level, 
+    a decision tree was built to partition the instance space. 
+In the second level, 
+    the occupancy counts of instances of each bag in each region 
+    was used to build a propositionalised dataset, 
+    to which a single instance learner was applied.
+The algorithm being developed in this project uses a similar process 
+    as \citeA{Weidmann2003} in the second level, 
+    but we consider an adaptive approach to partition the instance space.
+
+The problem of image classification fits the multi-instance learning setting well. 
+Since an image may contain multiple objects, 
+    a single feature vector may not capture all 
+    of the information in the image. 
+As a MI learning problem, 
+    an image can be considered to be a bag of instances, 
+    where each instance is a segment of interest in the image. 
+There is existing work on applying MI learning to image classification: 
+    \citeA{Maron98scene} performed learning over scene images by 
+        using fixed size partitions of the image. 
+    \citeA{Zhang2002} used K-means to segment the image. 
+In the future, 
+    we will optimise the algorithm developed in this project to perform well 
+    with MI image classification datasets.
+%[http://www.cs.cmu.edu/~juny/MILL/review.htm] 
+
+\chapter{Method}
+
+Our approach, named \AdaProp, is an adaptive propositionalisation algorithm 
+    for multi-instance datasets.
+\AdaProp divides the single-instance space
+    into regions and then propositionalises each bag 
+    by computing summary statistics for the 
+    subset of instances of the bag which lie in each region.
+\AdaProp determines the regions by repeatedly splitting the instance space into 
+    two partitions.
+Therefore, \AdaProp consists of three major components: 
+    a base learner (any single-instance learning algorithm),
+    a process for partitioning the instance space and 
+    a process for constructing the propositionalised dataset using the regions.
+
+\section{Definitions}
+A multi-instance dataset $\mcl{D}$ is a set of labelled bags, 
+    where each labelled bag is a set of instances with a class label.
+Each instance in each bag has a set of $k$ attributes
+    thus can be considered to be a vector in $\real^k$
+    (assuming all attributes are numeric).
+Therefore, the set of all instances, $\mcl{I}$,
+    can be defined as a set of $k$-dimensional vectors.
+Thus, $ \mcl{I} \subseteq \real^k $.
+
+Each labelled bag in the dataset $\mcl{D}$ is 
+    composed of a set of instances from $\mcl{I}$,
+    along with a class label. % FOR SIMPLICITY, we ignore duplicate instances
+Let $\mcl{C}$ be the set of all possible class labels.
+Then we can define $\mcl{D}$,
+    the multi-instance dataset, as 
+    $\mcl{D} \subseteq ( \power (\mcl{I}) \times \mcl{C} )$,
+    where $\times$ denotes the cartesian product.
+
+The propositionalisation process can be viewed as a function
+    mapping each labelled bag $({B_i},c_i) \in \mcl{D}$ to 
+    a single labelled instance $\vect{p_i} \in ( \real^j \times \mcl{C} )$.
+Note that $\vect{p_i}$ has $j$ (non-class) attributes, 
+    which need not be equal to $k$, the number of attributes of 
+    each instance in the original dataset.
+Also note that the propositionalisation process 
+    does not modify the class label.
+       
+
+\section{Partitioning the instance space}
+
+For the purposes of finding the best instance-space partitioning hyperplane,
+    we first compute $\mcl{M}$, an intermediate labelled dataset 
+    consisting of all instances in $\mcl{D}$.
+$\mcl{M}$ is built up by collecting together all instances
+    from all the bags in the dataset and 
+    attaching the class label of each bag to 
+    each instance in the bag.
+Formally, $\mcl{M} \subseteq (\mcl{I} \times \mcl{C})$, 
+    where each instance of $\mcl{M}$ appears in $\mcl{D}$:
+    $$
+        \forall~(\vect{a},c_i)\in\mcl{M} ~:~ 
+            \exists~({B},c_b) \in \mcl{D} ~:~ 
+                \vect{a} \in {B} ~\land~ c_i = c_b
+    $$
+    and each instance of $\mcl{D}$ appears in $\mcl{M}$:
+    $$
+        \forall~({B},c_b) \in \mcl{D} ~:~ 
+            \forall~\vect{a} \in {B} ~:~
+                (\vect{a},c_b) \in \mcl{M}
+    $$    
+
+For example, consider the small two-class dataset in Table~\ref{tEgData}, 
+    consisting of two bags ($|\mcl{D}| = 2$)
+    containing five instances in total, each with two attributes ($k=2$).
+Figure~\ref{visM} shows the intermediate labelled dataset $\mcl{M}$ 
+    for this example dataset with 
+    positive instances rendered as squares and 
+    negative instances rendered as triangles.
+
+\begin{table}
+\begin{center}
+\begin{tabular}{ccccc}
+    \toprule
+    Bag & Class & Instance & Attribute $a_1$ & Attribute $a_2$ \\
+    \midrule
+    \multirow{2}{*}{$b_1$} & \multirow{2}{*}{positive} & $i_1$ & 0.3 & 0.7 \\
+    &  & $i_2$ & 0.5 & 0.1 \\
+    \cmidrule(r){1-5}
+    \multirow{3}{*}{$b_2$} & \multirow{3}{*}{negative} & $i_3$ & 0.2 & 0.9 \\
+    & & $i_4$ & 0.8 & 0.6 \\
+    & & $i_5$ & 0.5 & 0.7 \\
+    \bottomrule
+    
+\end{tabular}
+\end{center}
+\caption{Example dataset}
+\label{tEgData}
+\end{table}
+
+\begin{figure}
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[xlabel={$a_1$}, ylabel={$a_2$},
+ xmin=0,xmax=1,ymin=0,ymax=1,
+ scatter/classes={p={mark=square*,blue},n={mark=triangle*,red}}]
+\addplot[scatter,only marks,scatter src=explicit symbolic]
+table[meta=label] {
+	x	y	label
+	0.3	0.7	p
+	0.5	0.1	p
+	0.2	0.9	n
+	0.8	0.6	n
+	0.5	0.7	n
+};
+\end{axis}
+\end{tikzpicture}
+\end{center}
+\caption{Visualisation of $\mcl{M}$ for the example dataset}
+\label{visM}
+\end{figure}
+
+After computing $\mcl{M}$, 
+    our algorithm
+    aims to partition the instance space of $\mcl{M}$ into regions.
+These regions are found by an iterative greedy algorithm (Algorithm~\ref{algoTree}), 
+    which builds up a tree of partitioning hyperplanes.
+For the purposes of this algorithm, 
+    a partitioning hyperplane is a hyperplane in the instance space, 
+    of the form $\vect{w} \cdot \vect{a} = c$,
+    where $c$ and $\vect{w}$ are parameters of the hyperplane and 
+    $\vect{a}$ is the vector of attribute values.
+This hyperplane represents a natural partitioning of the instance space
+    into two regions:
+        the instances which lie above the hyperplane, 
+            i.e.\ $\vect{i} \in \mcl{I}$ where $\vect{w} \cdot \vect{i} > c$; and
+        the instances which lie at or below the hyperplane,
+            i.e.\ $\vect{i} \in \mcl{I}$ where $\vect{w} \cdot \vect{i} \leq c$.
+    
+At each iteration,
+    the algorithm generates a list of candidate partitioning hyperplanes and
+    selects the best hyperplane to add to the tree.
+To reduce the search space,
+    \AdaProp, as evaluated in this project,
+     only considers hyperplanes which
+    correspond to testing just one attribute, 
+    i.e.\ hyperplanes which intersect exactly one axis.
+Therefore, each partition in this algorithm
+    corresponds to a hyperplane of the form $a_i = c$.
+
+\begin{algorithm}
+\caption{Building a tree of partitioning hyperplanes}
+\label{algoTree} 
+\begin{algorithmic}
+\State Initialise $T$, the tree of partitioning hyperplanes as a tree with a single node
+\While{$T$ is not satisfactory} \hfill (Section~\ref{secStopCond})
+    \State $n_i ~~\gets$ Select a leaf node in the tree $T$ \hfill (Section~\ref{secTreeBuild})
+    \State $\mcl{M}_i \gets \{ (\vect{a},c) \in \mcl{M} ~|~ \vect{a}$ 
+        lies in the region corresponding to $n_i \}$
+    \State $B ~~\gets$ Generate candidate partitioning hyperplanes for 
+        $\mcl{M}_i$ \hfill (Section~\ref{secCandGen})
+    \State $B_i \,~\gets$ Select the optimal hyperplane in $B$ \hfill (Section~\ref{secOptPartition})
+    \State Make $n_i$ an internal node in $T$, corresponding 
+        to the hyperplane $B_i$
+\EndWhile
+\end{algorithmic}
+\end{algorithm}
+
+\begin{figure}
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[xlabel={$a_1$}, ylabel={$a_2$},
+ xmin=0,xmax=1,ymin=0,ymax=1,
+ scatter/classes={p={mark=square*,blue},n={mark=triangle*,red}}]
+\addplot[scatter,only marks,scatter src=explicit symbolic]
+table[meta=label] {
+	x	y	label
+	0.3	0.7	p
+	0.5	0.1	p
+	0.2	0.9	n
+	0.8	0.6	n
+	0.5	0.7	n
+};
+\addplot[scatter src=explicit symbolic]
+table {
+	x	y
+	0.4	0.0
+	0.4	1.0
+};
+\addplot[scatter src=explicit symbolic]
+table {
+	x	y
+	0.0 0.8
+	0.4 0.8
+	0.4	0.5
+	1.0	0.5
+};
+\end{axis}
+\end{tikzpicture}
+\end{center}
+\caption{Partitioning of $\mcl{M}$ for the example dataset}
+\label{visMpart}
+\end{figure}
+
+\begin{figure}
+\begin{center}
+\begin{tikzpicture}[every node/.style={inner sep=1pt}]
+\node[label=above:$n_0$] (n)   {$\bullet$};
+\node[label=left:$n_1$]  (n0)  [below left=  3cm and 3cm of n]  {$\bullet$};
+\node[label=right:$n_2$] (n1)  [below right= 3cm and 3cm of n]  {$\bullet$};
+\node[label=left:$n_3$]  (n00) [below left=  3cm and 1cm of n0] {$\bullet$};
+\node[label=right:$n_4$] (n01) [below right= 3cm and 1cm of n0] {$\bullet$};
+\node[label=left:$n_5$]  (n10) [below left=  3cm and 1cm of n1] {$\bullet$};
+\node[label=right:$n_6$] (n11) [below right= 3cm and 1cm of n1] {$\bullet$};
+
+\path[thick,-] (n)  edge node[label=left :{$a_1 \leq 0.4~~$}] {} (n0);
+\path[thick,-] (n)  edge node[label=right:{~~$a_1 > 0.4$}] {} (n1);
+\path[thick,-] (n0) edge node[label=left :{$a_2 \leq 0.8~~$}] {} (n00);
+\path[thick,-] (n0) edge node[label=right:{~~$a_2> 0.8$}] {} (n01);
+\path[thick,-] (n1) edge node[label=left :{$a_2 \leq 0.5~~$}] {} (n10);
+\path[thick,-] (n1) edge node[label=right:{~~$a_2> 0.5$}] {} (n11);
+\end{tikzpicture}
+\end{center}
+\caption{A tree corresponding to the partitioning of $\mcl{M}$ in Figure~\ref{visMpart}}
+\label{visMTree}
+\end{figure}
+    
+Figure~\ref{visMpart} shows a possible partitioning of 
+    the instance space for the example dataset (from Table~\ref{tEgData}).
+Figure~\ref{visMTree} shows the corresponding tree of partitioning hyperplanes built by
+    the algorithm.
+
+\pagebreak
+
+\subsection{Stopping Conditions}
+\label{secStopCond}
+
+The algorithm iterates while none of the following stopping conditions are met:
+\begin{description}
+
+\item[~~~The tree becomes too big:] \ \\
+    $Depth(T) \geq maxDepth$, 
+    where  $maxDepth$ is a user specified parameter.
+\item[~~~Each region corresponding to a leaf node contains too few instances:] \ \\ 
+    $\forall~n_i \in LeafNodes(T) ~:~ Occupancy(n_i) < minOcc$, 
+    where $Occupancy(n_i)$ is the number of instances of $\mcl{M}$ which lie in $n_i$ and
+    $minOcc$ is a user specified parameter.
+\item[~~~The tree is sufficiently accurate for the training set:] \ \\
+    $Error(BaseLearner, \mcl{D}_T) < minErr$, 
+    where $\mcl{D}_T$ is the dataset $\mcl{D}$ propositionalised using $T$ (see Section~\ref{secProp}),
+    $Error$ is the misclassfication error on the training set when 
+    the $BaseLearner$ is trained on $\mcl{D}_T$,
+    and $minErr$ is a user specified parameter.
+
+\end{description}
+
+\subsection{Selecting a leaf node to expand}
+\label{secTreeBuild}
+
+At each iteration of the algorithm, 
+    a leaf node of $T$ is selected to be expanded 
+    (into an internal node of the tree).
+The leaf nodes which are eligible to be expanded
+    are those which, when expanded, will not 
+    violate the $maxDepth$ condition.
+Let $\mcl{N}$ be the subset of the leaf nodes of $T$ 
+    which are eligible for expansion:
+\begin{algorithmic}
+    \State $\mcl{N} \gets \{ n_i \in LeafNodes(T) ~\big|~ Depth(n_i) < maxDepth - 1 \} $
+\end{algorithmic}
+We assume that the nodes in $T$ are indexed in breadth first order, 
+    as shown in Figure~\ref{visMTree}.
+Then, among any subset of nodes with equal depth,
+    the leftmost node is the node which has the least index.
+This concept of leftmost-node is used to break ties in the 
+    leaf node selection strategies.    
+\AdaProp supports three leaf node selection strategies:
+
+\begin{description}
+\item[~~~Depth first search:] \ \\
+    The node selected is the leaf node 
+    which is leftmost node among 
+    the leaf nodes which have the greatest depth
+    in $\mcl{N}$.
+\begin{algorithmic}
+    \State $ greatestDepth \gets \max\{ depth(n_j) ~\big|~ n_j \in \mcl{N} \} $
+    \State $ n_i \gets \textrm{leftmost}\{ n_j \in \mcl{N} ~\big|~ depth(n_j) = greatestDepth \} $
+\end{algorithmic}
+        
+\item[~~~Breadth first search:] \ \\
+    The node selected is the leaf node 
+    which is leftmost node among 
+    the leaf nodes which have the least depth
+    in $\mcl{N}$.
+\begin{algorithmic}
+    \State $ leastDepth \gets \min\{ depth(n_j) ~\big|~ n_j \in \mcl{N} \} $
+    \State $ n_i \gets \textrm{leftmost}\{ n_j \in \mcl{N} ~\big|~ depth(n_j) = leastDepth \} $
+\end{algorithmic}
+    
+\item[~~~Best first search:] \ \\
+    Given a heuristic function $h(n)$ such that
+    $h(n_j) < h(n_i)$ iff $n_j$ is a better node to expand than $n_i$,
+    the node selected is the leaf node 
+    which is the leftmost among 
+    the leaf nodes which have the least value for $h(n)$
+    in $\mcl{N}$.
+\begin{algorithmic}
+    \State $ leastH \gets \min\{ h(n_j) ~\big|~ n_j \in \mcl{N} \} $
+    \State $ n_i \gets \textrm{leftmost}\{ n_j \in \mcl{N} ~\big|~ h(n_j) = leastH \} $
+\end{algorithmic}
+
+    \AdaProp supports only one heuristic function, 
+        the $Error(n)$, which is the training set error 
+        when the base learner is trained on the dataset $\mcl{D}$
+        propositionalised using $T$ along with 
+        the best partitioning hyperplane at $n$.
+     In order to compute the value of this heuristic function at a node $n$,
+         all possible bi-partitions at $n$ must be evaluated,
+         thus $Error(n)$ is computationally expensive.
+    
+\end{description}
+
+\subsection{Generating Candidate partitioning hyperplanes}
+\label{secCandGen}
+
+Given the set of labelled instances $\mcl{M}_i \subseteq \mcl{M}$,
+    we wish to generate a set of candidate partitioning hyperplanes for $\mcl{M}_i$,
+    each of which is represented by a hyperplane in the instance space.
+As mentioned above, 
+    \AdaProp only considers hyperplanes 
+    which intersect exactly one axis
+    (thus is parallel to all other axes).
+Furthermore, we attempt to find balanced partitioning hyperplanes, 
+    i.e.\ those which lie somewhat near the center of the instances
+    in $\mcl{M}_i$.
+
+Each method of generating candidate partitioning hyperplanes 
+    considers each attribute of the instances and attempts 
+    to find midpoints of the instances along the attribute.
+Therefore, most methods follow the same template:
+    \begin{algorithmic}
+    \For{$j = 1 \to k$} 
+        \State $V_j \gets \{ a_j ~\big|~ \exists c \in \mcl{C} ~:~ (\vect{a},c) \in \mcl{M}_i \}$
+        \State $m \gets $ Find $midpt(V_j)$
+        \State Output candidate hyperplane: $a_j = m $
+    \EndFor
+    \end{algorithmic}
+        
+\AdaProp supports four methods for generating candidate partitioning hyperplanes:
+\begin{description}
+
+\item[~~~Range based midpoint:] \ \\
+    For each attribute $a_j$, 
+    the range (i.e.\ minimum and maximum) of 
+        values of $a_j$ 
+        for the instances in $\mcl{M}_i$ is computed, 
+        and a candidate hyperplane corresponding to the midpoint between the 
+        minimum and maximum values is generated.
+    \begin{algorithmic}
+        \State $midpt(V_j) \gets \frac{\min(V_j) ~+~ \max(V_j)}{2}$
+    \end{algorithmic}
+    
+\item[~~~Mean:]  \ \\
+    For each attribute $a_j$, 
+        the candidate hyperplane generated corresponds to 
+        the mean value of $a_j$ 
+        for all instances in $\mcl{M}_i$.
+    \begin{algorithmic}
+        \State $midpt(V_j) \gets \textrm{mean}(V_j)$
+    \end{algorithmic}    
+
+\item[~~~Median:]  \ \\
+    For each attribute $a_j$, 
+        the candidate hyperplane generated corresponds to 
+        the median value of $a_j$ 
+        for all instances in $\mcl{M}_i$.
+    \begin{algorithmic}
+        \State $midpt(V_j) \gets \textrm{median}(V_j)$
+    \end{algorithmic}  
+    
+\item[~~~Class boundaries:]  \ \\
+    This method is different to the above three methods
+        as it (potentially) generates multiple candidate partitions 
+        per attribute.
+    For each attribute $a_j$, 
+        the values of $a_j$ for all instances in $\mcl{M}_i$ are sorted,
+        and the values at which the class changes (i.e.\ the class boundaries)
+        are used to generate the partitioning hyperplanes.
+    This is similar to the discretization process of OneR~\cite{holte}.
+    \begin{algorithmic}
+    \For{$j = 1 \to k$} 
+        \State $W_j \gets \{ (a_j,c) ~\big|~ (\vect{a},c) \in \mcl{M}_i \}$
+        \State Sort $W_j$
+        \ForAll{values $(w_j,c_j) \in W_j$ where $c_{j-1} \neq c_j$}
+            \State $m \gets \frac{w_{j-1}+w_j}{2}$
+            \State Output candidate hyperplane: $a_j = m$
+        \EndFor
+    \EndFor
+    \end{algorithmic}
+\end{description}
+
+See Figure~\ref{visCandGen} for a visualisation of all the 
+    candidate partitioning hyperplanes generated by each method
+    for the example dataset in Table~\ref{tEgData}.
+
+\FloatBarrier
+
+%% Visualisation of all candidate partitioning hyperplanes:
+\begin{figure}
+\begin{center}
+        \begin{subfigure}[b]{0.45\textwidth}
+                \centering
+                \begin{tikzpicture}[scale=0.8]
+					\begin{axis}[xlabel={$a_1$}, ylabel={$a_2$},
+					 xmin=0,xmax=1,ymin=0,ymax=1,
+					 scatter/classes={p={mark=square*,blue},n={mark=triangle*,red}}]
+					\addplot[scatter,only marks,scatter src=explicit symbolic]
+					table[meta=label] {
+						x	y	label
+						0.3	0.7	p
+						0.5	0.1	p
+						0.2	0.9	n
+						0.8	0.6	n
+						0.5	0.7	n
+					};
+					\addplot[scatter src=explicit symbolic,dashed]
+					table {
+						x	y
+						0.5	0.0
+						0.5	1.0
+					};
+					\addplot[scatter src=explicit symbolic,dashed]
+					table {
+						x	y
+						0.0 0.5
+						1.0 0.5
+					};
+					\end{axis}
+			    \end{tikzpicture}
+                \caption{Range based midpoint}
+        \end{subfigure}%
+        ~~~
+        \begin{subfigure}[b]{0.45\textwidth}
+                \centering
+                \begin{tikzpicture}[scale=0.8]
+					\begin{axis}[xlabel={$a_1$}, ylabel={$a_2$},
+					 xmin=0,xmax=1,ymin=0,ymax=1,
+					 scatter/classes={p={mark=square*,blue},n={mark=triangle*,red}}]
+					\addplot[scatter,only marks,scatter src=explicit symbolic]
+					table[meta=label] {
+						x	y	label
+						0.3	0.7	p
+						0.5	0.1	p
+						0.2	0.9	n
+						0.8	0.6	n
+						0.5	0.7	n
+					};
+					\addplot[scatter src=explicit symbolic,dashed]
+					table {
+						x	y
+						0.46	0.0
+						0.46	1.0
+					};
+					\addplot[scatter src=explicit symbolic,dashed]
+					table {
+						x	y
+						0.0 0.6
+						1.0 0.6
+					};
+					\end{axis}
+			    \end{tikzpicture}
+                \caption{Mean}
+        \end{subfigure}%
+        \\ \  \\
+        \begin{subfigure}[b]{0.45\textwidth}
+                \centering
+                \begin{tikzpicture}[scale=0.8]
+					\begin{axis}[xlabel={$a_1$}, ylabel={$a_2$},
+					 xmin=0,xmax=1,ymin=0,ymax=1,
+					 scatter/classes={p={mark=square*,blue},n={mark=triangle*,red}}]
+					\addplot[scatter,only marks,scatter src=explicit symbolic]
+					table[meta=label] {
+						x	y	label
+						0.3	0.7	p
+						0.5	0.1	p
+						0.2	0.9	n
+						0.8	0.6	n
+						0.5	0.7	n
+					};
+					\addplot[scatter src=explicit symbolic,dashed]
+					table {
+						x	y
+						0.5	0.0
+						0.5	1.0
+					};
+					\addplot[scatter src=explicit symbolic,dashed]
+					table {
+						x	y
+						0.0 0.7
+						1.0 0.7
+					};
+					\end{axis}
+			    \end{tikzpicture}
+                \caption{Median}
+        \end{subfigure}%
+        ~~~
+        \begin{subfigure}[b]{0.45\textwidth}
+                \centering
+                \begin{tikzpicture}[scale=0.8]
+					\begin{axis}[xlabel={$a_1$}, ylabel={$a_2$},
+					 xmin=0,xmax=1,ymin=0,ymax=1,
+					 scatter/classes={p={mark=square*,blue},n={mark=triangle*,red}}]
+					\addplot[scatter,only marks,scatter src=explicit symbolic]
+					table[meta=label] {
+						x	y	label
+						0.3	0.7	p
+						0.5	0.1	p
+						0.2	0.9	n
+						0.8	0.6	n
+						0.5	0.7	n
+					};
+					\addplot[scatter src=explicit symbolic,dashed]
+					table {
+						x	y
+						0.25	0.0
+						0.25	1.0
+					};
+					\addplot[scatter src=explicit symbolic,dashed]
+					table {
+						x	y
+						0.5	0.0
+						0.5	1.0
+					};
+					\addplot[scatter src=explicit symbolic,dashed]
+					table {
+						x	y
+						0.0 0.8
+						1.0 0.8
+					};
+					\addplot[scatter src=explicit symbolic,dashed]
+					table {
+						x	y
+						0.0 0.7
+						1.0 0.7
+					};
+					\end{axis}
+			    \end{tikzpicture}
+                \caption{Class boundaries}
+        \end{subfigure}
+\end{center}
+\caption{Candidate partitions generated for the $\mcl{M}$ corresponding to the example dataset}
+\label{visCandGen}
+\end{figure}
+
+\subsection{Selecting the optimal partitioning hyperplane}
+\label{secOptPartition}
+
+Given a set of candidate partitioning hyperplanes $B$ for the labelled set of instances $\mcl{M}_i$, 
+    \AdaProp aims to find the optimal hyperplane $B_i$ in $B$, 
+    which is the hyperplane with the least
+    training set error on $\mcl{D}$ when using the base learner.
+For each candidate hyperplane $B_j$,
+    a new tree $T_j$ is built by adding $B_j$ to $T$.
+Then $T_j$ is used to propositionalise $\mcl{D}$
+    and the base learner is trained on the propositionalised dataset.
+The candidate hyperplane which results in the least training set 
+    error during this process is selected as the 
+    optimal hyperplane.
+This process is given in Algorithm~\ref{algoOptPart}.
+
+\begin{algorithm}
+\caption{Selecting the Optimal Partitioning Hyperplane}
+\label{algoOptPart} 
+\begin{algorithmic}
+    \Function{EvaluatePartition}{$T,n_i,B_j$}
+    \State $T_j \gets T$ with the hyperplane $B_j$ added at the node $n_i$
+        \State $\mcl{D}_{T_j} \gets \mcl{D}$ propositionalised using $T_j$
+        \State \Return $Error(BaseLearner,\mcl{D}_{T_j})$
+    \EndFunction
+    \State 
+    \Function{FindOptimalPartition}{$T,n_i,B$}
+    \State $minErr = \min \{ \textrm{\sc EvaluatePartition}(T,n_i,B_j) ~|~ B_j \in B \}$
+    \State \Return $\textrm{any} \{ B_j \in B ~|~ \textrm{\sc EvaluatePartition}(T,n_i,B_j) = minErr \}$
+    \EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+\section{Propositionalisation}
+\label{secProp}
+
+The tree of partitioning hyperplanes $T$ defines a set of regions in the instance space.
+Each such region will correspond to one or more attributes 
+    in the propositionalised dataset.
+\AdaProp implements two different approaches to propositionalisation of each bag
+    (Algorithm~\ref{algoProp}):
+    Count-based and Summary Based.
+
+
+\begin{algorithm}
+\caption{Propositionalisation (Given a function {\sc Prop} $: \power(\mcl{I}) \to \real^m, m \geq 1$)}
+\label{algoProp} 
+    \begin{algorithmic}
+    \State Initialise the propositionalised dataset $\mcl{P}$ as an empty dataset
+    \ForAll{bags $(B_i,c) \in \mcl{D}$}
+        \State Initialise the propositionalised vector $\vect{p}$ as an empty list
+        \ForAll{nodes $n_j$ in the tree $T$} 
+            \State $X_j \gets \{ i \in B_i ~|~ i$ 
+                lies in the region corresponding to $n_j \} $
+            \State $\vect{p} \gets \vect{p} \oplus \textrm{\sc Prop}(X_j)$
+            \Comment{$\oplus$ denotes concatenation}
+        \EndFor
+        \State Add the labelled vector $(\vect{p},c)$ 
+            to the dataset $\mcl{P}$
+    \EndFor
+    \end{algorithmic}
+\end{algorithm}
+
+\subsection{Count-Based Propositionalisation}
+
+In count-based propositionalisation, 
+    each bag is converted into a feature vector by
+    counting the number of instances of the bag which
+    fall into each region.
+Therefore, each region corresponds to a single attribute in the 
+    propositionalised vector.
+Formally, the {\sc Prop} function in Algorithm~\ref{algoProp} 
+    for count-based propositionalisation is given by:
+$$ \textrm{\sc Prop}: \power(\mcl{I}) \to \real,\mathrm{~where~}\textrm{\sc Prop}(X) = |X|$$
+Table~\ref{tEgPropCount} shows the count-based propositionalised form of 
+    the example dataset given in Table~\ref{tEgData}.
+
+\begin{table}
+\begin{center}
+\begin{tabular}{*{9}{c}}
+    \toprule
+    Bag & $n_0$ & $n_1$ & $n_2$ & $n_3$ & $n_4$ & $n_5$ & $n_6$ & Class \\
+    \midrule
+    $b_1$ & 2 &     1 & 1 &     1 & 0 & 1 & 0 & positive\\
+    $b_2$ & 3 &     1 & 2 &     0 & 1 & 0 & 2 & negative\\
+    \bottomrule
+    
+\end{tabular}
+\end{center}
+\caption{Count-based propositionalised form of the example dataset}
+\label{tEgPropCount}
+\end{table}    
+
+\subsection{Summary Based Propositionalisation}
+
+In summary-based propositionalisation, 
+    the instances which fall into each region  
+    are aggregated using summary statistics, such as
+    minimum, maximum, sum, and average (i.e.\ mean).
+For each region, the summary statistics are computed 
+    for all attributes, regardless of which attribute was 
+    used in the chosen partitioning hyperplane.
+Therefore, summary-based propositionalisation is more
+    computationally expensive than count-based propositionalisation, 
+    but is able to preserve significantly more information from each bag 
+    in the propositionalisation.
+Formally, the {\sc Prop} function in Algorithm~\ref{algoProp} 
+    for summary-based propositionalisation is given by:
+$$ \textrm{\sc Prop}:\power(\mcl{I}) \to \real^{4k}  $$
+\begin{align*}
+    \textrm{\sc Prop}(X) = (
+        &\min(X_1),~\max(X_1),~\tsum(X_1),~\avg(X_1), \\
+        &\min(X_2),~\max(X_2),~\tsum(X_2),~\avg(X_2), \\
+        &\ldots, \\
+        &\min(X_k),~\max(X_k),~\tsum(X_k),~\avg(X_k))
+\end{align*}
+Where $k$ is the number of attributes and $X_j = \{ i_j ~|~ i \in X \}$, i.e.\ 
+    the value of the $j^{\mathrm th}$ attribute for all instances in $X$.
+    
+Table~\ref{tEgPropAgg} shows the propositionalised form of 
+    the example dataset given in Table~\ref{tEgData} when
+    using summary-based propositionalisation.   
+    
+\begin{table}
+\begin{center}
+\begin{tabular}{*{14}{c}}
+    \toprule
+        \multirow{2}{*}{Bag} & 
+        \multicolumn{4}{c}{$n_0~a_1$} & 
+        \multicolumn{4}{c}{$n_0~a_2$} & 
+        \multicolumn{4}{c}{$n_1~a_1$} &
+        \multirow{2}{*}{Class} \\
+    \cmidrule(r){2-5}
+    \cmidrule(r){6-9}
+    \cmidrule(r){10-13}
+     & min & max & sum & avg & min & max & sum & avg & min & max & sum & avg & \\
+    \midrule
+    $b_1$ &  0.3 & 0.5 & 0.8 & 0.4  & 0.1 & 0.7 & 0.8 & $0.40$       & 0.3 & 0.3 & 0.3 & 0.3 & positive\\
+    $b_2$ &  0.2 & 0.8 & 1.5 & 0.5  & 0.6 & 0.9 & 2.2 & $0.7\dot{3}$ & 0.2 & 0.2 & 0.2 & 0.2 & negative\\
+    \bottomrule    
+    \multirow{2}{*}{} & 
+        \multicolumn{4}{c}{$n_1~a_2$} & 
+        \multicolumn{4}{c}{$n_2~a_1$} & 
+        \multicolumn{4}{c}{$n_2~a_2$} &
+        \multirow{2}{*}{} \\
+    \cmidrule(r){2-5}
+    \cmidrule(r){6-9}
+    \cmidrule(r){10-13}
+     & min & max & sum & avg & min & max & sum & avg & min & max & sum & avg & \\
+    \midrule
+    $b_1$ &  0.7 & 0.7 & 0.7 & 0.7  & 0.7 & 0.7 & 0.7 & $0.70$  & 0.1 & 0.1 & 0.1 & $0.10$ & positive\\
+    $b_2$ &  0.9 & 0.9 & 0.9 & 0.9  & 0.5 & 0.8 & 1.3 & $0.65$  & 0.6 & 0.7 & 1.3 & $0.65$ & negative\\    
+    \bottomrule
+    
+\end{tabular}
+\end{center}
+\caption{Summary-based propositionalised form of the example dataset 
+    (showing only the nodes $n_0, n_1,$ and $n_2$).}
+\label{tEgPropAgg}
+\end{table}    
+
+%\begin{comment}
+
+\section{The base learner} 
+
+  
+Any standard machine learning algorithm can be used 
+    as the base learner, i.e.\ can be used to guide the hyperplane selection process.
+The choice of base learner is left upto the user, and 
+    this report considers two common base learners: 
+    RandomForest and LogitBoost.
+
+RandomForest \cite{breiman} constructs an ensemble of 
+    randomized decision trees, where each node of each tree is 
+    built on a random subset of the attributes.
+In this project, RandomForests with 100 trees were used.
+
+LogitBoost \cite{friedman} is an adaptive boosting algorithm 
+    which minimises a logisitic loss function.
+In this project, LogitBoost with 30 iterations was used, 
+    using Decision stumps (1-level decision trees) as the base learner.
+
+%Algorithm(s) will be implemented using the WEKA framework.*
+
+\section{Refinements}
+
+The experiments (Chapter~\ref{ch:Results}) indicated that \AdaProp 
+    significantly overfits some datasets.
+In order to reduce this overfitting, 
+    and thus improve the accuracy of \AdaProp, 
+    two standard techniques were implemented: 
+    cross validated parameter selection
+    and randomized bagging.
+
+
+\subsection{Parameter Selection}
+
+The size of the trees of partitioning hyperplanes 
+    built up by \AdaProp had substantial impact on
+    the cross-validated classification accuracy.
+In fact, the experiments showed that increasing the tree
+    size increased the accuracy initially upto some 
+    optimal point, after which the accuracy declined.
+This suggests that there is some optimal size 
+    for the tree of partitioning hyperplanes,
+    and the optimal size is dependent on the dataset, 
+    i.e.\ different datasets require different size trees.
+    
+In order to find this optimal tree size, \AdaProp performs
+    $5$-fold cross-validated selection over all tree sizes
+    (Algorithm~\ref{algoCVTSS}).
+This is done by maintaining a set of 5 trees, each built on 
+    80\% of the training dataset, and iteratively increasing
+    the size of each tree and considering the total error
+    on the 20\% of the dataset not used for training.
+Once the optimal tree size has been found, 
+    a single tree of that size is built, 
+    training on the entire dataset.    
+
+\begin{algorithm}
+\caption{Cross-validated tree-size selection}
+\label{algoCVTSS} 
+    \begin{algorithmic}
+    \State Partition, with stratification, the training set into 5 folds: 
+        $\{ X_1, X_2, \ldots, X_5 \}$.
+    \For{$j = 1 \to 5$}
+        \State Build a tree $T_j$ of size 1, using all folds except $X_j$ as the training set.
+        \State $e^0_j \gets 1$ \Comment{$e^t_j$ is the error of the tree $T_j$ when of size $t$}
+        \State $e^1_j \gets$ the misclassification error of $T_j$ when evaluated on $X_j$.        
+    \EndFor    
+    \State $t \gets 1$ \Comment{$t$ is the current tree size}.    
+    \While{$e^t_1 + e^t_2 + \ldots + e^t_5 ~\leq~ e^{t-1}_1 + e^{t-1}_2 + \ldots + e^{t-1}_5$}
+        \State $t \gets t+1$
+        \For{$j = 1 \to 5$}
+            \State Expand $T_j$ by one node, 
+                using all folds except $X_j$ as the training set.
+            \State $e^t_j \gets$ the misclassification error of $T_j$ when evaluated on $X_j$.
+        \EndFor
+    \EndWhile
+    \State Output $t-1$ as the optimal tree size.
+    \end{algorithmic}
+\end{algorithm}
+
+The cross-validated tree-size selection process is 
+    iterative, as it increases the size of each tree by
+    one (i.e.\ expanding one node per tree) per iteration.    
+This process requires more time than running 
+    the \AdaProp process just once, 
+    but provides an increase in accuracy.
+However, compared to the usual method of parameter optimisation, 
+    where the entire training process is repeated for each possible 
+    value of the parameter, this method is significantly more efficient.
+
+
+\subsection{Randomized Bagging}
+
+Another refinement implemented to combat overfitting is 
+    randomized bagging.
+Bagging was performed using WEKA's standard bagging implementation, 
+    where the training set is resampled (with replacement) to generate
+    $n$ independent datasets, where $n$ is the number of iterations.
+Then, an ensemble of $n$ \AdaProp trees are built (i.e.\ a tree per dataset), 
+    and majority voting is used to combine the predictions of the trees.
+
+When bagging is performed on standard \AdaProp trees, 
+    the runtime grows linearly with the number of iterations
+    (I.e.\ the 50-iterations of bagging will take 50 times longer
+    to complete than training a single \AdaProp tree).
+In order to reduce the runtime and also to reduce overfitting further, 
+    randomization in attributes was implemented, 
+    where at each node in each tree, only a randomly chosen subset of attributes 
+    was considered when selecting the optimal partitioning hyperplane.
+The subset of attributes was chosen to be of size $\log_2(K)+1$, 
+    where $K$ is the number of attributes, 
+    therefore the randomization reduced the runtime by a factor 
+    of approximately $\frac{K}{\log_2(K)}$.
+
+
+\chapter{Image Classification}
+...
+\section{Definitions}
+...
+\section{Feature Selection}
+...
+
+\chapter{Results}
+\label{ch:Results}
+
+
+[ TODO ]
+\section{Data sets}
+...
+\section{Hyperplane Evaluation}
+...
+\section{Leaf Node Selection}
+...
+\section{Base Learners}
+...
+\section{Propositionalisation}
+...
+\subsection{Count Based Propositionalisation}
+...
+\subsection{Comparison to TLC}
+...
+\subsection{Summary Based Propositionalisation}
+...
+\subsection{Comparison to RELAGGS}
+...
+\section{Refinements}
+...
+\subsection{Parameter Selection}
+...
+\subsection{Randomized Bagging}
+...
+\subsection{Comparison to Bagged TLC}
+...
+\subsection{Comparison to Bagged RELAGGS}
+...
+
+Experiments were conducted using 16 datasets from the UCI repository, 
+    comparing the performance of three candidate hyperplane generation methods 
+    (range-based midpoint, mean, and median)
+    and two base learners (j48 and SMO).
+All experiments were conducted for the breadth*-first search strategy for 
+    building up the tree of partitioning hyperplanes.
+Experiments for the the fourth candidate hyperplane generation method and best first search strategies 
+    are ongoing.
+    
+First, we aggregate the results of all experiments and 
+    compare the results for each candidate hyperplane generation method:
+    
+[TODO]
+
+Then compare the results across base learners 
+
+[ TODO ]
+
+Then we show the results over each dataset
+
+[ Raw Data ? can be found at appendix ? ]    
+    
+\chapter{Image classification Results}
+\section{Feature classification}
+\section{Comparison to other MI algorithms}
+\section{Comparison to other image classification algorithms}
+
+\chapter{Additional Results}
+\section{Artificial dataset}
+Since the results on the UCI datasets were unsatisfactory, 
+    artificial datasets were generated to check that the 
+    implementation of the \AdaProp algorithm.
+    
+Poor results with J48, overfitting the very simple dataset, better results with 
+    OneR, more data and the last algorithm (what was it?)
+Simpler base learner may work better in the simple datasets?
+
+[ Learning curves ]
+
+\section{Training Set convergence}
+
+%\end{comment}
+
+\chapter{Future Work}
+
+The final output of this project is an algorithm 
+    which can be used to adaptively propositionalise multi-instance data. 
+Since there are other established algorithms for handling multi-instance data, 
+    we will evaluate the algorithm by comparing the classification accuracy 
+    on standard multi-instance datasets against methods such as 
+    MILES~\cite{Chen2006}, TLC~\cite{Weidmann2003} and DD~\cite{Maron98mil}.
+
+We will also consider the application of this algorithm towards image classification and 
+    potentially convert some existing image classification
+    datasets into a multi-instance representation.
+
+Currently, \AdaProp only supports multi-instance datasets with 
+    numeric attributes.
+In the future, we intend to implement support for
+    nominal attributes and missing values.
+
+Since this algorithm is a meta-learner, 
+    i.e.\ it is dependent on an underlying single-instance base learner, 
+    a number of different base learners will be 
+    used to evaluate the performance of this algorithm.
+ 
+Finally, this algorithm will be evaluated on 
+    standard image classification datasets 
+    (for example the \citeA{sival}) and 
+    the performance will be compared to that of 
+    established image classification algorithms.
+
+\chapter{Conclusion}
+In this project, 
+    we examine the propositionalisation of multi-instance data using 
+    a process which is influenced by the single-instance base learner being used, 
+    i.e. an adaptive propositionalisation process. 
+Our approach is to partition the instance space 
+    by generating a set of candidate partitions and 
+    using the single instance learner to select the optimal partition. 
+The result of this project is an algorithm
+    which will be evaluated by comparing its performance to 
+    that of existing multi-instance learning algorithms on standard MI datasets. 
+In addition, 
+    the application of multi-instance learning 
+    to image classification will be examined and 
+    the algorithm will be tuned for dealing with image classification datasets.
+\clearpage
+
+\appendix
+\chapter{Result Tables}
+Some data [TODO]
+\chapter{Result Charts}
+Some data [TODO]
+\bibliographystyle{apacite} 
+\bibliography{final-report}
+\end{document}
