@@ -933,22 +933,27 @@ The size of the trees of partitioning hyperplanes
     the cross-validated classification accuracy.
 In fact, the experiments showed that increasing the tree
     size increased the accuracy initially upto some 
-    optimal point, after which the accuracy declined.
+    maximum, after which the accuracy declined.
 This suggests that there is some optimal size 
-    for the tree of partitioning hyperplanes,
-    and the optimal size is dependent on the dataset, 
-    i.e.\ different datasets require different size trees.
+    for the tree of partitioning hyperplanes.
+From the experiments, it was also clear that this
+    optimal size is dependent on the dataset, 
+    i.e.\ different datasets have different optimal tree sizes.
     
-In order to find this optimal tree size, \AdaProp performs
-    $5$-fold cross-validated selection over all tree sizes
-    (Algorithm~\ref{algoCVTSS}).
-This is done by maintaining a set of 5 trees, each built on 
-    80\% of the training dataset, and iteratively increasing
-    the size of each tree and considering the total error
-    on the 20\% of the dataset not used for training.
-Once the optimal tree size has been found, 
-    a single tree of that size is built, 
-    training on the entire dataset.    
+In order to find the optimal tree size for any given dataset, 
+    \AdaProp performs $5$-fold cross-validated selection 
+    over all tree sizes (Algorithm~\ref{algoCVTSS}).
+This process maintains a set of 5 trees, each built on 
+    a different 80\% of the training dataset, 
+    and evaluated on the remaining 20\%.
+The size of each tree is then iteratively increased
+    until the total error on the test datasets ceases to decrease.
+This process requires more time than running 
+    the \AdaProp process with a fixed tree size, 
+    but provides an increase in accuracy.
+However, compared to the usual method of parameter optimisation, 
+    where the entire training process is repeated for each possible 
+    value of the parameter, this method is significantly more efficient.
 
 \begin{algorithm}
 \caption{Cross-validated tree-size selection}
@@ -974,16 +979,6 @@ Once the optimal tree size has been found,
     \end{algorithmic}
 \end{algorithm}
 
-The cross-validated tree-size selection process is 
-    iterative, as it increases the size of each tree by
-    one (i.e.\ expanding one node per tree) per iteration.    
-This process requires more time than running 
-    the \AdaProp process just once, 
-    but provides an increase in accuracy.
-However, compared to the usual method of parameter optimisation, 
-    where the entire training process is repeated for each possible 
-    value of the parameter, this method is significantly more efficient.
-
 
 \subsection{Randomized Bagging}
 
@@ -992,14 +987,14 @@ Another refinement implemented to combat overfitting is
 Bagging was performed using WEKA's standard bagging implementation, 
     where the training set is resampled (with replacement) to generate
     $n$ independent datasets, where $n$ is the number of iterations.
-Then, an ensemble of $n$ \AdaProp trees are built (i.e.\ a tree per dataset), 
+Then, an ensemble of $n$ \AdaProp trees are built (i.e.\ one tree per dataset), 
     and majority voting is used to combine the predictions of the trees.
 
 When bagging is performed on standard \AdaProp trees, 
     the runtime grows linearly with the number of iterations
-    (I.e.\ the 50-iterations of bagging will take 50 times longer
+    (i.e.\ the 50-iterations of bagging will take 50 times longer
     to complete than training a single \AdaProp tree).
-In order to reduce the runtime and also to reduce overfitting further, 
+In order to reduce the runtime and also to further reduce overfitting, 
     randomization in attributes was implemented, 
     where at each node in each tree, only a randomly chosen subset of attributes 
     was considered when selecting the optimal partitioning hyperplane.
