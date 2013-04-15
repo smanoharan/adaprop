@@ -112,10 +112,48 @@ In the future, we will examine this application of multi-instance learning.
 
 \chapter{Background}
 
-[TODO]
-\section{Multi Instance Learning}
-\section{Propositionalisation}
-\section{Application to Image Classification}
+Multi-instance learning is a generalisation of 
+    standard supervised machine learning,
+    where class labels are assigned to bags (i.e.\ multi sets) of instances.
+In literature, there are several algorithms
+    designed specifically for multi-instance learning.
+There have also been proposed algorithms which were created by 
+    adapting well known standard machine learning algorithms to handle
+    multi-instance data.
+In this project, we consider a different approach known as propositionalisation,
+    where each bag of a multi-instance dataset is converted into a fixed-size 
+    vector.
+Propositionalisation allows any existing standard machine learning algorithm
+    to be applied to a multi-instance dataset, 
+    but requires an appropriate method for converting each bag into a feature vector.
+We propose an algorithm, \AdaProp, which performs this propositionalisation.
+  
+Multi-instance learning has been applied to several domains,
+    including musk prediction, image classification and text classification.
+In this project, we focus on the application of image classification,
+    which can be expressed naturally in a multi-instance setting.
+We also consider some multi-instance datasets in chemical domains.
+
+\section{Supervised machine learning}
+
+In supervised machine learning, the training dataset is set of instances, 
+    where each instance consists of a fixed number of attributes 
+    and a single class label.
+The learner is then expected to infer the relationship between the 
+    attributes and the class label,
+    resulting in a model which expresses the class label as 
+    some function of the attribute values.
+This model can then be used to predict the class label of 
+    any instance from the same underlying domain, 
+    including instances which were not part of the original training dataset.
+
+In this project, we consider a generalisation of supervised machine learning, 
+    known as multi-instance learning, 
+    where the training dataset consists of bags of instances, 
+    where each bag consists of a set of instances 
+    along with a class label.
+
+\section{Multi instance learning}
 
 Multi-instance learning was introduced by \citeA{Diet97} 
     in the context of drug activity prediction. 
@@ -129,20 +167,88 @@ The multi-instance learning problem was
 This assumption is known as the ``standard MI assumption'' and 
     fits the original domain of drug activity prediction well.
 
-Multi-instance learning has also been applied to other domains 
-    such as image classification and text classification where 
-    the standard MI assumption is less appropriate. 
-Therefore, a number of generalisations to the multi-instance problem have been proposed.
+In this project we also consider datasets which may not satisfy the
+    standard MI assumption. 
+Therefore, we require MI assumptions which are more general than 
+    the standard assumption.
 \citeA{Chen2006} proposed a generalised MI assumption in which 
     the label of each bag is determined by the 
-    distance of the bag's instances to some hidden target points in instance space.
-Similarly, \citeA{Weidmann2003} proposed a hierarchy of MI assumptions where 
-    the bag's class is determined by the number of instances 
-    of the bag which are located in certain regions of instance space.
-This project uses the same generalised MI assumptions as \citeA{Weidmann2003}.
+    distance of the bag's instances to some hidden target points in instance space.    
+\citeA{Weidmann2003} introduced a hierarchy of generalisations of 
+    the standard MI assumption: 
+        presence-based, threshold-based and count-based assumptions.
+The algorithm being developed in this project, \AdaProp, 
+    has been designed for datasets corresponding to the 
+    most general of these MI assumptions, 
+    the count-based assumption.
+Therefore \AdaProp is also expected to be able to handle
+    the datasets which satisfy the more specialised MI assumptions.
+        
+\section{Applications}
+
+In the original application of multi-instance learning, 
+    by \citeA{Diet97},
+    each bag represents a single molecule, 
+    and each instance of the bag corresponds to a single conformation
+    of the molecule.
+In this musk dataset, the class label was positive if and only if 
+    the molecule emitted a musky odour, in any of its conformations.
+Multi-instance learning has also been applied to other domains 
+    such as image classification and text classification where 
+    the standard MI assumption is less appropriate.
+\citeA{Maron98mil} applied multi-instance learning 
+    (more specifically, the Diverse Density algorithm),
+    to several domains, including stock market prediction.
+    
+The problem of image classification fits the multi-instance learning setting especially well. 
+In a standard machine learning context, each image must be represented as a single
+    fixed-size feature vector.
+Since an image may contain multiple objects,
+    a single feature vector may not capture all 
+    of the relevant information in the image.
+Also, since an image can contain partial occulusion and pixels 
+    which do not correspond to any objects of interest (i.e.\ background pixels),
+    a single feature vector can also contain irrelevant information.
+In general, global representations (which describe the entire image) 
+    are not well suited to image classification. Instead, 
+    local representations (which describe an image as a set of smaller subregions)
+    are better at capturing the information in an image \cite{visObjRecog}.
+As a MI learning problem, 
+    an image can be considered to be a bag of instances, 
+    where each instance is a local region of interest in the image.
+
+There have been several proposed approaches for converting an image into 
+    a multi-instance representation.
+For example, \citeA{Maron98scene} converted images of natural scenes 
+    into a multi-instance dataset by simply partitioning each image
+    into small (2$\times$2 pixel) fixed-size regions.
+Each such region was converted into an instance by extracting color-based
+    features from the region.
+Similarly, \citeA{yangPerex} converted each image by dividing the image into 
+    multiple large overlapping regions of various sizes, 
+    where the smallest regions contained a quarter of the pixels of the original image.
+In contrast, \citeA{Zhang2002} used K-means segmentation to obtain 
+    the subregions of each image.
+Another proposed approach is the one used by the SIFT algorithm \cite{SIFT},
+    which identifies points of interest (i.e.\ points where the gradient changes rapidly)
+    and extracts small regions surrounding these keypoints.
+
+In this project, we examine multiple approaches for representing images as 
+    multi-instance bags and compare the performance of \AdaProp
+    across the different representations.
+In particular, we consider partitioning the image into a small number 
+    of regions and extracting features using local binary patterns, 
+    using the datasets created by \citeA{mayomvmi}.
+We also examine the representation produced by the SURF algorithm \cite{SURF}, 
+    where the instances of each bag correspond to regions extracted around 
+    points of interest in the image.
+
+
+    
+\section{Multi instance algorithms}
 
 There have been a number of proposed algorithms 
-    for dealing with multi-instance data. 
+    for learning on multi-instance data. 
 The original algorithm proposed by \citeA{Diet97} 
     used axis parallel rectangles to identify the regions of the instance space 
     where the positive instances lay. 
@@ -153,34 +259,60 @@ The algorithm was designed to find the regions which
     where the aim was to find target points in instance space 
     which are close to at least one instance from each positive bag and 
     far away from all instances in negative bags.
-
-\citeA{Weidmann2003} proposed a two level approach for dealing with multi-instance data 
-    subject to the generalised MI assumptions. 
+There have been several other novel algorithms 
+    designed specifically for multi instance learning
+    proposed in the literature.
+    
+Another approach to handling multi-instance data is to 
+    adapt exist standard machine learning algorithms for
+    multi instance data.
+MISVM \cite{misvm} is an example of this approach.
+In this project, we consider a more general approach
+    to adapting existing standard machine learning algorithms.
+We implement a propositionalisation based approach, 
+    where the multi-instance dataset is converted into a single-instance format.
+The advantage of this approach is that any existing standard machine learningn algorithm 
+    can be used to learn from the propositionalised dataset.
+    
+There have been some approaches to propositionalisation examined in the literature.
+\citeA{Chen2006} introduced MILES, 
+    where each bag is propositionalised by considering the shortest distance between
+    any instance in the bag and some target points in the instance space.
+\citeA{relaggs} introduced RELAGGS for general relational datasets,
+    which was then specialised for multi-instance datasets as a propositionalisation algorithm.
+In RELAGGS, each bag is propositionalised by 
+    computing summary statistics (mean, median, etc.\ ) for each attribute, 
+    across all instances in the bag.
+    
+For multi-instance datasets subject to the generalised MI assumptions 
+    (for example, the count-based assumption), 
+    \citeA{Weidmann2003} proposed a two level learning approach, 
+    aiming to separate the learning of the (hidden) instance labels from
+    the learning of the bag labels.
 In the first level, 
     a decision tree was built to partition the instance space. 
 In the second level, 
     the occupancy counts of instances of each bag in each region 
     was used to build a propositionalised dataset, 
-    to which a single instance learner was applied.
+    to which a standard machine learner was applied.
+    
 The algorithm being developed in this project uses a similar process 
     as \citeA{Weidmann2003} in the second level, 
-    but we consider an adaptive approach to partition the instance space.
+    but we consider an adaptive approach to partitioning the instance space.
+We also consider propositionalising each bag in a way similar to 
+    RELAGGS, adapting the algorithm to take into account the tree of partitions.
 
-The problem of image classification fits the multi-instance learning setting well. 
-Since an image may contain multiple objects, 
-    a single feature vector may not capture all 
-    of the information in the image. 
-As a MI learning problem, 
-    an image can be considered to be a bag of instances, 
-    where each instance is a segment of interest in the image. 
-There is existing work on applying MI learning to image classification: 
-    \citeA{Maron98scene} performed learning over scene images by 
-        using fixed size partitions of the image. 
-    \citeA{Zhang2002} used K-means to segment the image. 
-In the future, 
-    we will optimise the algorithm developed in this project to perform well 
-    with MI image classification datasets.
 %[http://www.cs.cmu.edu/~juny/MILL/review.htm] 
+
+
+
+
+
+
+
+
+
+
 
 \chapter{Method}
 
