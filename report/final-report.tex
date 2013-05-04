@@ -14,12 +14,15 @@
 \usepackage{algorithm}
 \usepackage{algpseudocode}
 \usepackage{comment}
+\usepackage{pdfpages}
+\usepackage{stringstrings} %% for string parsing
+\usepackage{etoolbox} %% If statements
 
 % For figures and subfigures
 \usepackage{graphicx}
 \usepackage{caption}
 \usepackage{subcaption}
-
+\usepackage{numprint}
 \usepackage{pgfplots} % For plots
 \pgfplotsset{compat=1.5}
 \usepackage[section]{placeins} % avoid figures leaving sections
@@ -27,77 +30,286 @@
 \usepackage{tikz} % For graphs 
 \usetikzlibrary{positioning}
 
+%% Cache tikz diagrams on disk as pdfs:
+
+\newtoggle{dotikzext}
+\togglefalse{dotikzext}
+\iftoggle{dotikzext}{%
+	\usepgfplotslibrary{external}
+	\tikzexternalize[prefix=diag/]
+	}{}
+
 %% ABBREVIATIONS
 \newcommand{\AdaProp}{\texttt{AdaProp}\xspace}
 \newcommand{\real}{\mathbb{R}}
 \newcommand{\mcl}[1]{\mathcal{#1}}
 \newcommand{\power}{\mathbb{P}}
 \newcommand{\vect}[1]{\boldsymbol{#1}}
+\newcommand{\blRF}{\texttt{RandomForest}\xspace}
+\newcommand{\blLB}{\texttt{LogitBoost}\xspace}
+\newcommand{\blRFs}{~~RF~~}
+\newcommand{\blLBs}{~~LB~~}
+
+%% Datasets
+\newcommand{\tdsMA}{\texttt{atoms}\xspace}
+\newcommand{\tdsMB}{\texttt{bonds}\xspace}
+\newcommand{\tdsMC}{\texttt{chains}\xspace}
+\newcommand{\tdsMU}{\texttt{musk1}\xspace}
+\newcommand{\tdsMK}{\texttt{musk2}\xspace}
+\newcommand{\tdsTX}{\texttt{trx}\xspace}
+\newcommand{\tdsTG}{\texttt{tiger}\xspace}
+\newcommand{\tdsFX}{\texttt{fox}\xspace}
+\newcommand{\tdsEL}{\texttt{elephant}\xspace}
+\newcommand{\tdsPP}{\texttt{people}\xspace}
+\newcommand{\tdsBK}{\texttt{bikes}\xspace}
+\newcommand{\tdsCA}{\texttt{cars}\xspace}
 
 \DeclareMathOperator{\avg}{avg}
 \DeclareMathOperator{\tsum}{sum}
 
+
+
+\usepackage[eulergreek]{sansmath}
+\pgfplotsset{
+  tick label style = {font=\sansmath\sffamily},
+  every axis label = {font=\sansmath\sffamily},
+  legend style = {font=\sansmath\sffamily},
+  label style = {font=\sansmath\sffamily}
+}
+
 %\linespread{1.3} % 1.3 *is* one-and-a-half spacing
 
-\title{\ \\ \  \\ Adaptive Propositionalisation of Multi-Instance Data Towards Image Classification}
+\title{\ \\ \  \\ Adaptive Propositionalisation of Multi-Instance Data}
 \author{Siva Manoharan, supervised by Eibe Frank}
 \date{} % No date
 
 
-\begin{document}
+\definecolor{darkgreen}{RGB}{0, 170, 0}
+\definecolor{darkorange}{RGB}{255, 147, 0}
+\colorlet{primaryRed}{red!60!black}       %% For most Reds
+\colorlet{secondaryRed}{red!80!black}     %% When Red is surrounded by grey
+\colorlet{edgeGrey}{white!10!black}           %% For increasing apparent sharpness
+\colorlet{bgWhite}{white!97!black}            %% Near white, for page backgrounds
+\colorlet{headerGrey}{white!90!black}         %% For Header backgrounds
+\colorlet{fillGrey}{white!85!black}           %% For filling areas, e.g. chart areas
+\colorlet{diagFillGrey}{white!92!black}       %% For filling diagram areas
+
+
+%% Args: ymin, ymax,ytick,ylabel,height, extra options (terminated with comma ',').
+\newcommand{\BeginCustomAxis}[6]{%
+	\begin{axis}[#6
+		%% Fixed size graph
+        width=16cm, height=#5, bar width=0.5cm,
+%
+        %% draw only left and bottom lines
+        axis x line*=bottom, axis y line*=left, draw=edgeGrey,
+%
+        %% y-axis: 50-95, with major=10, minor=5
+        ymin=#1, ymax=#2, minor y tick num=1,  ytick=#3, ylabel={#4},
+%
+        %% x-axis: category axis
+        symbolic x coords={atoms,bonds,chains,musk1,musk2,trx,tiger,fox,eleph,people,bikes,cars},
+        xtick=data, x tick label style={rotate=90,anchor=east}, xlabel={Dataset},
+%
+        %% Legend: at bottom right
+        legend pos=south east
+	]
+}
+
+\newcommand{\BeginDefaultAxis}[1]{%
+	\BeginCustomAxis{40}{95}{{50,60,70,80,90}}{Cross-validated accuracy (\%)}{10cm}{#1 axis y discontinuity=crunch,}
+}
+
+\newcommand{\BeginCustomHeightAxis}[2]{%
+	\BeginCustomAxis{40}{95}{{50,60,70,80,90}}{Cross-validated accuracy (\%)}{#1}{#2 axis y discontinuity=crunch,}
+}
+
+\newcommand{\AddNormPlot}[3]{%
+	\getargs{#2}
+    \addplot[#3] 
+    	coordinates {
+        	(atoms,\argi)   (bonds,\argii)  (chains,\argiii)
+			(musk1,\argiv)  (musk2,\argv)   (trx,\argvi)
+    	    (tiger,\argvii) (fox,\argviii)  (eleph,\argix)
+        	(people,\argx)  (bikes,\argxi)  (cars,\argxii)
+		};
+	\addlegendentry{#1}
+}
+
+\newcommand{\AddLinePlot}[3]{%
+	\getargs{#2}
+    \addplot+[#3 ycomb,mark=-, draw=black, line width=2, mark size=0.25cm, line legend] 
+    	coordinates {
+        	(atoms,\argi)   (bonds,\argii)  (chains,\argiii)
+			(musk1,\argiv)  (musk2,\argv)   (trx,\argvi)
+    	    (tiger,\argvii) (fox,\argviii)  (eleph,\argix)
+        	(people,\argx)  (bikes,\argxi)  (cars,\argxii)
+		};
+	\addlegendentry{#1}
+}
+
+\newcommand{\AddAreaPlot}[3]{%
+	\getargs{#2}
+    \addplot[#3 ybar, fill=fillGrey, draw=edgeGrey, area legend] 
+    	coordinates {
+        	(atoms,\argi)   (bonds,\argii)  (chains,\argiii)
+			(musk1,\argiv)  (musk2,\argv)   (trx,\argvi)
+    	    (tiger,\argvii) (fox,\argviii)  (eleph,\argix)
+        	(people,\argx)  (bikes,\argxi)  (cars,\argxii)
+		};
+	\addlegendentry{#1}
+}
+
+%% A Macro for a column and line graph for our datasets:
+%% args: label, caption, bg-name, bg-coords, fg-name, fg-coords; where
+%%    bg: background datapoints, fg: foreground datapoints.
+\newcommand{\ColumnAndLineChartFigure}[6]{%
+\begin{figure}[pt]
+\caption{#2}
+\label{#1}
+\centering
+	\iftoggle{dotikzext}{\tikzsetnextfilename{#1}}{}
+    \begin{tikzpicture}
+    \BeginDefaultAxis{reverse legend,}
+        %% Background bar plot
+        \AddAreaPlot{#3}{#4}{}
+        
+        %% Foreground line plot
+        \AddLinePlot{#5}{#6}{}
+
+    \end{axis}    
+    \end{tikzpicture}
+\end{figure}
+}
+
+
+\newcommand{\AddDataRow}[2]{%
+\getargs{#2}%
+\xdef\vmi{\argi}\xdef\vmii{\argii}\xdef\vmiii{\argiii}\xdef\vmiv{\argiv}%
+\xdef\vmv{\argv}\xdef\vmvi{\argvi}\xdef\vmvii{\argvii}\xdef\vmviii{\argviii}%
+\xdef\vmix{\argix} \xdef\vmx{\argx} \xdef\vmxi{\argxi} \xdef\vmxii{\argxii}%
+#1 & \numprint{\vmi} & \numprint{\vmii} & \numprint{\vmiii} & \numprint{\vmiv}
+		& \numprint{\vmv} & \numprint{\vmvi} & \numprint{\vmvii} & \numprint{\vmviii} 
+		& \numprint{\vmix} & \numprint{\vmx} & \numprint{\vmxi} & \numprint{\vmxii} \\
+}
+
+%% Insert a data table for a figure
+%% Args: 	caption, data, avg text
+\newcommand{\CustomDataTableForFigure}[3]{%
+	\nprounddigits{1}
+	\npdecimalsign{.}
+	\begin{table}
+		\footnotesize
+		\centering
+		\caption{#1}
+		\begin{tabular}{l *{12}{c} }
+			\toprule
+			& \rotatebox{90}{\tdsMA} & \rotatebox{90}{\tdsMB} & \rotatebox{90}{\tdsMC}
+			& \rotatebox{90}{\tdsMU} & \rotatebox{90}{\tdsMK} & \rotatebox{90}{\tdsTX}
+			& \rotatebox{90}{\tdsTG} & \rotatebox{90}{\tdsFX} & \rotatebox{90}{\texttt{eleph}}
+			& \rotatebox{90}{\tdsPP} & \rotatebox{90}{\tdsBK} & \rotatebox{90}{\tdsCA} 
+			\\ \midrule #2\bottomrule			
+		\end{tabular}
+		
+		{
+			\raggedright
+			~\\~
+						
+			#3
+		}
+	\end{table}
+	\npnoround	
+}
+
+%% Insert a data table for a figure
+%% Args: 	label of figure, caption of figure, series 1 key, series 1 data, 
+%%			series 2 key, series 2 data, avg text
+\newcommand{\DataTableForFigure}[7]{%
+	\CustomDataTableForFigure{Data table for Figure~\ref{#1}: #2}{\AddDataRow{#3}{#4}\AddDataRow{#5}{#6}}{#7}
+}
+
+\newcommand{\avgPre}{The results were averaged over each combination of the following parameter settings: \\}
+\newcommand{\maxPre}{The maximum result was selected over each combination of the following parameter settings: \\}
+\newcommand{\avgAllProp}{\qquad Propositionalisation: count-based or summary-based \\}
+\newcommand{\avgOneProp}{\qquad Propositionalisation: count-based only \\}
+\newcommand{\avgSumProp}{\qquad Propositionalisation: summary-based only \\}
+\newcommand{\avgAllSplit}{\qquad Candidate Generation: mean, median or range \\}
+\newcommand{\avgOneSplit}{\qquad Candidate Generation: mean only \\}
+\newcommand{\avgAllEval}{\qquad Hyperplane Evaluation: CE, RMSE or IG \\}
+\newcommand{\avgOneEval}{\qquad Hyperplane Evaluation: RMSE only \\}
+\newcommand{\avgAllSearch}{\qquad Leaf Node Selection: breadth first search or best first search \\}
+\newcommand{\avgOneSearch}{\qquad Leaf Node Selection: breadth first search only \\}
+\newcommand{\avgAllBase}{\qquad Base Learner: \blRF or \blLB  \\}
+\newcommand{\avgAllTLC}{\qquad TLC: Default settings with \blRF or \blLB  \\}
+\newcommand{\avgAllRELAGGS}{\qquad RELAGGS: Default settings with \blRF or \blLB  \\}
+\begin{document} 
+
 \onehalfspacing
 \pagenumbering{gobble}  % don't render a page number on the first page
 
-\maketitle 
-%\ \\ \ \\ \ \\ \ \\ \ \\ \ \\ \ % Some blank lines
-\begin{abstract}
+%\maketitle 
+
+\includepdf{cover.pdf}
+
+\begin{abstract} 
 Multi-instance learning is a type of supervised machine learning 
     where the class labels are attached to bags of instances. 
 This is in contrast to single-instance learning 
     where each individual instance is given a class label.
 Propositionalisation is the process of 
     converting a multi-instance dataset into a single-instance dataset, 
-    allowing standard machine learning algorithms to learn the converted dataset. 
-In this project, 
-    we examine an adaptive approach to propositionalising multi-instance data, 
-    where the single-instance base learner is 
-    used to guide the propositionalisation process, 
-    resulting in a converted dataset 
-    which is more suited to the specific base learner.
-In the future, 
-    we will also examine the application of multi-instance learning 
-    to image classification and 
-    evaluate the algorithm developed in this project 
-    on existing image classification datasets.
+    allowing standard machine learning algorithms 
+    to train on the propositionalised dataset. 
+In this context, the standard machine learning algorithms are 
+	known as base learners.
+We propose a novel multi-instance algorithm, \AdaProp, 
+	which employs a propositionalisation approach that 
+	is influenced by the base learner.
+Hence, \AdaProp is an adaptive propositionalisation algorithm
+	and thus is able to produce propositionalised representations that 
+	are fitted more closely to the specific base learner than
+	standard propositionalisation approaches.
+Multi-instance learning has been applied to datasets from 
+	several domains, including chemical datasets and text classification datasets.
+We examine one particular application of multi-instance learning, image classification, in detail and 
+	evaluate \AdaProp on existing image classification datasets.
 \end{abstract}
+
+
+\renewcommand{\abstractname}{Acknowledgements}
+\begin{abstract}
+I would like to express my sincere gratitude to my supervisor,
+Dr Eibe Frank,
+for introducing me to the field of machine learning, 
+for granting advice and guidance throughout the development of \AdaProp, and 
+for providing very useful feedback while writing this report.
+I would also like to thank the Department of Computer Science
+	of the University of Waikato for making this project possible
+	and for providing financial support.
+
+\end{abstract}
+
+
 
 \thispagestyle{empty}
 \clearpage
 \pagenumbering{arabic}  
 
-\chapter{Introduction} 
+
+\tableofcontents
+
+\listoffigures
+
+\chapter{Introduction}
+\label{chap:intro}
 
 Multi-instance (MI) learning is 
     machine learning over multi-instance data, 
     where the instances are grouped together into bags and 
-    the learning is performed over the bags 
+    the learning is performed over these bags 
     rather than the individual instances.
 Multi-instance learning was originally proposed 
-    in the context of drug-activity prediction.
-One approach to handling multi-instance data is propositionalisation, 
-    where each bag of instances is converted into 
-    a single feature vector. 
-This converted dataset can be used with 
-    standard single-instance machine learning algorithms 
-    such as SVMs and neural networks.
-This project explores adaptive propositionalisation, 
-    where the single-instance base learner is used to 
-    make decisions when propositionalising the dataset. 
-The propositionalisation approach considered is the 
-    partitioning of the instance space into regions, 
-    where each region corresponds to 
-    one or more features in the propositionalised dataset.
-
+    by \citeA{Diet97} in the context of drug-activity prediction.
 An application of multi-instance learning is image classification,
     where, for example, 
     an image is represented as a bag of segments and 
@@ -105,19 +317,68 @@ An application of multi-instance learning is image classification,
     to the class of the image. 
 In this context, 
     each segment is an instance and 
-    thus each image is a bag of instances. 
-In the future, we will examine this application of multi-instance learning.
+    thus each image is a bag of instances.    
+    
+One approach to handling multi-instance data is propositionalisation, 
+    where each bag of instances is converted into 
+    a single feature vector. 
+This converted dataset can be used with 
+    standard single-instance machine learning algorithms (i.e.\ base learners)
+    such as SVMs and neural networks.
+In this project, we explore adaptive propositionalisation, 
+    where the base learner is used to 
+    make decisions when propositionalising the dataset. 
+The propositionalisation approach considered involves the 
+    partitioning of the instance space into regions, 
+    where each region corresponds to 
+    one or more features in the propositionalised dataset.
+We propose a new multi-instance algorithm, \AdaProp, which 
+	performs this adaptive propositionalisation.
+\AdaProp has been
+	implemented in the WEKA framework \cite{weka}.
+ 
+This report is structured as follows:
+	Chapter~\ref{chap:bg} introduces concepts relevant to the rest of 
+	the report and discusses relevant previous work.
+Chapter~\ref{chap:method} describes the \AdaProp algorithm in detail.
+The results of the experiments conducted in this project 
+	are split across three chapters.
+Chapter~\ref{chap:res:adaprop} compares the various choices for 
+	the parameters of \AdaProp, 
+Chapter~\ref{chap:res:refinements} examines the impact of some 
+	refinement techniques on the classification accuracy and 
+Chapter~\ref{chap:res:comps} compares \AdaProp to existing
+	multi-instance algorithms.
 
-\tableofcontents
+	
+
 
 \chapter{Background}
+\label{chap:bg}
 
+This chapter discusses relevant previous work
+	in the field of multi-instance learning and 
+	introduces several key concepts necessary for
+	the rest of the report.
+Section~\ref{sec:bg:ml} briefly introduces supervised machine learning, 
+	while Section~\ref{sec:bg:mil} discusses multi-instance learning 
+	and describes several of the multi-instance assumptions used by previous work in this field.
+Section~\ref{sec:bg:app} outlines some of the applications of multi-instance learning and
+	examines the image classification application in more detail.
+This section also specifies how the image classification datasets 
+	used in this project were prepared.
+Section~\ref{sec:bg:algo} summarises some of the existing multi-instance algorithms,
+	including those which perform propositionalisation of multi-instance data.
+Among these algorithms, we examine two which are closely related
+	to \AdaProp: TLC (Section~\ref{ssec:bg:tlc}) and RELAGGS (Section~\ref{ssec:bg:relaggs}).
+
+\begin{comment}
 Multi-instance learning is a generalisation of 
     standard supervised machine learning,
     where class labels are assigned to bags (i.e.\ multi sets) of instances.
-In literature, there are several algorithms
+In the literature, there are several algorithms
     designed specifically for multi-instance learning.
-There have also been proposed algorithms which were created by 
+There are also algorithms which were created by 
     adapting well known standard machine learning algorithms to handle
     multi-instance data.
 In this project, we consider a different approach known as propositionalisation,
@@ -127,16 +388,23 @@ Propositionalisation allows any existing standard machine learning algorithm
     to be applied to a multi-instance dataset, 
     but requires an appropriate method for converting each bag into a feature vector.
 We propose an algorithm, \AdaProp, which performs this propositionalisation.
+Among the existing propositionalisation approaches, 
+	\AdaProp is related to the TLC and RELAGGS algorithms, 
+	both of which are discussed in this chapter. 
   
 Multi-instance learning has been applied to several domains,
-    including musk prediction, image classification and text classification.
-In this project, we focus on the application of image classification,
-    which can be expressed naturally in a multi-instance setting.
+    including classification of molecules, image classification and text classification.
+In this project, we focus on the application of image classification
+	and summarize some of the existing work on the 
+	conversion of image datasets into a multi-instance representation.
 We also consider some multi-instance datasets in chemical domains.
+\end{comment}
+
 
 \section{Supervised machine learning}
+\label{sec:bg:ml}
 
-In supervised machine learning, the training dataset is set of instances, 
+In supervised machine learning, the training dataset is a set of instances, 
     where each instance consists of a fixed number of attributes 
     and a single class label.
 The learner is then expected to infer the relationship between the 
@@ -149,19 +417,20 @@ This model can then be used to predict the class label of
 
 In this project, we consider a generalisation of supervised machine learning, 
     known as multi-instance learning, 
-    where the training dataset consists of bags of instances, 
-    where each bag consists of a set of instances 
+    where the training dataset consists of labelled bags of instances, 
+    each of which consists of a set of instances 
     along with a class label.
 
-\section{Multi instance learning}
+\section{Multi-instance learning}
+\label{sec:bg:mil}
 
-Multi-instance learning was introduced by \citeA{Diet97} 
+Multi-instance (abbreviated MI) learning was introduced by \citeA{Diet97} 
     in the context of drug activity prediction. 
-The multi-instance learning problem was 
+The MI learning problem was 
     defined as a two-class supervised learning problem where 
     the classification occurs over bags of instances 
-    rather than the individual instances. 
-\citeA{Diet97} assumed that each instance had a hidden class label and 
+    rather than individual instances. 
+\citeA{Diet97} assumed that each instance has a hidden class label and 
     that a bag belongs to the positive class if and only if 
     at least one of the instances in the bag belongs to the positive class. 
 This assumption is known as the ``standard MI assumption'' and 
@@ -175,9 +444,32 @@ Therefore, we require MI assumptions which are more general than
     the label of each bag is determined by the 
     distance of the bag's instances to some hidden target points in instance space.    
 \citeA{Weidmann2003} introduced a hierarchy of generalisations of 
-    the standard MI assumption: 
-        presence-based, threshold-based and count-based assumptions.
-The algorithm being developed in this project, \AdaProp, 
+    the standard MI assumption: presence-based, threshold-based and count-based assumptions.
+    
+All generalised assumptions in the \citeA{Weidmann2003} hierarchy 
+	presume that, for each dataset, there exist a set of hidden concepts, 
+	i.e.\ conditions predicated on the instances.
+The assumptions also presume that the class label of each bag
+	is determined by the number of instances in the bag which satisfy each concept.
+Under the presence-based MI assumption, 
+	a bag is positive if and only if, for each concept, there exists an instance
+	in the bag which satisfies the concept.	
+Under threshold-based MI assumption, 
+	a bag is positive if and only if, for each concept, the number of 
+	instances which satisfy the concept is greater than or equal to some threshold.
+Finally, under count-based MI assumption, the most general of the assumptions in the hierarchy,
+	a bag is positive if and only if, for each concept, the number of 
+	instances which satisfy the concept is greater than or equal to some lower threshold 
+	and is less than or equal to some upper threshold.
+	
+The assumptions form a hierarchy of specialisations:
+the standard MI assumption can be considered to be a specialisation
+	of the presence-based assumption (where there is only one concept), 
+which in turn can be considered to be a special case of threshold-based assumption
+	(where the threshold is exactly 1), 
+which also is a specialisation of the 
+	count-based assumption (where the upper threshold is infinite).		
+The algorithm developed in this project, \AdaProp, 
     has been designed for datasets corresponding to the 
     most general of these MI assumptions, 
     the count-based assumption.
@@ -185,140 +477,167 @@ Therefore \AdaProp is also expected to be able to handle
     the datasets which satisfy the more specialised MI assumptions.
         
 \section{Applications}
+\label{sec:bg:app}
 
 In the original application of multi-instance learning, 
     by \citeA{Diet97},
     each bag represents a single molecule, 
     and each instance of the bag corresponds to a single conformation
     of the molecule.
-In this musk dataset, the class label was positive if and only if 
-    the molecule emitted a musky odour, in any of its conformations.
+In this dataset, the ``musk'' dataset, the class label is positive if and only if 
+    the molecule emits a musky odour, in any of its conformations.
 Multi-instance learning has also been applied to other domains 
-    such as image classification and text classification where 
+    such as image and text classification where 
     the standard MI assumption is less appropriate.
-\citeA{Maron98mil} applied multi-instance learning 
+For example, \citeA{Maron98mil} applied multi-instance learning 
     (more specifically, the Diverse Density algorithm),
     to several domains, including stock market prediction.
-    
+As image classification is the target application for this report,
+	we now consider it in more detail.
+
+\subsection{Image classification}    
 The problem of image classification fits the multi-instance learning setting especially well. 
 In a standard machine learning context, each image must be represented as a single
     fixed-size feature vector.
 Since an image may contain multiple objects,
     a single feature vector may not capture all 
     of the relevant information in the image.
-Also, since an image can contain partial occulusion and pixels 
+Also, since an image can contain pixels 
     which do not correspond to any objects of interest (i.e.\ background pixels),
+    and some objects maybe partially occluded,
     a single feature vector can also contain irrelevant information.
 In general, global representations (which describe the entire image) 
     are not well suited to image classification. Instead, 
     local representations (which describe an image as a set of smaller subregions)
     are better at capturing the information in an image \cite{visObjRecog}.
 As a MI learning problem, 
-    an image can be considered to be a bag of instances, 
-    where each instance is a local region of interest in the image.
+    an image can be represented as a bag of instances, 
+    where each instance is a region of the image.
 
 There have been several proposed approaches for converting an image into 
     a multi-instance representation.
-For example, \citeA{Maron98scene} converted images of natural scenes 
+For example, \citeA{Maron98scene} convert images of natural scenes 
     into a multi-instance dataset by simply partitioning each image
     into small (2$\times$2 pixel) fixed-size regions.
-Each such region was converted into an instance by extracting color-based
+Each such region is converted into an instance by extracting color-based
     features from the region.
-Similarly, \citeA{yangPerex} converted each image by dividing the image into 
+Similarly, \citeA{yangPerex} convert each image by dividing the image into 
     multiple large overlapping regions of various sizes, 
     where the smallest regions contained a quarter of the pixels of the original image.
-In contrast, \citeA{Zhang2002} used K-means segmentation to obtain 
+In contrast, \citeA{Zhang2002} use K-means segmentation to obtain 
     the subregions of each image.
 Another proposed approach is the one used by the SIFT algorithm \cite{SIFT},
     which identifies points of interest (i.e.\ points where the gradient changes rapidly)
     and extracts small regions surrounding these keypoints.
 
-In this project, we examine multiple approaches for representing images as 
-    multi-instance bags and compare the performance of \AdaProp
-    across the different representations.
-In particular, we consider partitioning the image into a small number 
-    of regions and extracting features using local binary patterns, 
-    using the datasets created by \citeA{mayomvmi}.
-We also examine the representation produced by the SURF algorithm \cite{SURF}, 
-    where the instances of each bag correspond to regions extracted around 
-    points of interest in the image.
-
-
+In this project, we consider datasets prepared by two different multi-instance image representation approaches.
+The first approach, performed using the Blobworld system \cite{blobworld},
+	segments each image into blobs (regions) by considering the colour, texture and position of each pixel, 
+	while each blob is described, as a feature vector, using colour and texture information only.
+A key detail of this approach is that each blob partially is described by a binned colour histogram 
+	in $L^*a^*b^*$ space, which is a colour space that closely matches the human vision system.
+In our experiments, we use the datasets \tdsTG, \tdsFX and \tdsEL 
+	which were prepared using this approach by \citeA{misvm}.
+The second approach, used by \citeA{mayomvmi}, 
+	divides each image into a fixed number of subregions and extracts 
+	features from each subregion.
+The features extracted are the histograms of LBP (local binary patterns) and histograms in Ohta colour space, 
+	capturing texture and colour information respectively.
+The key detail with this approach is that both the Ohta colour transformation and
+	LBP feature extraction are computationally efficient, 
+	allowing large datasets (e.g.\ with 800 images) to be prepared quickly.
+The datasets \tdsPP, \tdsBK and \tdsCA, used in our experiments, were prepared using this approach.
     
-\section{Multi instance algorithms}
+\section{Multi-instance algorithms}
+\label{sec:bg:algo}
 
-There have been a number of proposed algorithms 
-    for learning on multi-instance data. 
+A number of algorithms for learning on MI data have been proposed.
 The original algorithm proposed by \citeA{Diet97} 
-    used axis parallel rectangles to identify the regions of the instance space 
+    used an axis parallel rectangle to identify the region of the instance space 
     where the positive instances lay. 
-The algorithm was designed to find the regions which 
+The algorithm was designed to find the region which 
     contained at least one instance from each positive bag 
     but no instances from the negative class. 
 \citeA{Maron98mil} proposed the Diverse Density algorithm, 
     where the aim was to find target points in instance space 
     which are close to at least one instance from each positive bag and 
     far away from all instances in negative bags.
-There have been several other novel algorithms 
-    designed specifically for multi instance learning
-    proposed in the literature.
-    
+Both algorithms were designed specifically for MI data.
+
 Another approach to handling multi-instance data is to 
-    adapt exist standard machine learning algorithms for
-    multi instance data.
-MISVM \cite{misvm} is an example of this approach.
-In this project, we consider a more general approach
-    to adapting existing standard machine learning algorithms.
-We implement a propositionalisation based approach, 
-    where the multi-instance dataset is converted into a single-instance format.
-The advantage of this approach is that any existing standard machine learningn algorithm 
-    can be used to learn from the propositionalised dataset.
-    
-There have been some approaches to propositionalisation examined in the literature.
+    adapt existing standard machine learning algorithms.
+MISVM \cite{misvm} is an example of this approach, 
+	where the authors extend the concept of a margin.
+In standard SVMs, the margin is a function dependent on the individual instances, 
+	while in MISVM, the margin is a function of all instances in the bag.
+This bag-margin is then directly minimised to obtain the MISVM classifier.	
+In this project we consider a more general approach, that of propositionalisation,
+	where the multi-instance dataset is converted into a single-instance representation,
+    allowing any existing standard machine learning algorithm to train on the dataset.
+
+There are some existing approaches to propositionalisation in the literature.
 \citeA{Chen2006} introduced MILES, 
     where each bag is propositionalised by considering the shortest distance between
     any instance in the bag and some target points in the instance space.
-\citeA{relaggs} introduced RELAGGS for general relational datasets,
-    which was then specialised for multi-instance datasets as a propositionalisation algorithm.
-In RELAGGS, each bag is propositionalised by 
-    computing summary statistics (mean, median, etc.\ ) for each attribute, 
-    across all instances in the bag.
-    
+TLC, an algorithm proposed by \citeA{Weidmann2003}, partitions 
+	the instance space and propositionalises each bag by counting the 
+	number of instances which fall into each partition.
+In RELAGGS \cite{relaggs}, each bag is propositionalised by 
+    computing summary statistics across all instances in each bag.
+Both TLC and RELAGGs are closely related to our algorithm, \AdaProp, 
+	thus we examine them in more detail.
+
+\subsection{TLC}    
+\label{ssec:bg:tlc}
+
+%TODO needs improvement ; summarize method section of Weidmann paper 
+% Discuss how AdaProp differs from TLC
 For multi-instance datasets subject to the generalised MI assumptions 
     (for example, the count-based assumption), 
     \citeA{Weidmann2003} proposed a two level learning approach, 
     aiming to separate the learning of the (hidden) instance labels from
     the learning of the bag labels.
 In the first level, 
-    a decision tree was built to partition the instance space. 
+    a C4.5 decision tree (\texttt{J48} in WEKA) was built to partition the instance space. 
+This was done by assuming that each instance simply inherited the class label
+	of its parent bag, i.e.\ by ignoring any bag-level structure.
 In the second level, 
     the occupancy counts of instances of each bag in each region 
     was used to build a propositionalised dataset, 
     to which a standard machine learner was applied.
-    
-The algorithm being developed in this project uses a similar process 
-    as \citeA{Weidmann2003} in the second level, 
-    but we consider an adaptive approach to partitioning the instance space.
-We also consider propositionalising each bag in a way similar to 
-    RELAGGS, adapting the algorithm to take into account the tree of partitions.
+The aim of the first level is to determine the structure of the overall instance space, 
+	while the aim of the second level is to infer the 
+	relationship between the instances and the class label of the bag.
+\AdaProp uses a similar process as \citeA{Weidmann2003} in the second level, 
+    but differs from TLC as an adaptive approach is used to partition the instance space.
 
-%[http://www.cs.cmu.edu/~juny/MILL/review.htm] 
+\subsection{RELAGGS}
+\label{ssec:bg:relaggs}
+
+RELAGGS was introduced by \citeA{relaggs} for general relational datasets,
+    which was then specialised for multi-instance datasets as a propositionalisation algorithm
+    in the WEKA software.
+RELAGGS is a simple algorithm, which ignores any structure between the instances 
+	of each bag.
+Instead, all instances of each bag are grouped together and the summary statistics 
+	(min, max, mean, standard deviation and sum) of each bag for each attribute
+	are computed, forming the propositionalised dataset.
+\AdaProp with summary-based propositionalisation can be considered to be 
+	a generalisation of RELAGGS, as summary-based \AdaProp also computes summary statistics
+	over instances, albeit after dividing up the instances of each bag by a tree of partitions.
+%Note that both RELAGGS and TLC, while being meta-learners, 
+%	i.e.\ algorithms which require a base learner,
+%	do not take the base learner into account while performing the propositionalisation.
+%Therefore, TLC and RELAGGS are not considered 
+%	to be adaptive propositionalisation algorithms.
 
 
+\chapter{AdaProp}
+\label{chap:method}
 
-
-
-
-
-
-
-
-
-\chapter{Method}
-
-Our approach, named \AdaProp, is an adaptive propositionalisation algorithm 
-    for multi-instance datasets.
-\AdaProp divides the single-instance space
+The approach investigated in this project, named \AdaProp, 
+	is an adaptive propositionalisation algorithm for multi-instance datasets.
+\AdaProp divides the instance space
     into regions and then propositionalises each bag 
     by computing summary statistics for the 
     subset of instances of the bag which lie in each region.
@@ -326,14 +645,24 @@ Our approach, named \AdaProp, is an adaptive propositionalisation algorithm
     two partitions.
 Therefore, \AdaProp consists of three major components: 
     a base learner (any single-instance learning algorithm),
-    a process for partitioning the instance space and 
+    a process for partitioning the instance space, and 
     a process for constructing the propositionalised dataset using the regions.
 
+This chapter is organized as follows: 
+	first we introduce some notation and definitions in Section~\ref{sec:method:defn}, followed
+	by the approach used to build the tree of partitions in Section~\ref{sec:method:partition} and
+	the methods of propositionalisation in Section~\ref{sec:method:prop}.
+Section~\ref{sec:method:base} briefly describes the base learners considered in this project, 
+	while Section~\ref{sec:method:refinements} discusses some of the techniques used to improve
+	the cross-validated classification accuracy of \AdaProp.
+
 \section{Definitions}
+\label{sec:method:defn}
+
 A multi-instance dataset $\mcl{D}$ is a set of labelled bags, 
     where each labelled bag is a set of instances with a class label.
 Each instance in each bag has a set of $k$ attributes
-    thus can be considered to be a vector in $\real^k$
+    and thus can be considered a vector in $\real^k$
     (assuming all attributes are numeric).
 Therefore, the set of all instances, $\mcl{I}$,
     can be defined as a set of $k$-dimensional vectors.
@@ -346,7 +675,7 @@ Let $\mcl{C}$ be the set of all possible class labels.
 Then we can define $\mcl{D}$,
     the multi-instance dataset, as 
     $\mcl{D} \subseteq ( \power (\mcl{I}) \times \mcl{C} )$,
-    where $\times$ denotes the cartesian product.
+    where $\times$ denotes the Cartesian product.
 
 The propositionalisation process can be viewed as a function
     mapping each labelled bag $({B_i},c_i) \in \mcl{D}$ to 
@@ -359,14 +688,18 @@ Also note that the propositionalisation process
        
 
 \section{Partitioning the instance space}
+\label{sec:method:partition}
 
-For the purposes of finding the best instance-space partitioning hyperplane,
+For the purposes of finding an appropriate propositionalisation,
     we first compute $\mcl{M}$, an intermediate labelled dataset 
     consisting of all instances in $\mcl{D}$.
 $\mcl{M}$ is built up by collecting together all instances
     from all the bags in the dataset and 
     attaching the class label of each bag to 
-    each instance in the bag.
+    each instance in the bag\footnote{The 
+    	instance class labels are required by our algorithm
+    	when applied with discretization-based heuristic discussed
+    	in Section~\ref{sec:method:partition}.}.
 Formally, $\mcl{M} \subseteq (\mcl{I} \times \mcl{C})$, 
     where each instance of $\mcl{M}$ appears in $\mcl{D}$:
     $$
@@ -389,7 +722,7 @@ Figure~\ref{visM} shows the intermediate labelled dataset $\mcl{M}$
     positive instances rendered as squares and 
     negative instances rendered as triangles.
 
-\begin{table}
+\begin{table}[p]
 \begin{center}
 \begin{tabular}{ccccc}
     \toprule
@@ -409,26 +742,85 @@ Figure~\ref{visM} shows the intermediate labelled dataset $\mcl{M}$
 \label{tEgData}
 \end{table}
 
-\begin{figure}
+\begin{figure}[p]
 \begin{center}
+\iftoggle{dotikzext}{\tikzsetnextfilename{eg-data/d1}}{}
 \begin{tikzpicture}
-\begin{axis}[xlabel={$a_1$}, ylabel={$a_2$},
- xmin=0,xmax=1,ymin=0,ymax=1,
- scatter/classes={p={mark=square*,blue},n={mark=triangle*,red}}]
-\addplot[scatter,only marks,scatter src=explicit symbolic]
-table[meta=label] {
-	x	y	label
-	0.3	0.7	p
-	0.5	0.1	p
-	0.2	0.9	n
-	0.8	0.6	n
-	0.5	0.7	n
-};
-\end{axis}
+	\begin{axis}[
+		xlabel={$a_1$}, ylabel={$a_2$}, 
+		xmin=0,xmax=1,ymin=0,ymax=1,
+		scatter/classes={p={mark=square*,blue},n={mark=triangle*,red}}
+	]
+		\addplot[scatter,only marks,scatter src=explicit symbolic] 
+			table[meta=label] {eg-data/d1.dat};
+	\end{axis}
 \end{tikzpicture}
 \end{center}
 \caption{Visualisation of $\mcl{M}$ for the example dataset}
 \label{visM}
+\end{figure}
+
+
+\begin{algorithm}[p]
+\caption{Building a tree of partitioning hyperplanes}
+\label{algoTree} 
+\begin{algorithmic}
+\State Initialise $T$, the tree of partitioning hyperplanes as a tree with a single node
+\While{$T$ is not satisfactory} \hfill (Section~\ref{secStopCond})
+    \State $n_i ~~\gets$ Select a leaf node in the tree $T$ \hfill (Section~\ref{secTreeBuild})
+    \State $\mcl{M}_i \gets \{ (\vect{a},c) \in \mcl{M} ~|~ \vect{a}$ 
+        lies in the region corresponding to $n_i \}$
+    \State $H ~~\gets$ Generate candidate partitioning hyperplanes for 
+        $\mcl{M}_i$ \hfill (Section~\ref{secCandGen})
+    \State $H_i \,~\gets$ Select the optimal hyperplane in $H$ \hfill (Section~\ref{secOptPartition})
+    \State Make $n_i$ an internal node in $T$, corresponding 
+        to the hyperplane $H_i$
+\EndWhile
+\end{algorithmic}
+\end{algorithm}
+
+
+\begin{figure}[p]
+\begin{center}
+\iftoggle{dotikzext}{\tikzsetnextfilename{eg-data/d23}}{}
+\begin{tikzpicture}
+	\begin{axis}[
+		xlabel={$a_1$}, ylabel={$a_2$},
+	 	xmin=0,xmax=1,ymin=0,ymax=1,
+		scatter/classes={p={mark=square*,blue},n={mark=triangle*,red}}
+	]
+		\addplot[scatter,only marks,scatter src=explicit symbolic] table[meta=label] {eg-data/d1.dat};
+		\addplot[scatter src=explicit symbolic] table {eg-data/d2.dat};
+		\addplot[scatter src=explicit symbolic] table {eg-data/d3.dat};
+	\end{axis}
+\end{tikzpicture}
+\end{center}
+\caption{Partitioning of $\mcl{M}$ for the example dataset}
+\label{visMpart}
+\end{figure}
+
+\begin{figure}[p]
+\begin{center}
+\iftoggle{dotikzext}{\tikzsetnextfilename{eg-data/tree}}{}
+\begin{tikzpicture}[every node/.style={inner sep=1pt}]
+\node[label=above:$n_0$] (n)   {$\bullet$};
+\node[label=left:$n_1$]  (n0)  [below left=  3cm and 3cm of n]  {$\bullet$};
+\node[label=right:$n_2$] (n1)  [below right= 3cm and 3cm of n]  {$\bullet$};
+\node[label=left:$n_3$]  (n00) [below left=  3cm and 1cm of n0] {$\bullet$};
+\node[label=right:$n_4$] (n01) [below right= 3cm and 1cm of n0] {$\bullet$};
+\node[label=left:$n_5$]  (n10) [below left=  3cm and 1cm of n1] {$\bullet$};
+\node[label=right:$n_6$] (n11) [below right= 3cm and 1cm of n1] {$\bullet$};
+
+\path[thick,-] (n)  edge node[label=left :{$a_1 \leq 0.4~~$}] {} (n0);
+\path[thick,-] (n)  edge node[label=right:{~~$a_1 > 0.4$}] {} (n1);
+\path[thick,-] (n0) edge node[label=left :{$a_2 \leq 0.8~~$}] {} (n00);
+\path[thick,-] (n0) edge node[label=right:{~~$a_2> 0.8$}] {} (n01);
+\path[thick,-] (n1) edge node[label=left :{$a_2 \leq 0.5~~$}] {} (n10);
+\path[thick,-] (n1) edge node[label=right:{~~$a_2> 0.5$}] {} (n11);
+\end{tikzpicture}
+\end{center}
+\caption{A tree corresponding to the partitioning of $\mcl{M}$ in Figure~\ref{visMpart}}
+\label{visMTree}
 \end{figure}
 
 After computing $\mcl{M}$, 
@@ -459,94 +851,19 @@ To reduce the search space,
 Therefore, each partition in this algorithm
     corresponds to a hyperplane of the form $a_i = c$.
 
-\begin{algorithm}
-\caption{Building a tree of partitioning hyperplanes}
-\label{algoTree} 
-\begin{algorithmic}
-\State Initialise $T$, the tree of partitioning hyperplanes as a tree with a single node
-\While{$T$ is not satisfactory} \hfill (Section~\ref{secStopCond})
-    \State $n_i ~~\gets$ Select a leaf node in the tree $T$ \hfill (Section~\ref{secTreeBuild})
-    \State $\mcl{M}_i \gets \{ (\vect{a},c) \in \mcl{M} ~|~ \vect{a}$ 
-        lies in the region corresponding to $n_i \}$
-    \State $B ~~\gets$ Generate candidate partitioning hyperplanes for 
-        $\mcl{M}_i$ \hfill (Section~\ref{secCandGen})
-    \State $B_i \,~\gets$ Select the optimal hyperplane in $B$ \hfill (Section~\ref{secOptPartition})
-    \State Make $n_i$ an internal node in $T$, corresponding 
-        to the hyperplane $B_i$
-\EndWhile
-\end{algorithmic}
-\end{algorithm}
-
-\begin{figure}
-\begin{center}
-\begin{tikzpicture}
-\begin{axis}[xlabel={$a_1$}, ylabel={$a_2$},
- xmin=0,xmax=1,ymin=0,ymax=1,
- scatter/classes={p={mark=square*,blue},n={mark=triangle*,red}}]
-\addplot[scatter,only marks,scatter src=explicit symbolic]
-table[meta=label] {
-	x	y	label
-	0.3	0.7	p
-	0.5	0.1	p
-	0.2	0.9	n
-	0.8	0.6	n
-	0.5	0.7	n
-};
-\addplot[scatter src=explicit symbolic]
-table {
-	x	y
-	0.4	0.0
-	0.4	1.0
-};
-\addplot[scatter src=explicit symbolic]
-table {
-	x	y
-	0.0 0.8
-	0.4 0.8
-	0.4	0.5
-	1.0	0.5
-};
-\end{axis}
-\end{tikzpicture}
-\end{center}
-\caption{Partitioning of $\mcl{M}$ for the example dataset}
-\label{visMpart}
-\end{figure}
-
-\begin{figure}
-\begin{center}
-\begin{tikzpicture}[every node/.style={inner sep=1pt}]
-\node[label=above:$n_0$] (n)   {$\bullet$};
-\node[label=left:$n_1$]  (n0)  [below left=  3cm and 3cm of n]  {$\bullet$};
-\node[label=right:$n_2$] (n1)  [below right= 3cm and 3cm of n]  {$\bullet$};
-\node[label=left:$n_3$]  (n00) [below left=  3cm and 1cm of n0] {$\bullet$};
-\node[label=right:$n_4$] (n01) [below right= 3cm and 1cm of n0] {$\bullet$};
-\node[label=left:$n_5$]  (n10) [below left=  3cm and 1cm of n1] {$\bullet$};
-\node[label=right:$n_6$] (n11) [below right= 3cm and 1cm of n1] {$\bullet$};
-
-\path[thick,-] (n)  edge node[label=left :{$a_1 \leq 0.4~~$}] {} (n0);
-\path[thick,-] (n)  edge node[label=right:{~~$a_1 > 0.4$}] {} (n1);
-\path[thick,-] (n0) edge node[label=left :{$a_2 \leq 0.8~~$}] {} (n00);
-\path[thick,-] (n0) edge node[label=right:{~~$a_2> 0.8$}] {} (n01);
-\path[thick,-] (n1) edge node[label=left :{$a_2 \leq 0.5~~$}] {} (n10);
-\path[thick,-] (n1) edge node[label=right:{~~$a_2> 0.5$}] {} (n11);
-\end{tikzpicture}
-\end{center}
-\caption{A tree corresponding to the partitioning of $\mcl{M}$ in Figure~\ref{visMpart}}
-\label{visMTree}
-\end{figure}
-    
+  
 Figure~\ref{visMpart} shows a possible partitioning of 
-    the instance space for the example dataset (from Table~\ref{tEgData}).
+    the instance space for the example dataset from Table~\ref{tEgData}.
 Figure~\ref{visMTree} shows the corresponding tree of partitioning hyperplanes built by
     the algorithm.
+We now consider the steps performed by the algorithm in detail.
 
-\pagebreak
 
-\subsection{Stopping Conditions}
+\subsection{Stopping conditions}
 \label{secStopCond}
 
-The algorithm iterates while none of the following stopping conditions are met:
+The \AdaProp algorithm continues to iterate 
+	while none of the following stopping conditions are met:
 \begin{description}
 
 \item[~~~The tree becomes too big:] \ \\
@@ -558,8 +875,8 @@ The algorithm iterates while none of the following stopping conditions are met:
     $minOcc$ is a user specified parameter.
 \item[~~~The tree is sufficiently accurate for the training set:] \ \\
     $Error(BaseLearner, \mcl{D}_T) < minErr$, 
-    where $\mcl{D}_T$ is the dataset $\mcl{D}$ propositionalised using $T$ (see Section~\ref{secProp}),
-    $Error$ is the misclassfication error on the training set when 
+    where $\mcl{D}_T$ is the dataset $\mcl{D}$ propositionalised using $T$ (see Section~\ref{sec:method:prop}),
+    $Error$ is the misclassification error on the training set when 
     the $BaseLearner$ is trained on $\mcl{D}_T$,
     and $minErr$ is a user specified parameter.
 
@@ -570,15 +887,18 @@ The algorithm iterates while none of the following stopping conditions are met:
 
 At each iteration of the algorithm, 
     a leaf node of $T$ is selected to be expanded 
-    (into an internal node of the tree).
+    into an internal node of the tree.
 The leaf nodes which are eligible to be expanded
     are those which, when expanded, will not 
     violate the $maxDepth$ condition.
 Let $\mcl{N}$ be the subset of the leaf nodes of $T$ 
     which are eligible for expansion:
+
 \begin{algorithmic}
     \State $\mcl{N} \gets \{ n_i \in LeafNodes(T) ~\big|~ Depth(n_i) < maxDepth - 1 \} $
 \end{algorithmic}
+
+
 We assume that the nodes in $T$ are indexed in breadth first order, 
     as shown in Figure~\ref{visMTree}.
 Then, among any subset of nodes with equal depth,
@@ -586,7 +906,7 @@ Then, among any subset of nodes with equal depth,
 This concept of leftmost-node is used to break ties in the 
     leaf node selection strategies.    
 \AdaProp supports three leaf node selection strategies:
-
+\pagebreak
 \begin{description}
 \item[~~~Depth first search:] \ \\
     The node selected is the leaf node 
@@ -622,42 +942,38 @@ This concept of leftmost-node is used to break ties in the
 
     \AdaProp supports only one heuristic function, 
         the $Error(n)$, which is the training set error 
-        when the base learner is trained on the dataset $\mcl{D}$
-        propositionalised using $T$ along with 
+        on the dataset $\mcl{D}$ propositionalised using $T$ along with 
         the best partitioning hyperplane at $n$.
-     In order to compute the value of this heuristic function at a node $n$,
-         all possible bi-partitions at $n$ must be evaluated,
+     Computation of $Error(n)$ involves evaluating all candidate partitions at
+     	a given node, 
          thus $Error(n)$ is computationally expensive.
     
 \end{description}
 
-\subsection{Generating Candidate partitioning hyperplanes}
+\subsection{Generating candidate partitioning hyperplanes}
 \label{secCandGen}
 
 Given the set of labelled instances $\mcl{M}_i \subseteq \mcl{M}$,
-    we wish to generate a set of candidate partitioning hyperplanes for $\mcl{M}_i$,
-    each of which is represented by a hyperplane in the instance space.
+    we wish to generate a set of candidate partitioning hyperplanes for $\mcl{M}_i$
+    in the instance space.
 As mentioned above, 
     \AdaProp only considers hyperplanes 
     which intersect exactly one axis
-    (thus is parallel to all other axes).
-Furthermore, we attempt to find balanced partitioning hyperplanes, 
+    (thus are parallel to all other axes).
+We consider four methods for generating candidate hyperplanes.
+The first three all attempt to find balanced partitioning hyperplanes, 
     i.e.\ those which lie somewhat near the center of the instances
     in $\mcl{M}_i$.
-
-Each method of generating candidate partitioning hyperplanes 
-    considers each attribute of the instances and attempts 
-    to find midpoints of the instances along the attribute.
-Therefore, most methods follow the same template:
+Therefore, the first three methods follow the same template:
     \begin{algorithmic}
     \For{$j = 1 \to k$} 
         \State $V_j \gets \{ a_j ~\big|~ \exists c \in \mcl{C} ~:~ (\vect{a},c) \in \mcl{M}_i \}$
-        \State $m \gets $ Find $midpt(V_j)$
+        \State $m \gets findPt(V_j)$
         \State Output candidate hyperplane: $a_j = m $
     \EndFor
     \end{algorithmic}
         
-\AdaProp supports four methods for generating candidate partitioning hyperplanes:
+The three different instantiations of the $findPt()$ method are as follows:
 \begin{description}
 
 \item[~~~Range based midpoint:] \ \\
@@ -688,16 +1004,20 @@ Therefore, most methods follow the same template:
     \begin{algorithmic}
         \State $midpt(V_j) \gets \textrm{median}(V_j)$
     \end{algorithmic}  
-    
-\item[~~~Class boundaries:]  \ \\
-    This method is different to the above three methods
+\end{description}
+
+The fourth method is different to the above three methods
         as it (potentially) generates multiple candidate partitions 
         per attribute.
     For each attribute $a_j$, 
         the values of $a_j$ for all instances in $\mcl{M}_i$ are sorted,
         and the values at which the class changes (i.e.\ the class boundaries)
         are used to generate the partitioning hyperplanes.
-    This is similar to the discretization process of OneR~\cite{holte}.
+    This is similar to the discretization process of OneR~\cite{holte},
+    	thus is called the discretization-based method.
+
+\begin{description}
+\item[~~~Discretization-based:] \ 
     \begin{algorithmic}
     \For{$j = 1 \to k$} 
         \State $W_j \gets \{ (a_j,c) ~\big|~ (\vect{a},c) \in \mcl{M}_i \}$
@@ -721,6 +1041,7 @@ See Figure~\ref{visCandGen} for a visualisation of all the
 \begin{center}
         \begin{subfigure}[b]{0.45\textwidth}
                 \centering
+                \iftoggle{dotikzext}{\tikzsetnextfilename{eg-data/hyp1}}{}
                 \begin{tikzpicture}[scale=0.8]
 					\begin{axis}[xlabel={$a_1$}, ylabel={$a_2$},
 					 xmin=0,xmax=1,ymin=0,ymax=1,
@@ -753,6 +1074,7 @@ See Figure~\ref{visCandGen} for a visualisation of all the
         ~~~
         \begin{subfigure}[b]{0.45\textwidth}
                 \centering
+                \iftoggle{dotikzext}{\tikzsetnextfilename{eg-data/hyp2}}{}
                 \begin{tikzpicture}[scale=0.8]
 					\begin{axis}[xlabel={$a_1$}, ylabel={$a_2$},
 					 xmin=0,xmax=1,ymin=0,ymax=1,
@@ -785,6 +1107,7 @@ See Figure~\ref{visCandGen} for a visualisation of all the
         \\ \  \\
         \begin{subfigure}[b]{0.45\textwidth}
                 \centering
+                \iftoggle{dotikzext}{\tikzsetnextfilename{eg-data/hyp3}}{}
                 \begin{tikzpicture}[scale=0.8]
 					\begin{axis}[xlabel={$a_1$}, ylabel={$a_2$},
 					 xmin=0,xmax=1,ymin=0,ymax=1,
@@ -817,6 +1140,7 @@ See Figure~\ref{visCandGen} for a visualisation of all the
         ~~~
         \begin{subfigure}[b]{0.45\textwidth}
                 \centering
+                \iftoggle{dotikzext}{\tikzsetnextfilename{eg-data/hyp4}}{}
                 \begin{tikzpicture}[scale=0.8]
 					\begin{axis}[xlabel={$a_1$}, ylabel={$a_2$},
 					 xmin=0,xmax=1,ymin=0,ymax=1,
@@ -863,51 +1187,112 @@ See Figure~\ref{visCandGen} for a visualisation of all the
 \label{visCandGen}
 \end{figure}
 
-\subsection{Selecting the optimal partitioning hyperplane}
-\label{secOptPartition}
-
-Given a set of candidate partitioning hyperplanes $B$ for the labelled set of instances $\mcl{M}_i$, 
-    \AdaProp aims to find the optimal hyperplane $B_i$ in $B$, 
-    which is the hyperplane with the least
-    training set error on $\mcl{D}$ when using the base learner.
-For each candidate hyperplane $B_j$,
-    a new tree $T_j$ is built by adding $B_j$ to $T$.
-Then $T_j$ is used to propositionalise $\mcl{D}$
-    and the base learner is trained on the propositionalised dataset.
-The candidate hyperplane which results in the least training set 
-    error during this process is selected as the 
-    optimal hyperplane.
-This process is given in Algorithm~\ref{algoOptPart}.
 
 \begin{algorithm}
-\caption{Selecting the Optimal Partitioning Hyperplane}
+\caption{Selecting the optimal partitioning hyperplane}
 \label{algoOptPart} 
 \begin{algorithmic}
-    \Function{EvaluatePartition}{$T,n_i,B_j$}
-    \State $T_j \gets T$ with the hyperplane $B_j$ added at the node $n_i$
+    \Function{EvaluateHyperplane}{$T,n_i,H_j$}
+    \State $T_j \gets T$ with the hyperplane $H_j$ added at the node $n_i$
         \State $\mcl{D}_{T_j} \gets \mcl{D}$ propositionalised using $T_j$
-        \State \Return $Error(BaseLearner,\mcl{D}_{T_j})$
+        \State \Return $Error_{eval\_metric}(BaseLearner,\mcl{D}_{T_j})$
     \EndFunction
     \State 
-    \Function{FindOptimalPartition}{$T,n_i,B$}
-    \State $minErr = \min \{ \textrm{\sc EvaluatePartition}(T,n_i,B_j) ~|~ B_j \in B \}$
-    \State \Return $\textrm{any} \{ B_j \in B ~|~ \textrm{\sc EvaluatePartition}(T,n_i,B_j) = minErr \}$
+    \Function{FindOptimalHyperplane}{$T,n_i,H$}
+    \State $minErr = \min \{ \textrm{\sc EvaluatePartition}(T,n_i,H_j) ~|~ H_j \in H \}$
+    \State \Return $\textrm{any} \{ H_j \in H ~|~ \textrm{\sc EvaluatePartition}(T,n_i,H_j) = minErr \}$
     \EndFunction
 \end{algorithmic}
 \end{algorithm}
 
-\section{Propositionalisation}
-\label{secProp}
+\subsection{Selecting the optimal partitioning hyperplane}
+\label{secOptPartition}
 
-The tree of partitioning hyperplanes $T$ defines a set of regions in the instance space.
+Given a set of candidate partitioning hyperplanes $H$ for the labelled set of instances $\mcl{M}_i$, 
+    \AdaProp aims to find the optimal hyperplane $H_i$ in $H$, 
+    which is the hyperplane with the least
+    error (as measured using some hyperplane evaluation metric)
+     on $\mcl{D}$ when using the base learner.     
+     
+The overall process is specified in Algorithm~\ref{algoOptPart}.
+To summarize: for each candidate hyperplane $H_j$,
+    a new tree $T_j$ is obtained by adding $H_j$ to $T$.
+Then $T_j$ is used to propositionalise $\mcl{D}$
+    and the base learner is trained on the propositionalised dataset, 
+    resulting in a classifier.
+This classifier is then evaluated on the propositionalised training set, 
+	using the hyperplane evaluation metric.
+The candidate hyperplane which results in the least error during this 
+	evaluation process is selected as the 
+    optimal hyperplane.
+
+In this project, we consider three hyperplane evaluation metrics:
+\begin{description}
+\item[~~~~Classification error:]  \ \\
+	The classification error is the misclassification rate, 
+	i.e.\ the number of incorrectly classified bags divided by the total number of bags in $\mcl{D}$.
+	Formally:
+	$$
+		CE = \frac{| \{~ (b,c) \in \mcl{D} ~|~ f(b) \neq c ~\} | }{|~\mcl{D}~|}
+	$$
+	where $f(b)$ is the class label predicted by the base learner for the bag $b$.\\
+	
+\item[~~~~Root mean squared error:]  \ \\
+	The root mean squared error takes into account the 
+	probability estimates emitted by the classifier. 
+	As suggested by its name, the root mean squared error is computed by 
+		taking the square root of the average squared error over all bags,
+		where the error for each bag is defined as the difference between the 
+		actual probability and the probability estimate emitted by the classifier.
+	Note that the actual probability of a bag $B$ taking on a specific class value $c$ is defined 
+		as 1 if $B$ has the class label $c$ attached, and 0 otherwise.
+	Formally:
+	$$		
+		RMSE = \sqrt{\frac{1}{|\mcl{D}| \cdot |\mcl{C}|} 
+			\sum_{(b,c_b)\in\mcl{D}} \sum_{c\in\mcl{C}}
+			\Big( g(b,c) - I(c,c_b) \Big)^2}
+	$$
+	$$
+		I(c,c_b) = \left\{ 
+		\begin{array}{lcr} 
+			1 & : & c = c_b \\ 
+			0 & : & c \neq c_b 
+		\end{array} \right.
+	$$
+	where $g(b,c)$ is the probability, as estimated by the base learner, that $b$ has class $c$.
+		
+\item[~~~~Information gain:]  \ \\
+	The information gain, in this context, is defined as the difference in entropy
+		between the probability estimates emitted by the classifier and the null model.
+	The hyperplane evaluation metric based on information gain is implemented 
+		as the negation of the information gain value, 
+		in order to obtain an error function.		
+	$$ IG = \sum_{(b,c)\in\mcl{D}} \Big(~ h_g(b,c) - h_z(b,c)	~\Big) $$
+	$$ h_g(b,c) = - g(b,c) ~ \ln g(b,c) $$
+	$$ h_z(b,c) = - z(b,c) ~ \ln z(b,c)  $$
+	where $g(b,c)$ is the probability that bag $b$ has class $c$, as estimated by the base learner,
+	and $z(b,c)$ is the probability that bag $b$ has class $c$ as estimated by the null model 
+	(i.e.\ \texttt{ZeroR} in WEKA).
+	Note that both $h_g$ and $h_z$ are entropy functions.
+
+\end{description}
+
+
+\section{Propositionalisation}
+\label{sec:method:prop}
+
+The tree of partitioning hyperplanes $T$ defines a set of regions in the instance space
+	which cover the instance space completely:
+each node in the tree corresponds to a region, described by the tests used
+	along the path to that node.
 Each such region will correspond to one or more attributes 
     in the propositionalised dataset.
 \AdaProp implements two different approaches to propositionalisation of each bag
     (Algorithm~\ref{algoProp}):
-    Count-based and Summary Based.
+    count-based propositionalisation and summary-based propositionalisation.
 
 
-\begin{algorithm}
+\begin{algorithm}[p]
 \caption{Propositionalisation (Given a function {\sc Prop} $: \power(\mcl{I}) \to \real^m, m \geq 1$)}
 \label{algoProp} 
     \begin{algorithmic}
@@ -915,10 +1300,10 @@ Each such region will correspond to one or more attributes
     \ForAll{bags $(B_i,c) \in \mcl{D}$}
         \State Initialise the propositionalised vector $\vect{p}$ as an empty list
         \ForAll{nodes $n_j$ in the tree $T$} 
-            \State $X_j \gets \{ i \in B_i ~|~ i$ 
+            \State $X^{(j)} \gets \{ i \in B_i ~|~ i$ 
                 lies in the region corresponding to $n_j \} $
-            \State $\vect{p} \gets \vect{p} \oplus \textrm{\sc Prop}(X_j)$
-            \Comment{$\oplus$ denotes concatenation}
+            \State $\vect{p} \gets \vect{p} ~||~ \textrm{\sc Prop}(X^{(j)})$
+            \Comment{$||$ denotes concatenation}
         \EndFor
         \State Add the labelled vector $(\vect{p},c)$ 
             to the dataset $\mcl{P}$
@@ -926,21 +1311,8 @@ Each such region will correspond to one or more attributes
     \end{algorithmic}
 \end{algorithm}
 
-\subsection{Count-Based Propositionalisation}
 
-In count-based propositionalisation, 
-    each bag is converted into a feature vector by
-    counting the number of instances of the bag which
-    fall into each region.
-Therefore, each region corresponds to a single attribute in the 
-    propositionalised vector.
-Formally, the {\sc Prop} function in Algorithm~\ref{algoProp} 
-    for count-based propositionalisation is given by:
-$$ \textrm{\sc Prop}: \power(\mcl{I}) \to \real,\mathrm{~where~}\textrm{\sc Prop}(X) = |X|$$
-Table~\ref{tEgPropCount} shows the count-based propositionalised form of 
-    the example dataset given in Table~\ref{tEgData}.
-
-\begin{table}
+\begin{table}[p]
 \begin{center}
 \begin{tabular}{*{9}{c}}
     \toprule
@@ -956,7 +1328,66 @@ Table~\ref{tEgPropCount} shows the count-based propositionalised form of
 \label{tEgPropCount}
 \end{table}    
 
-\subsection{Summary Based Propositionalisation}
+
+\begin{table}[p]
+\begin{center}
+\begin{tabular}{*{14}{c}}
+    \toprule
+        \multirow{2}{*}{Bag} & 
+        \multicolumn{4}{c}{$n_0~a_1$} & 
+        \multicolumn{4}{c}{$n_0~a_2$} & 
+        \multicolumn{4}{c}{$n_1~a_1$} &
+         \\
+    \cmidrule(r){2-5}
+    \cmidrule(r){6-9}
+    \cmidrule(r){10-13}
+     & min & max & sum & avg & min & max & sum & avg & min & max & sum & avg & \multirow{2}{*}{\huge ...} \\
+    \cmidrule(r){1-13}
+    $b_1$ &  0.3 & 0.5 & 0.8 & 0.4  & 0.1 & 0.7 & 0.8 & $0.40$       & 0.3 & 0.3 & 0.3 & 0.3 & \\
+    $b_2$ &  0.2 & 0.8 & 1.5 & 0.5  & 0.6 & 0.9 & 2.2 & $0.7\dot{3}$ & 0.2 & 0.2 & 0.2 & 0.2 & \\
+	\bottomrule    
+	\addlinespace
+    \toprule
+    	 & 
+        \multicolumn{4}{c}{$n_1~a_2$} & 
+        \multicolumn{4}{c}{$n_2~a_1$} & 
+        \multicolumn{4}{c}{$n_2~a_2$} &
+        \multirow{2}{*}{Class} \\
+    \cmidrule(r){2-5}
+    \cmidrule(r){6-9}
+    \cmidrule(r){10-13}
+    \multirow{2}{*}{\huge ... ~}  & min & max & sum & avg & min & max & sum & avg & min & max & sum & avg & \\
+    \cmidrule(r){2-14}
+     &  0.7 & 0.7 & 0.7 & 0.7  & 0.7 & 0.7 & 0.7 & $0.70$  & 0.1 & 0.1 & 0.1 & $0.10$ & positive\\
+     &  0.9 & 0.9 & 0.9 & 0.9  & 0.5 & 0.8 & 1.3 & $0.65$  & 0.6 & 0.7 & 1.3 & $0.65$ & negative\\    
+    \bottomrule
+    
+\end{tabular}
+\end{center}
+\caption{Summary-based propositionalised form of the example dataset 
+    (showing only the nodes $n_0, n_1,$ and $n_2$).}
+\label{tEgPropAgg}
+\end{table}    
+
+\subsection{Count-based propositionalisation}
+\label{ssecPropCount}
+
+In count-based propositionalisation, 
+    each bag is converted into a feature vector by
+    counting the number of instances of the bag which
+    fall into each region.
+Therefore, each region corresponds to a single attribute in the 
+    propositionalised vector.
+Formally, the {\sc Prop} function in Algorithm~\ref{algoProp} 
+    for count-based propositionalisation is given by:
+$$ \textrm{\sc Prop}: \power(\mcl{I}) \to \real,\mathrm{~where~}\textrm{\sc Prop}(X) = |X|$$
+
+Table~\ref{tEgPropCount} shows the count-based propositionalised form of 
+    the example dataset given in Table~\ref{tEgData}, 
+    partitioned by the tree shown in Figure~\ref{visMTree}.
+
+\subsection{Summary-based propositionalisation}
+\label{ssecPropSumm}
 
 In summary-based propositionalisation, 
     the instances which fall into each region  
@@ -969,6 +1400,11 @@ Therefore, summary-based propositionalisation is more
     computationally expensive than count-based propositionalisation, 
     but is able to preserve significantly more information from each bag 
     in the propositionalisation.
+
+Table~\ref{tEgPropAgg} shows the propositionalised form of 
+    the example dataset given in Table~\ref{tEgData} when
+    using summary-based propositionalisation.   
+    
 Formally, the {\sc Prop} function in Algorithm~\ref{algoProp} 
     for summary-based propositionalisation is given by:
 $$ \textrm{\sc Prop}:\power(\mcl{I}) \to \real^{4k}  $$
@@ -979,115 +1415,89 @@ $$ \textrm{\sc Prop}:\power(\mcl{I}) \to \real^{4k}  $$
         &\ldots, \\
         &\min(X_k),~\max(X_k),~\tsum(X_k),~\avg(X_k))
 \end{align*}
-Where $k$ is the number of attributes and $X_j = \{ i_j ~|~ i \in X \}$, i.e.\ 
-    the value of the $j^{\mathrm th}$ attribute for all instances in $X$.
+where $k$ is the number of attributes and $X_j = \{ i_j ~|~ i \in X \}$, i.e.\ 
+    the values of the $j^{\mathrm th}$ attribute for all instances in $X$.
     
-Table~\ref{tEgPropAgg} shows the propositionalised form of 
-    the example dataset given in Table~\ref{tEgData} when
-    using summary-based propositionalisation.   
-    
-\begin{table}
-\begin{center}
-\begin{tabular}{*{14}{c}}
-    \toprule
-        \multirow{2}{*}{Bag} & 
-        \multicolumn{4}{c}{$n_0~a_1$} & 
-        \multicolumn{4}{c}{$n_0~a_2$} & 
-        \multicolumn{4}{c}{$n_1~a_1$} &
-        \multirow{2}{*}{Class} \\
-    \cmidrule(r){2-5}
-    \cmidrule(r){6-9}
-    \cmidrule(r){10-13}
-     & min & max & sum & avg & min & max & sum & avg & min & max & sum & avg & \\
-    \midrule
-    $b_1$ &  0.3 & 0.5 & 0.8 & 0.4  & 0.1 & 0.7 & 0.8 & $0.40$       & 0.3 & 0.3 & 0.3 & 0.3 & positive\\
-    $b_2$ &  0.2 & 0.8 & 1.5 & 0.5  & 0.6 & 0.9 & 2.2 & $0.7\dot{3}$ & 0.2 & 0.2 & 0.2 & 0.2 & negative\\
-    \bottomrule    
-    \multirow{2}{*}{} & 
-        \multicolumn{4}{c}{$n_1~a_2$} & 
-        \multicolumn{4}{c}{$n_2~a_1$} & 
-        \multicolumn{4}{c}{$n_2~a_2$} &
-        \multirow{2}{*}{} \\
-    \cmidrule(r){2-5}
-    \cmidrule(r){6-9}
-    \cmidrule(r){10-13}
-     & min & max & sum & avg & min & max & sum & avg & min & max & sum & avg & \\
-    \midrule
-    $b_1$ &  0.7 & 0.7 & 0.7 & 0.7  & 0.7 & 0.7 & 0.7 & $0.70$  & 0.1 & 0.1 & 0.1 & $0.10$ & positive\\
-    $b_2$ &  0.9 & 0.9 & 0.9 & 0.9  & 0.5 & 0.8 & 1.3 & $0.65$  & 0.6 & 0.7 & 1.3 & $0.65$ & negative\\    
-    \bottomrule
-    
-\end{tabular}
-\end{center}
-\caption{Summary-based propositionalised form of the example dataset 
-    (showing only the nodes $n_0, n_1,$ and $n_2$).}
-\label{tEgPropAgg}
-\end{table}    
 
 %\begin{comment}
 
-\section{The base learner} 
-
+\section{The base learner}
+\label{sec:method:base}
   
 Any standard machine learning algorithm can be used 
-    as the base learner, i.e.\ can be used to guide the hyperplane selection process.
-The choice of base learner is left upto the user, and 
-    this report considers two common base learners: 
-    RandomForest and LogitBoost.
+    as the base learner to guide the hyperplane selection process.
+The choice of base learner is left up to the user.
+This report considers two common base learners for the experiments: 
+    \blRF and \blLB.
 
-RandomForest \cite{breiman} constructs an ensemble of 
+A random forest \cite{breiman} constructs an ensemble of 
     randomized decision trees, where each node of each tree is 
-    built on a random subset of the attributes.
-In this project, RandomForests with 100 trees were used.
+    built by selecting from a random subset of the attributes.
+In this project, random forests with 100 trees were used, 
+	using the \blRF implementation in the WEKA software.
 
-LogitBoost \cite{friedman} is an adaptive boosting algorithm 
-    which minimises a logisitic loss function.
-In this project, LogitBoost with 30 iterations was used, 
-    using Decision stumps (1-level decision trees) as the base learner.
+\pagebreak
+
+\blLB, introduced by \citeA{friedman}, 
+	is an adaptive boosting algorithm 
+    which minimises a logistic loss function.
+In this project, LogitBoost with 50 iterations was used 
+	as a compromise between runtime and accuracy, 
+    using decision stumps (1-level decision trees, implemented as \texttt{DecisionStump} in WEKA) as the base learner.
 
 %Algorithm(s) will be implemented using the WEKA framework.*
 
 \section{Refinements}
+\label{sec:method:refinements}
 
-The experiments (Chapter~\ref{ch:Results}) indicated that \AdaProp 
-    significantly overfits some datasets.
+Initial experiments (discussed in Chapter~\ref{chap:res:adaprop}) 
+	indicated that \AdaProp significantly overfits some datasets.
 In order to reduce this overfitting, 
     and thus improve the accuracy of \AdaProp, 
-    two standard techniques were implemented: 
+    two standard techniques for reducing overfitting were implemented: 
     cross validated parameter selection
     and randomized bagging.
 
 
-\subsection{Parameter Selection}
+\subsection{Parameter selection}
+\label{methodParamSel}
 
-The size of the trees of partitioning hyperplanes 
-    built up by \AdaProp had substantial impact on
+Initial results showed that the 
+	size of the trees of partitioning hyperplanes 
+    built up by \AdaProp has substantial impact on
     the cross-validated classification accuracy.
 In fact, the experiments showed that increasing the tree
-    size increased the accuracy initially upto some 
-    maximum, after which the accuracy declined.
+    size increased the accuracy initially up to some 
+    maximum, after which it declined.
 This suggests that there is some optimal size 
     for the tree of partitioning hyperplanes.
 From the experiments, it was also clear that this
     optimal size is dependent on the dataset, 
     i.e.\ different datasets have different optimal tree sizes.
     
-In order to find the optimal tree size for any given dataset, 
-    \AdaProp performs $5$-fold cross-validated selection 
+Thus, in order to find an appropriate tree size for any given dataset, 
+    \AdaProp can perform $5$-fold cross-validated selection 
     over all tree sizes (Algorithm~\ref{algoCVTSS}).
 This process maintains a set of 5 trees, each built on 
     a different 80\% of the training dataset, 
     and evaluated on the remaining 20\%.
+When partitioning the dataset, stratification is used to ensure that
+	each partition has approximately the same distribution of class labels as the entire dataset.
 The size of each tree is then iteratively increased
     until the total error on the test datasets ceases to decrease.
+   
+
 This process requires more time than running 
     the \AdaProp process with a fixed tree size, 
     but provides an increase in accuracy.
 However, compared to the usual method of parameter optimisation, 
     where the entire training process is repeated for each possible 
-    value of the parameter, this method is significantly more efficient.
+    value of the parameter 
+	and for each fold of the cross-validation,
+    this method is significantly more efficient.
 
-\begin{algorithm}
+
+\begin{algorithm}[t]
 \caption{Cross-validated tree-size selection}
 \label{algoCVTSS} 
     \begin{algorithmic}
@@ -1096,7 +1506,7 @@ However, compared to the usual method of parameter optimisation,
     \For{$j = 1 \to 5$}
         \State Build a tree $T_j$ of size 1, using all folds except $X_j$ as the training set.
         \State $e^0_j \gets 1$ \Comment{$e^t_j$ is the error of the tree $T_j$ when of size $t$}
-        \State $e^1_j \gets$ the misclassification error of $T_j$ when evaluated on $X_j$.        
+        \State $e^1_j \gets$ the misclassification error rate of $T_j$ when evaluated on $X_j$.        
     \EndFor    
     \State $t \gets 1$ \Comment{$t$ is the current tree size}.    
     \While{$e^t_1 + e^t_2 + \ldots + e^t_5 ~\leq~ e^{t-1}_1 + e^{t-1}_2 + \ldots + e^{t-1}_5$}
@@ -1104,7 +1514,7 @@ However, compared to the usual method of parameter optimisation,
         \For{$j = 1 \to 5$}
             \State Expand $T_j$ by one node, 
                 using all folds except $X_j$ as the training set.
-            \State $e^t_j \gets$ the misclassification error of $T_j$ when evaluated on $X_j$.
+            \State $e^t_j \gets$ the misclassification error rate of $T_j$ when evaluated on $X_j$.
         \EndFor
     \EndWhile
     \State Output $t-1$ as the optimal tree size.
@@ -1112,165 +1522,894 @@ However, compared to the usual method of parameter optimisation,
 \end{algorithm}
 
 
-\subsection{Randomized Bagging}
+\subsection{Randomized bagging}
+\label{methodRandBag}
 
 Another refinement implemented to combat overfitting is 
     randomized bagging.
 Bagging was performed using WEKA's standard bagging implementation, 
-    where the training set is resampled (with replacement) to generate
+    where the training set is resampled (by sampling bags with replacement) to generate
     $n$ independent datasets, where $n$ is the number of iterations.
-Then, an ensemble of $n$ \AdaProp trees are built (i.e.\ one tree per dataset), 
-    and majority voting is used to combine the predictions of the trees.
+The resampling is performed such that each new dataset is the same size as, 
+	i.e.\ contains the same number of bags as, the original dataset.
+Then, an ensemble of $n$ \AdaProp trees is built (i.e.\ one tree per dataset), 
+    and the average of each tree's class probability estimate is used as the ensemble's probability estimate.
 
 When bagging is performed on standard \AdaProp trees, 
     the runtime grows linearly with the number of iterations
-    (i.e.\ the 50-iterations of bagging will take 50 times longer
+    (i.e.\ 50 iterations of bagging will take 50 times longer
     to complete than training a single \AdaProp tree).
 In order to reduce the runtime and also to further reduce overfitting, 
-    randomization in attributes was implemented, 
+    randomization in attribute selection was implemented, 
     where at each node in each tree, only a randomly chosen subset of attributes 
     was considered when selecting the optimal partitioning hyperplane.
-The subset of attributes was chosen to be of size $\log_2(K)+1$, 
-    where $K$ is the number of attributes, 
-    therefore the randomization reduced the runtime by a factor 
-    of approximately $\frac{K}{\log_2(K)}$.
+The subset of attributes was chosen to be of size $\log_2(K)+1$ (as in WEKA's \blRF),  
+    where $K$ is the number of attributes.
+Therefore the randomization reduced the runtime by a factor 
+    of $\frac{K}{\log_2(K)+1}$.
 
+\chapter{Results: \AdaProp parameters}
+\label{chap:res:adaprop}
 
-\chapter{Image Classification}
-...
-\section{Definitions}
-...
-\section{Feature Selection}
-...
+We conducted a number of experiments over a set of multi-instance datasets,
+	with the aim of identifying the impact of the various parameters of \AdaProp on classification accuracy.
+All experiments were conducted using the WEKA Experimenter (version 3.7) and
+	measured the $10\times 10$-fold cross-validated classification accuracy.
+The experiments consisted of running \AdaProp over multiple configurations, 
+	varying the following parameters:
+\begin{description}
+	\item[~~~~Propositionalisation:] count-based or summary-based (Section~\ref{sec:method:prop})
+	\item[~~~~Candidate Generation:] mean, median, range or discretized (Section~\ref{secCandGen})
+	\item[~~~~Hyperplane Evaluation:] CE, RMSE or IG (Section~\ref{secOptPartition})
+	\item[~~~~Leaf Node Selection:] breadth first search or best first search (Section~\ref{secTreeBuild})
+	\item[~~~~Base Learner:] \blRF (with 100 trees) or \blLB (with 50 iterations)
+\end{description}
 
-\chapter{Results}
-\label{ch:Results}
+%\pagebreak
+\section{Datasets}
 
+The experiments in this project were ran over twelve multi-instance datasets, 
+	consisting of six chemical datasets and six image classification datasets:
+	\begin{itemize}
+	\item \tdsMA, \tdsMB and \tdsMC are mutagenesis datasets,
+		where the aim is to predict the mutagenicity of molecules.
+		The datasets were prepared by \citeA{reltoolbox} 
+		from the original mutagenicity problem \cite{mutagenesis}.
+		In all datasets, each bag corresponds to a molecule.
+		Therefore, the datasets differ only in the representation of each molecule,
+			where each instance corresponds to an atom, a bond or a chain (a pair of bonds) respectively.
+	\item \tdsMU and \tdsMK are datasets which arise from the original multi-instance application \cite{Diet97},
+		where the goal is to predict whether the molecules emit an odour.
+		Each molecule is described as a bag of the possible conformations (i.e.\ shapes) of the molecule.
+		The \tdsMU dataset is simply a subset of the \tdsMK dataset.
+	\item In \tdsTX, the aim is to identify proteins which belong to the Thioredoxin-fold family \cite{trxpaper}.
+		In this dataset, approximately 87\% of the bags belong to the positive class,
+		thus the majority class classifier (i.e.\ \texttt{ZeroR} in WEKA) obtains 87\% accuracy.
+		In our experiments, \AdaProp often struggles to improve on the performance of \texttt{ZeroR} on this dataset.
+	\item \tdsTG, \tdsFX and \tdsEL are image classification datasets prepared by \citeA{misvm} from the COREL
+		dataset, where the aim is to detect whether the objects of interest 
+		(tigers, foxes and elephants, respectively) appear in each image.
+		Each bag corresponds to an image and the instances of each bag are produced by segmentation.
+		Each segment is described by colour histograms and texture features.
+	\item \tdsPP, \tdsBK and \tdsCA are image classification datasets prepared by \citeA{mayo2007}, 
+		from the images in GRAZ02 \cite{graz02},
+		where the objects of interest are people, bikes and cars respectively.
+		In these datasets, each image is described by subdividing the image into regions
+			and extracting local binary patterns and colour histograms from each subdivision.
+		
+	\end{itemize}
 
-[ TODO ]
-\section{Data sets}
-...
-\section{Hyperplane Evaluation}
-...
-\section{Leaf Node Selection}
-...
-\section{Base Learners}
-...
 \section{Propositionalisation}
-...
-\subsection{Count Based Propositionalisation}
-...
-\subsection{Comparison to TLC}
-...
-\subsection{Summary Based Propositionalisation}
-...
-\subsection{Comparison to RELAGGS}
-...
-\section{Refinements}
-...
-\subsection{Parameter Selection}
-...
-\subsection{Randomized Bagging}
-...
-\subsection{Comparison to Bagged TLC}
-...
-\subsection{Comparison to Bagged RELAGGS}
-...
+\label{resProp}
 
-Experiments were conducted using 16 datasets from the UCI repository, 
-    comparing the performance of three candidate hyperplane generation methods 
-    (range-based midpoint, mean, and median)
-    and two base learners (j48 and SMO).
-All experiments were conducted for the breadth*-first search strategy for 
-    building up the tree of partitioning hyperplanes.
-Experiments for the the fourth candidate hyperplane generation method and best first search strategies 
-    are ongoing.
-    
-First, we aggregate the results of all experiments and 
-    compare the results for each candidate hyperplane generation method:
-    
-[TODO]
+The algorithm developed in this project, \AdaProp, defines a partitioning of the instance space into multiple overlapping regions
+	and uses this partitioning to propositionalise each bag.
+In our experiments, we consider two propositionalisation approaches:
+	count-based and summary-based.
+Count-based propositionalisation is identical to the propositionalisation method
+	proposed by \citeA{Weidmann2003} and involves simply counting the number of 
+	instances of each bag which fall into each region (see Section~\ref{ssecPropCount}).
+Summary-based propositionalisation is inspired by the RELAGGS algorithm (\citeA{relaggs}) 
+	and involves computing summary statistics (such as average, minimum and maximum) 
+	over all attributes for the subset of instances in each region (see Section~\ref{ssecPropSumm}).
 
-Then compare the results across base learners 
+Summary-based propositionalisation is computationally expensive, 
+	therefore only relatively small \AdaProp trees were practical for our experiments,
+	especially as $10\times 10$-fold cross-validation was employed.
+Therefore, in this section (when comparing the two propositionalisation approaches), 
+	we only consider trees which have $7$ or fewer nodes.
+	
+Figure\footnote{
+	For each figure, there is a corresponding table (showing the numeric values) in Appendix~\ref{chap:appx:tables}.
+	}~\ref{propall}	shows the average accuracy over all parameter settings stated 
+	at the start of this chapter and all tree sizes from 1 to 7.
+It is clear that summary-based propositionalisation performs significantly better than 
+	count-based propositionalisation.
+This is the expected result, as the summary-based propositionalisation preserves 
+	much more information about the instances in each region, 
+	i.e.\ describes the instances in more detail,
+	than count-based propositionalisation.
+The results show a similar relationship when the results are grouped by base learner
+	(Figures~\ref{proprf}~and~\ref{proplb}, in Appendix~\ref{chap:appx})
+	and when grouped by hyperplane evaluation method 
+	(Figures~\ref{propce}~and~\ref{proprmse}, in Appendix~\ref{chap:appx}).
 
-[ TODO ]
+In fact, even when larger trees with up to 15 nodes per tree are used for count-based propositionalisation, 
+	the accuracy of summary-based propositionalisation with small trees remains higher
+	than the accuracy of count-based propositionalisation.
+This suggests that summary-based propositionalisation performs uniformly better than
+	count-based propositionalisation regardless of the choice of base learner or evaluation method, 
+	and should be used if running time is unimportant.
 
-Then we show the results over each dataset
 
-[ Raw Data ? can be found at appendix ? ]    
-    
-\chapter{Image classification Results}
-\section{Feature classification}
-\section{Comparison to other MI algorithms}
-\section{Comparison to other image classification algorithms}
 
-\chapter{Additional Results}
-\section{Artificial dataset}
-Since the results on the UCI datasets were unsatisfactory, 
-    artificial datasets were generated to check that the 
-    implementation of the \AdaProp algorithm.
-    
-Poor results with J48, overfitting the very simple dataset, better results with 
-    OneR, more data and the last algorithm (what was it?)
-Simpler base learner may work better in the simple datasets?
+\begin{comment}	
+The results show a similar trend when broken down by the evaluation method
+	and base learner (with some minor exceptions, e.g.\ the dataset \texttt{fox} when using \texttt{logitboost}). (TODO appendix)
+However, the broken-down* figures also indicate that the summary-based results do not vary significantly
+	with respect to base learner nor evaluation method.
+In fact, looking at the standard deviation over all experiments 
+	(TODO figure) it is clear that the summary-based propositionalisation
+	is much less variant.
+This clearly suggests that if time is not an object and highest possible accuracy is desired,
+	summary-based statistics is the way to go.*
+	
+This also suggests that the information given by the summary statistics is enough to 
+	determine the class, regardless of the other configuration.
+Note carefully that the running time for 
+	summary-based propositionalisation was an order of magnitude greater 
+	than that of count based (TODO running time table)??.
+Due to this, and the computation complexity,
+	the results of summary-based were no longer considered when comparing various strategies in the remaining steps.
+*** REPEATED *** Due to this, the remaining experiments, where large trees were experimented with,
+	use only count based propositionalisation.
+\end{comment}
 
-[ Learning curves ]
+\ColumnAndLineChartFigure{propall}{Average accuracy (for small trees) by propositionalisation method}%
+		{Count-based  }{74.03	81.66	83.26	71.70	69.55	84.22	70.86	60.42	70.03	73.70	73.33	66.72}%
+		{Summary-based}{84.15	87.61	86.95	80.81	78.52	87.66	81.47	62.38	79.63	79.39	80.82	74.01}%
 
-\section{Training Set convergence}
 
-%\end{comment}
+%\pagebreak
+\section{Candidate partition generation}
 
-\chapter{Future Work}
+\ColumnAndLineChartFigure{candmean_disc}{Average accuracy by candidate generation method}%
+		{Mean-based }{73.02	80.27	81.40	71.74	69.95	83.88	69.77	61.08	70.61	73.72	72.93	67.33}%
+		{Discretized}{74.84	80.93	83.52	70.81	71.20	84.09	71.69	58.67	70.00	74.18	74.74	70.03}%
+%\FloatBarrier
+At each iteration of \AdaProp, a set of candidate partitioning hyperplanes are generated.
+We originally considered three methods for generating candidate partitions:
+	mean-based, median-based and range-based (see Section~\ref{secCandGen}).
+However, in practice, the three methods generated similar candidate hyperplanes, 
+	and the experiments indicated that all three methods 
+	perform very similarly for most datasets.
 
-The final output of this project is an algorithm 
-    which can be used to adaptively propositionalise multi-instance data. 
-Since there are other established algorithms for handling multi-instance data, 
-    we will evaluate the algorithm by comparing the classification accuracy 
-    on standard multi-instance datasets against methods such as 
-    MILES~\cite{Chen2006}, TLC~\cite{Weidmann2003} and DD~\cite{Maron98mil}.
+From these three methods, the mean-based one was chosen as the default.
+This method is expected to perform better than range-based splitting
+	in datasets which have significantly skewed distributions of attribute values,
+	as the range-based method ignores the value of all instances except those at the extremes.
+Also, the median based approach is computationally more expensive than 
+	both the mean-based method and the range-based method.
+Therefore, the mean-based candidate generation technique is the only method considered 
+	in our remaining experiments.
 
-We will also consider the application of this algorithm towards image classification and 
-    potentially convert some existing image classification
-    datasets into a multi-instance representation.
+Additionally, we considered a candidate generation technique which differs significantly from 
+	the above methods: the discretization-based method (see Section~\ref{secCandGen}).
+In the discretization-based method, each class boundary is evaluated as a potential location for 
+	partitioning hyperplanes.
+Figure~\ref{candmean_disc} compares the performance\footnote{For each figure, the corresponding
+	table in Appendix~\ref{chap:appx:tables} lists the parameters configurations used in the figure.
+	} of the discretization-based method against
+	the mean based method.
+It can be seen that the discretization-based method performs slightly better
+	than the mean-based method on most datasets.
+However, the difference does not appear to warrant the additional computational effort required.
 
-Currently, \AdaProp only supports multi-instance datasets with 
-    numeric attributes.
-In the future, we intend to implement support for
-    nominal attributes and missing values.
+In contrast, when the results are grouped by base learner 
+	(Figures~\ref{candmean_disc_rf}~and~\ref{candmean_disc_lb}), 
+	a clear pattern emerges.
+In the datasets \tdsMA, \tdsMB, \tdsMC and \tdsMU, 
+	the discretization-based method performs significantly better than the mean-based method
+	for experiments using the \blLB base learner, 
+	while the mean-based performs better than the discretization-based method 
+	in the experiments using the \blRF base learner.
+Similarly, in the datasets \tdsMK, \tdsTG, \tdsFX and \tdsPP,
+	discretization performs significantly better for \blRF,
+	while there is little difference in classification accuracy when using \blLB.
+This clearly indicates that the choice of candidate generation method and choice of base learner
+	are interdependent.
+A consequence of this interdependence is that any parameter optimisation of \AdaProp
+	over base learners and candidate generation methods must be performed simultaneously.
+%% TODO: this above sentence needs to be in the conclusion
+	
+\ColumnAndLineChartFigure{candmean_disc_rf}{Average accuracy (for \texttt{randomforest}) by candidate generation method}%
+		{Mean-based }{76.01	82.27	80.67	75.58	63.99	81.55	64.75	55.55	67.38	72.55	72.17	67.77}%
+		{Discretized}{73.35	81.28	79.42	66.17	67.73	82.67	69.28	61.38	66.28	73.92	73.38	69.62}%
 
-Since this algorithm is a meta-learner, 
-    i.e.\ it is dependent on an underlying single-instance base learner, 
-    a number of different base learners will be 
-    used to evaluate the performance of this algorithm.
- 
-Finally, this algorithm will be evaluated on 
-    standard image classification datasets 
-    (for example the \citeA{sival}) and 
-    the performance will be compared to that of 
-    established image classification algorithms.
+\ColumnAndLineChartFigure{candmean_disc_lb}{Average accuracy (for \texttt{logitboost}) by candidate generation method}%
+		{Mean-based }{71.52	79.27	81.76	69.81	72.93	85.04	72.28	63.84	72.22	74.30	73.31	67.11}%
+		{Discretized}{75.58	80.75	85.56	73.14	72.93	84.80	72.89	57.31	71.86	74.31	75.42	70.24}%
+
+
+\section{Hyperplane evaluation}
+
+From a set of candidate hyperplanes, \AdaProp aims to find the optimal hyperplane.
+The original measure used to evaluate each hyperplane was the classification error metric (abbreviated CE).
+The CE metric uses the class predictions made by the base learners 
+	to compute the error on each prediction.
+In essence, any bag which is misclassified contributes 1 to the total classification error, 
+	while any correctly classified bag contributes no error.
+
+However, CE ignores the probabilities produced by the base learners, 
+	which give a better indication of how well the base learner has fit to the dataset,
+	and the confidence of each prediction.
+In order to make use of these probabilities, we also examined the root mean squared error (abbreviated RMSE)
+	to evaluate each hyperplane.
+For each bag, RMSE computes the error as the square of the difference 
+	between the predicted class probabilities and the actual class value
+(See Section~\ref{secOptPartition} for more detail).
+
+Figure~\ref{evalce_rmse} compares the average classification accuracy over all experiments
+	when using the CE metric and the RMSE metric.
+Overall, results indicate that RMSE
+	performs comparably to CE on most datasets, 
+	but in the \tdsMK, \tdsTG, \tdsFX and \tdsEL datasets, 
+	it performs somewhat better.
+When the results are grouped by base learner 
+	(Figures~\ref{evalce_rmse_rf}~and~\ref{evalce_rmse_lb}, in Appendix~\ref{chap:appx}), 
+	a very similar pattern can be seen, although the difference is more pronounced when using the \blLB base learner.
+
+Another evaluation approach, using the Information Gain (abbreviated IG) was also considered.
+	IG is similar to RMSE 
+		since both methods make use of the probabilities emitted by the base learner.
+Our experiments (Figure~\ref{evalrmse_ig}) indicate that RMSE and 
+	IG perform very similarly as well.
+In some datasets, e.g.\ \tdsMK, IG appears to perform slightly better, 
+	however this difference is not significant and 
+	the pattern does not remain when the results are grouped by the base learner.
+In fact, in almost all individual experiment results, RMSE and 
+	IG obtained very similar classification accuracies.
+
+Therefore, RMSE was chosen as the default metric for evaluating hyperplanes
+	in all further experiments,
+	as it performs better than CE and comparably to IG.
+
+\ColumnAndLineChartFigure{evalce_rmse}{Average accuracy by evaluation method}%
+		{Classification Error	}{76.27	82.61	83.15	71.80	68.76	84.50	71.13	59.10	70.56	73.69	73.54	66.57}%
+		{Root Mean Squared Error}{75.27	82.75	83.60	71.69	70.62	84.67	72.90	60.93	71.56	74.07	73.70	67.14}%		
+
+\ColumnAndLineChartFigure{evalrmse_ig}{Average accuracy by evaluation method}%
+		{Root Mean Squared Error}{75.27	82.75	83.60	71.69	70.62	84.67	72.90	60.93	71.56	74.07	73.70	67.14}%	
+		{Information Gain		}{75.30	82.89	83.30	71.94	71.30	84.75	72.77	60.98	71.19	73.81	73.08	67.19}%
+			
+\section{Leaf node selection}
+
+The \AdaProp algorithm builds a tree of partitions during the training phase.
+As discussed in Section~\ref{secTreeBuild}, we considered two search approaches for building this tree: 
+%	in terms of the order of leaf node selection: 
+	breadth first search and best first search.
+When using the breadth first search, nodes are expanded in order of depth,
+	i.e.\ the generated tree of partitions will be a complete binary tree.\footnote{
+		A binary tree is complete if every level, except the last (i.e.\ deepest) level, is completely filled.
+	}
+In contrast, best first search strategy allows nodes to be expanded in any order, 
+	thus requires searching over a much larger search space than breadth first search.
+%Therefore, best first search is significantly more computationally expensive than 
+%	breadth first search.
+%% TODO: For section: Future work : try more heuristic approaches
+
+Figure~\ref{searchall} shows the classification accuracy over all experiments,
+	grouped by the leaf node selection strategy.
+The results indicate that using best first search does not improve the classification 
+	accuracy significantly in any of the datasets. 
+When the results are grouped by base learner
+	(Figures~\ref{searchrf}~and~\ref{searchlb}, in Appendix~\ref{chap:appx}), 
+	the pattern is very similar, with breadth first and best first search performing very similarly.
+This suggests that there is no benefit to using best first search and therefore 
+	we have selected breadth first search as the default method in \AdaProp.
+
+	\ColumnAndLineChartFigure{searchall}{Accuracy by leaf node selection strategy}%
+		{Breadth first search}{74.31	82.19	84.50	71.30	71.09	84.65	74.68	62.58	71.10	73.66	73.60	66.28}%
+		{Best first search   }{73.31	82.82	84.71	72.26	70.62	84.74	72.70	61.94	70.41	74.20	73.75	66.68}%
+		
+\section{Base learners}
+
+\AdaProp is a meta learner, 
+	thus requires a base learner in order to perform the adaptive propositionalisation.
+Our early, exploratory experiments indicated that among the base learners in WEKA, 
+	\blLB (with 50 boosting iterations)  and \blRF (with 100 trees) were consistently the best performers.
+Therefore, our final experiments only use these base learners.
+
+Figure~\ref{chart_learner_avg} shows the average accuracy over all experiments
+	grouped by base learner.
+The results suggest that each base learner is suited to different datasets, with often
+	very noticeable differences in performance.
+However, neither base learner outperforms the other consistently, i.e.\ over all datasets.
+
+For example, in the mutagenesis datasets (\tdsMA, \tdsMB, \tdsMC) and in \tdsMU, 
+	the \blRF base learner performs better than the \blLB base learner. 
+However, for the image classification datasets (\tdsTG, \tdsFX, \tdsEL, \tdsPP, \tdsBK, \tdsCA) and \tdsMK, 
+	 	\blLB performs better than \blRF. 
+This pattern holds consistently when the results are broken down by hyperplane evaluation method
+	and leaf node selection strategy, 
+	as shown by Table~\ref{tab:bl:winloss}.
+
+%(TODO: win/loss charts)
+
+%An interesting quirk from win/loss charts: for bikes and cars, when tree-size=3, 
+%	randomforest does better (on avg= X better for cars, Y points higher for bikes) , but as the tree gets larger, 
+%	logitboost performs better.
+
+\ColumnAndLineChartFigure{chart_learner_avg}{Average accuracy by base learner}%
+		{\texttt{LogitBoost  }}{73.05	80.81	82.96	70.64	72.02	84.83	73.55	62.45	72.52	74.88	74.46	67.56}%
+		{\texttt{RandomForest}}{78.48	84.56	83.79	72.84	67.36	84.34	70.48	57.59	69.60	72.88	72.78	66.15}%
+
+
+\begin{table}
+\centering
+\caption{The best performing base learner by dataset and parameter configuration}
+\label{tab:bl:winloss}
+\begin{tabular}{r l c c l c c c c}
+	\toprule
+	& \quad & \multicolumn{2}{c}{\# of wins} & \quad & \multicolumn{4}{c}{Winner by configuration}\\
+	\cmidrule(r){3-4} \cmidrule(r){6-9}
+ 	Dataset && \multirow{2}{*}{RF} & \multirow{2}{*}{LB} && \multicolumn{2}{c}{CE} & \multicolumn{2}{c}{RMSE}\\
+	&& & && BR & BE & BR & BE \\
+	\midrule
+	\tdsMA && 4 & 0 && \blRFs & \blRFs & \blRFs & \blRFs\\
+	\tdsMB && 4 & 0 && \blRFs & \blRFs & \blRFs & \blRFs\\
+	\tdsMC && 4 & 0 && \blRFs & \blRFs & \blRFs & \blRFs\\
+	\tdsMU && 2 & 2 && \blRFs & \blLBs & \blLBs & \blRFs\\
+	\tdsMK && 0 & 4 && \blLBs & \blLBs & \blLBs & \blLBs\\ 
+	\tdsTX && 3 & 1 && \blRFs & \blRFs & \blRFs & \blLBs\\
+	\tdsTG && 0 & 4 && \blLBs & \blLBs & \blLBs & \blLBs\\ 
+	\tdsFX && 0 & 4 && \blLBs & \blLBs & \blLBs & \blLBs\\ 
+	\tdsEL && 0 & 4 && \blLBs & \blLBs & \blLBs & \blLBs\\ 
+	\tdsPP && 0 & 4 && \blLBs & \blLBs & \blLBs & \blLBs\\ 
+	\tdsBK && 0 & 4 && \blLBs & \blLBs & \blLBs & \blLBs\\
+	\tdsCA && 0 & 4 && \blLBs & \blLBs & \blLBs & \blLBs\\
+	\midrule
+\end{tabular}
+\begin{tabular}{r l c r l c r l}
+	~\\
+	\multicolumn{8}{c}{Key:}\\
+	\midrule
+	RF: & \blRF && CE: & Classification error && BR: & Breadth first search\\
+	LB: & \blLB && RMSE: & Root mean squared error && BE: & Best first search\\
+	\bottomrule	
+\end{tabular}
+\end{table}
+
+
+\chapter{Results: Refinements}
+\label{chap:res:refinements}
+
+Given the results of the previous chapter (Chapter~\ref{chap:res:adaprop}), we hypothesized that 
+	\AdaProp is overfitting noticeably to some datasets.
+In order to reduce the extent of overfitting, and therefore improve the classification accuracy, 
+	two standard refinement techniques were examined:
+parameter selection of the maximum tree size, and bagging with and without randomization.
+
+The refinement techniques, in theory, can be applied independently of the 
+	choice of the other \AdaProp parameters, such as the propositionalisation method.
+However, the experiments presented in Section~\ref{resProp} indicate that summary-based propositionalisation 
+	performs significantly better than count-based propositionalisation, which suggests that
+	overfitting is more prevalent when using count-based propositionalisation.
+In fact, early exploratory experiments with bagging and parameter selection 
+	showed that summary-based propositionalisation
+	obtained very little increase in accuracy when the refinements were applied.
+
+Therefore, we restrict our investigation of overfitting and the impact of the refinements
+	to count-based propositionalisation only. 
+Thus, all experiments, charts and discussions in this chapter consider only
+	the results derived via count-based propositionalisation.
+
+\section{Parameter selection}
+
+
+\ColumnAndLineChartFigure{param_all}{Average accuracy - Impact of parameter selection}%
+		{Tree Size = 7	   }{74.04	82.47	84.55	71.82	70.30	84.50	73.16	60.45	70.49	73.95	73.95	66.48}%	
+		{Parameter Selected}{79.27	85.52	84.91	71.95	70.70	85.58	76.61	60.23	73.60	74.47	74.83	66.90}%
+		
+A parameter of the \AdaProp algorithm is the size of the tree of partitioning
+	hyperplanes. 
+Early experiments indicated that this parameter 
+	had some impact on the performance of the algorithm, 
+	where, in general, 
+	the cross-validated accuracy increased as the tree size increased, up to some 
+		optimum tree size, after which the accuracy decreased.
+The early experiments also indicated that this optimum size is heavily dependent on 
+	the dataset being learned.
+In order to determine an appropriate size automatically for any given dataset, 
+	5-fold cross-validated parameter selection was implemented, as discussed in Section~\ref{methodParamSel}.
+
+Figure~\ref{param_all} shows cross-validated accuracy averaged over all count-based experiments 
+	when using parameter selection to determine the tree size.
+This figure also compares the parameter selected accuracy to the accuracy obtained when the tree size 
+	is set to $7$ across all datasets, which was the best constant limit:
+	when \AdaProp was run with a constant maximum tree size parameter across all datasets, 
+	the experiments where the tree size parameter was set to 7 obtained the best average accuracy.
+
+Figure~\ref{param_all} clearly indicates that parameter selection 
+	does not produce lower classification accuracies than applying a constant tree size.
+In fact, in datasets such as \tdsMA, \tdsMB, \tdsTG and \tdsEL,
+	parameter selection obtains a noticeable improvement in classification accuracy.
+The parameter selection process chose very small trees in the cases of \tdsMA and \tdsMB (sizes 3 and 5 respectively),
+	while choosing larger trees for the \tdsTG and \tdsEL datasets.
+In the remaining datasets, the chosen tree size was close to 7, therefore suggesting 
+	that for these datasets, a tree size of 7 is near optimal.
+
+%% TODO compare the parameter selected size vs manual optimum
+%% TODO add tree sizes comparison? (compute using training sets)	
+
+\section{Randomized bagging}
+
+A standard solution to reduce the amount of overfitting is to perform
+	bagging, as discussed in Section~\ref{methodRandBag}, 
+	where $n$ new datasets are generated by sampling with replacement
+	from the original dataset and $n$ \AdaProp trees are generated independently, one for each dataset.
+The final model combines the predictions of the $n$ models by averaging class probability estimates.
+In the experiments, we performed bagging with 50 iterations (i.e.\ $n=50$), 
+	with RMSE evaluation, mean-based hyperplane generation, count-based propositionalisation,
+	breadth-first search, both base learners, and with no parameter selection.
+
+Figure \ref{bagging_all} shows the impact of bagging on the classification accuracy.
+It is clear that bagging improves performance significantly across all datasets, 
+	with the largest improvement (of 9\%) occurring in \tdsTG and 
+	the smallest improvement (of 3\%) occurring in \tdsFX.
+In fact, the average improvement with bagging over all datasets is 5.8\%. 
+This strongly suggests that count-based \AdaProp, without bagging, overfits every dataset: 
+	its classifications depend too much on the particular training set used.
+	
+\ColumnAndLineChartFigure{bagging_all}{Average accuracy - Impact of bagging}%
+		{Without Bagging}{74.04	82.47	84.55	71.82	70.30	84.50	73.16	60.45	70.49	73.95	73.95	66.48}%	
+		{With Bagging}{81.92	87.92	88.21	78.39	78.76	87.58	82.49	63.29	78.98	78.36	78.51	71.83}%
+
+\pagebreak %TODO remove
+
+When performing bagging, the runtime is linear with respect to the number of iterations, 
+	therefore the 50-iteration bagged \AdaProp experiments require 50 times longer to run than the
+	single \AdaProp tree experiments.
+Due to this runtime cost, it was not practical to run standard bagging over larger trees, 
+	and therefore the standard bagging experiments were limited to a maximum tree size of 15.
+In order to allow experiments on larger trees to be conducted, and also in order to reduce overfitting further, 
+	randomization of attribute selection was implemented, 
+	where only a subset of attributes was considered when generating candidate hyperplanes 
+	(see discussion in Section~\ref{methodRandBag}).
+
+First, we examine the impact of randomization on the bagging process, 
+	while keeping the size of the trees constant, limited to a maximum tree size of 15, and 
+	the number of trees at 50.
+Since the same number of equally sized trees are used and randomization reduces the amount
+	of information used to make each decision, 
+	the classifier will fit the dataset less closely.
+Figure~\ref{bagg_rand_small} compares the average cross validated accuracy 
+	for standard bagging and randomized bagging.
+Decreases in cross-validated accuracy can be seen for almost all datasets, 
+	especially in the image classification datasets such as \tdsTG and \tdsEL, 
+	where a significant decrease in accuracy is evident.
+Therefore, it appears that randomized bagging underfits most datasets.
+However, somewhat surprisingly, \tdsMA and \tdsMU show slight improvements when using randomization, 
+	which suggests that perhaps even \AdaProp with standard bagging overfits these datasets.
+
+	\ColumnAndLineChartFigure{bagg_rand_small}{Average bagged accuracy - Impact of randomization (for small trees)}%
+		{Without Randomization}{81.92	87.92	88.21	78.39	78.76	87.58	82.49	63.29	78.98	78.36	78.51	71.83}%
+		{With Randomization	  }{83.35	87.55	87.87	80.29	76.11	87.43	75.76	61.45	69.83	76.46	73.09	68.69}%
+
+	
+The main advantage of randomization is that it allows much larger trees to be used in the bagging experiments.
+With randomized bagging, experiments involving \AdaProp trees of size up to 30 became practical.
+In order to compare standard bagging (performed only over small trees) 
+	against randomized bagging (performed over larger trees), 
+	we plot the maximum (instead of the average) accuracy achieved for each dataset across all parameter settings.
+This maximum accuracy can be used as an indicator of the best case performance of each method.
+	
+Figure~\ref{bagg_rand_max} compares the maximum\footnote{
+	Average accuracy is less meaningful in this case as the set of experiments
+		differs for each series.} accuracy with and without randomization.
+For the image classification datasets, the performance of randomized bagging still lags behind 
+	that of standard bagging and the difference is significant in \tdsTG, \tdsEL, and \tdsBK, despite
+	the larger trees used by randomized bagging.
+However, for the chemical datasets, randomized bagging performs at least as well as standard bagging
+	and shows clear improvement in \tdsMA and \tdsMU.
+This shows that randomization is able to improve classification accuracy of bagged \AdaProp for some datasets, 
+	but can also result in significant decreases in accuracy over other datasets.
+
+	\ColumnAndLineChartFigure{bagg_rand_max}{Maximum bagged accuracy - Impact of randomization}%
+		{Without Randomization}{83.42	89.44	88.73	79.73	79.17	88.52	84.20	65.40	80.55	79.06	79.41	72.51}%
+		{With Randomization	  }{87.85	89.43	89.86	82.33	79.28	88.37	79.10	63.70	74.05	78.25	74.71	70.76}%
+
+%TODO breakdown by base learner? (maybe just Randomization (large) if necessary)
+
+\chapter{Results: Comparisons}
+\label{chap:res:comps}
+
+The experiments conducted in Chapters~\ref{chap:res:adaprop}~and~\ref{chap:res:refinements} 
+	were limited to the \AdaProp algorithm,
+	as they were aimed at comparing the various choices for each parameter
+	of \AdaProp and the impact of each choice on the classification accuracy.
+However, many other multi-instance machine learning algorithms have been proposed in the 
+	literature (see Section~\ref{sec:bg:algo}).
+Therefore, in this chapter, we compare the classification accuracy achieved by \AdaProp
+	against that of other multi-instance algorithms implemented in WEKA.
+Among these algorithms, \AdaProp is closely related to 
+	TLC \cite{Weidmann2003} and RELAGGS \cite{relaggs},
+therefore we compare it against these two algorithms in more detail.
+
+\section{Count-based \AdaProp vs.\ TLC}
+
+TLC, which was discussed in Section~\ref{ssec:bg:tlc}, is an algorithm introduced by \citeA{Weidmann2003} which
+	uses a two level learning approach to handling multi-instance data.
+The aim of the two level approach is to separate the 
+	inference of the instance labels from the learning of the bag labels. 
+TLC builds up a tree of partitions at the first level, which is then used 
+	to propositionalise each bag at the second level.
+The count-based propositionalisation approach of \AdaProp is identical 
+	to TLC's second level, therefore count-based \AdaProp and TLC only differ
+	at the first level, i.e.\ how the tree of partitions is built up.
+Therefore, comparing TLC to count-based \AdaProp is equivalent to comparing 
+	the tree generation method of TLC against that of \AdaProp.
+%TODO more detail on what the tree generation methods are
+
+In the experiments, TLC was run with the same base learners as that of \AdaProp, 
+	i.e.\ \blRF with 100 trees and \blLB with 50 iterations.
+Figure~\ref{vs_tlc} shows the best cross-validated accuracy that TLC was able 
+	to achieve in each dataset, plotted against that of the best count-based \AdaProp configuration
+	(i.e.\ without bagging).
+TLC outperforms \AdaProp in all datasets, and by a large margin in \tdsMU, \tdsMK and 
+	the last four image classification datasets (\tdsEL to \tdsCA).
+These results clearly indicate that TLC's tree building approach results in better 
+	classification accuracies than that of count-based \AdaProp.	
+
+	\ColumnAndLineChartFigure{vs_tlc}{Maximum accuracy - TLC vs count-based \AdaProp}%
+		{TLC	 }{86.80 88.00 89.39 87.64 81.40 87.64 81.55 67.00 86.55 82.43 81.98 76.55}%
+		{\AdaProp}{84.49 87.54 86.60 76.28 74.48 86.61 79.60 65.95 75.90 76.27 77.24 68.76}%
+
+Experiments in Chapters~\ref{chap:res:adaprop}~and~\ref{chap:res:refinements} indicated that 
+	count-based \AdaProp significantly overfits some datasets.
+In order to determine whether this overfitting was responsible for the poor performance 
+	of count-based \AdaProp, experiments were conducted for TLC with 50 iterations of bagging.
+Figure~\ref{vs_tlc_bagg} compares the maximum accuracy obtained by bagged TLC against the maximum
+	accuracy of bagged count-based \AdaProp (also with 50 iterations).
+The figure shows that bagged TLC and bagged \AdaProp perform similarly across the mutagensis 
+	datasets (\tdsMA, \tdsMB, \tdsMC) and \tdsTX, 
+	while bagged \AdaProp performs noticeably better in \tdsTG.
+However, even with bagging applied, 
+	TLC performs better than count-based \AdaProp in 
+	\tdsMU, \tdsMK and the last four image classification datasets, but
+	the difference in classification accuracy is somewhat smaller than that in Figure~\ref{vs_tlc}. 
+This shows that overfitting is more prevalent in \AdaProp than in TLC, 
+	but even with bagging applied, TLC outperforms count-based \AdaProp.
+
+	\ColumnAndLineChartFigure{vs_tlc_bagg}{Maximum bagged accuracy - TLC vs count-based \AdaProp}%
+		{TLC	 }{86.80 88.70 89.47 88.12 81.40 88.93 81.55 67.00 86.85 82.43 83.01 76.55}%
+		{\AdaProp}{87.85 89.44 89.86 82.33 79.28 88.52 84.20 65.40 80.55 79.06 79.41 72.51}%
+
+Further investigation of the experiment results showed that 
+	TLC produces much larger partitioning trees than \AdaProp.
+All count-based \AdaProp trees, across all datasets, were limited to 30 nodes (by design). 
+However, Table~\ref{tableTLCsize} shows that the trees produced by TLC are significantly larger, 
+	especially in \tdsTX and the GRAZ02 datasets (\tdsPP, \tdsBK and \tdsCA).
+This suggests that more experiments involving larger \AdaProp trees should be conducted 
+	in the future, to determine if significantly increasing the tree size can contribute
+	towards increasing the cross-validated accuracy.
+However, such very large trees are impractical as \AdaProp is  
+	computationally much more expensive than TLC.
+
+\begin{table}
+\caption{Size of trees built by TLC (when run on entire dataset)}
+\label{tableTLCsize}
+\centering
+\begin{tabular}{ r c c r c}
+	\cmidrule[\heavyrulewidth](r){1-2}
+	\cmidrule[\heavyrulewidth](r){4-5}
+		Dataset & TLC tree size (\# nodes) & ~~~~~~~~ & Dataset & TLC tree size (\# nodes) \\
+	\cmidrule(r){1-2}
+	\cmidrule(r){4-5}
+		\tdsMA & \quad    71 & & \tdsTG & 161 \\
+		\tdsMB & \enskip 247 & & \tdsFX & 153 \\
+		\tdsMC & \enskip 317 & & \tdsEL & 195 \\
+		\tdsMU & \quad    37 & & \tdsPP & 711 \\
+		\tdsMK & \enskip 205 & & \tdsBK & 769\\
+		\tdsTX & 1315& & \tdsCA & 861 \\
+	\cmidrule[\heavyrulewidth](r){1-2}
+	\cmidrule[\heavyrulewidth](r){4-5}	
+   \end{tabular}
+\end{table}
+
+	
+	\ColumnAndLineChartFigure{vs_relaggs_max}{Maximum accuracy - RELAGGS vs summary-based \AdaProp}%
+		{RELAGGS }{80.24 87.96 88.56 85.58 80.91 87.08 80.80 65.80 85.50 81.49 82.65 77.22}%
+		{\AdaProp}{85.11 89.93 89.54 85.38 82.03 89.20 82.60 66.85 85.50 82.05 83.07 77.19}%
+
+
+\section{Summary-based \AdaProp vs.\ RELAGGS}
+
+RELAGGS is an algorithm introduced by \citeA{relaggs} which propositionalises 
+	each bag by computing the summary statistics for each attribute over all instances in the bag.
+Summary-based \AdaProp performs the same propositionalisation, albeit after
+	grouping the instances of each bag by a tree of partitions.
+Therefore, summary-based \AdaProp can be considered to be a generalisation of RELAGGS, 
+	as summary-based \AdaProp with a one-node tree produces exactly the same result as RELAGGS.
+
+Similar to the comparison against TLC, RELAGGS was run using both base learners, \blRF and \blLB.
+Figure~\ref{vs_relaggs_max} compares the best cross-validated accuracy achieved on each dataset by RELAGGS and 
+	summary-based \AdaProp.
+Summary-based \AdaProp performs at least as well as RELAGGS in all datasets, 
+	while producing noticeable improvements in performance in the 
+		\tdsMA, \tdsMB, \tdsTX and \tdsTG datasets.
+This shows that the generalisation performed by summary-based \AdaProp, 
+	i.e.\ dividing the instance space by its tree of partitions before performing the propositionalisation,
+	is worthy of consideration, that is, can produce an improvement in the classification accuracy over RELAGGS.
+
+\section{\AdaProp vs.\  existing MI algorithms}
+
+As noted in Section~\ref{sec:bg:algo}, there are many well known
+	multi-instance machine learning algorithms in the literature.
+Previous work \cite{reMiles} compared various existing multi-instance algorithms implemented in WEKA 
+	and determined the maximum cross-validated accuracy obtained for each dataset.
+Figure~\ref{chart_all_max} plots this maximum classification accuracy, 
+	updated by our experiments with TLC and RELAGGS.
+The figure also shows the best cross-validated accuracy that \AdaProp was able to achieve 
+	across all experiments in this project.
+The results indicate that 
+	\AdaProp achieves slight improvements in performance over the other 
+	algorithms in the \tdsMA, \tdsMB, and \tdsTG datasets, while performing
+	noticeably worse in \tdsMU and \tdsMK.
+Across the image classification datasets, there is very little difference between
+	 \AdaProp and the best of the other multi-instance algorithms.
+
+Therefore, from the results in this chapter, 
+	it can be concluded that count-based \AdaProp performs worse than TLC,
+	perhaps as the result of the constraint on the size of the tree, 
+	while summary-based \AdaProp improves on the results of RELAGGS.
+In general, the best of \AdaProp seems to perform comparably to the best of the other multi-instance algorithms.
+
+	\ColumnAndLineChartFigure{chart_all_max}{Comparing \AdaProp against the other MI algorithms}%
+		{Others }{86.80 88.70 89.47    89.1 91.6 90.32    84.30 67.00 87.10    82.60 84.30 77.22}%
+		{AdaProp}{87.85 89.93 89.86    85.38 82.03 89.20    84.20 66.85 85.50    82.05 83.07 77.19}%	
+
 
 \chapter{Conclusion}
+\label{chap:concl}
+
 In this project, 
-    we examine the propositionalisation of multi-instance data using 
-    a process which is influenced by the single-instance base learner being used, 
-    i.e. an adaptive propositionalisation process. 
-Our approach is to partition the instance space 
-    by generating a set of candidate partitions and 
-    using the single instance learner to select the optimal partition. 
-The result of this project is an algorithm
-    which will be evaluated by comparing its performance to 
-    that of existing multi-instance learning algorithms on standard MI datasets. 
-In addition, 
-    the application of multi-instance learning 
-    to image classification will be examined and 
-    the algorithm will be tuned for dealing with image classification datasets.
+	we propose \AdaProp, an algorithm which propositionalises multi-instance data 
+	using an approach which is influenced by the base learner.
+\AdaProp divides up the instance space by building up a tree of partitioning hyperplanes, 
+	where each node of the tree is selected by consulting the base learner.
+More specifically, at each node of the tree, a set of candidate partitioning hyperplanes
+	is generated, from which a single hyperplane is chosen, by evaluating each
+	hyperplane via the base learner.
+The resultant tree of partitioning hyperplanes is then used to propositionalise 
+	each bag, by either counting the number of instances of or computing the summary statistics of, 
+	the subset of instances which fall into each region.
+ 
+Our experiments show that the mean-based method is the best method for candidate partition generation and 
+	RMSE evaluation is the best hyperplane evaluation method, 
+	while the two leaf node selection methods perform similarly.
+The experiments also show that summary-based propositionalisation performs significantly 
+	better than count-based propositionalisation, albeit at the cost of noticeably increased running time,
+	and that the relative ordering of the base learners, in terms of the classification accuracy, 
+	is highly dependent on the dataset.
+
+Bagging of count-based \AdaProp trees results in significant increases in accuracy over all datasets,
+	while the randomization in attributes produces further increases in performance over some datasets.
+Count-based \AdaProp performs poorly when compared to TLC, while 
+	summary-based \AdaProp improves on the results of RELAGGS.
+Overall, the best results achieved by \AdaProp are comparable to the best results achieved 
+	by the other existing multi-instance machine learning algorithms, 
+	especially for the image classification datasets considered in this study.
 \clearpage
 
-\appendix
-\chapter{Result Tables}
-Some data [TODO]
-\chapter{Result Charts}
-Some data [TODO]
 \bibliographystyle{apacite} 
 \bibliography{final-report}
+
+\appendix
+
+\chapter{Result charts}
+\label{chap:appx}
+
+\captionsetup[figure]{list=no}
+
+\ColumnAndLineChartFigure{proprf}{Average accuracy (for \blRF) by propositionalisation method}%
+		{Count-based  }{76.12	83.54	83.69	72.75	67.25	83.82	68.96	57.49	68.16	72.78	72.71	66.17}%
+		{Summary-based}{84.29	89.00	88.78	84.10	80.58	88.49	81.48	64.73	80.87	81.60	82.64	76.38}%		
+		
+\ColumnAndLineChartFigure{proplb}{Average accuracy (for \blLB) by propositionalisation method}%
+		{Count-based  }{71.94	79.79	82.82	70.65	71.86	84.62	72.77	63.34	71.89	74.63	73.95	67.27}%
+		{Summary-based}{84.02	86.21	85.11	77.52	76.46	86.82	81.46	60.03	78.39	77.18	78.99	71.65}%
+		
+\ColumnAndLineChartFigure{propce}{Average accuracy (for CE) by propositionalisation method}%
+		{Count-based  }{74.68	81.69	83.09	71.83	68.54	84.08	70.07	59.09	69.69	73.50	73.29	66.52}%
+		{Summary-based}{83.80	87.93	87.36	80.65	79.94	87.67	81.53	61.93	80.66	79.76	80.70	74.13}%		
+		
+\ColumnAndLineChartFigure{proprmse}{Average accuracy (for RMSE) by propositionalisation method}%
+		{Count-based  }{73.37	81.64	83.42	71.58	70.57	84.37	71.66	61.74	70.36	73.91	73.36	66.91}%
+		{Summary-based}{84.50	87.28	86.53	80.98	77.09	87.64	81.40	62.83	78.60	79.02	80.94	73.90}%
+
+
+
+\ColumnAndLineChartFigure{evalce_rmse_rf}{Accuracy (for \blRF) by evaluation method}%
+		{Classification Error	}{78.86	84.49	83.32	72.65	66.76	84.50	69.99	56.77	69.46	72.63	72.89	65.77}%
+		{Root Mean Squared Error}{78.11	84.62	84.27	73.03	67.97	84.17	70.96	58.41	69.74	73.13	72.68	66.54}%		
+%chart_eval_rf		{Information Gain		}{76.16 83.57 84.25   72.15 69.01 83.38   70.58 60.25 69.20   72.87 71.71 66.36}%
+
+\ColumnAndLineChartFigure{evalce_rmse_lb}{Accuracy (for \blLB) by evaluation method}%
+		{Classification Error	}{73.69	80.74	82.99	70.95	70.75	84.50	72.26	61.44	71.67	74.75	74.19	67.38}%
+		{Root Mean Squared Error}{72.42	80.88	82.93	70.34	73.28	85.17	74.84	63.46	73.38	75.01	74.73	67.74}%		
+%chart_eval_lb		{Information Gain		}{70.64 79.99 81.99   71.50 73.48 85.53   74.47 65.33 72.78   74.45 73.75 67.56}%
+
+\ColumnAndLineChartFigure{searchrf}{Accuracy (with \blRF) by leaf node selection strategy}%
+		{Breadth first search}{77.23	83.77	85.65	70.73	69.60	84.68	73.78	60.13	69.45	72.58	72.49	65.44}%
+		{Best first search   }{75.15	84.61	85.32	71.34	69.91	84.79	69.97	59.55	68.68	73.29	72.47	65.49}%	
+
+\ColumnAndLineChartFigure{searchlb}{Accuracy (with \blLB) by leaf node selection strategy}%
+		{Breadth first search}{71.40	80.60	83.34	71.86	72.58	84.62	75.57	65.03	72.75	74.73	74.71	67.13}%
+		{Best first search   }{71.47	81.02	84.10	73.18	71.34	84.69	75.43	64.33	72.13	75.10	75.02	67.87}%	
+
+\ColumnAndLineChartFigure{param_lb}{Accuracy (with \blLB) - parameter selection}%
+		{Without Parameter Selection}{71.90	80.76	83.83	72.49	71.40	84.20	75.11	62.00	72.09	75.00	74.95	67.45}%	
+		{With Parameter Selection   }{75.26	83.82	84.25	72.46	71.86	84.83	77.46	61.28	73.98	75.76	76.49	68.34}%
+
+\ColumnAndLineChartFigure{param_rf}{Accuracy (with \blRF) - parameter selection}%
+		{Without Parameter Selection}{76.18	84.18	85.27	71.16	69.20	84.80	71.20	58.90	68.90	72.90	72.95	65.52}%	
+		{With Parameter Selection   }{83.29	87.23	85.57	71.43	69.54	86.34	75.75	59.19	73.23	73.18	73.18	65.47}%
+
+
+\chapter{Result tables}
+\label{chap:appx:tables}
+
+\pagebreak
+%\begin{comment}
+\DataTableForFigure{propall}{Average accuracy (for small trees) by propositionalisation method}%
+		{Count-based}{74.03	81.66	83.26	71.70	69.55	84.22	70.86	60.42	70.03	73.70	73.33	66.72}%
+		{Summary-based}{84.15	87.61	86.95	80.81	78.52	87.66	81.47	62.38	79.63	79.39	80.82	74.01}%
+		{\avgPre \avgAllSplit \avgAllEval \avgAllSearch \avgAllBase}
+
+\CustomDataTableForFigure{Data table for Figures~\ref{candmean_disc},~\ref{candmean_disc_rf},~and~\ref{candmean_disc_lb}: 
+	Average accuracy by candidate generation method}%
+	{
+		\AddDataRow{Mean-based (avg)}{73.02	80.27 81.40	71.74 69.95	83.88 69.77	61.08 70.61	73.72 72.93 67.33}%
+		\AddDataRow{Discretized (avg)}{74.84 80.93 83.52 70.81 71.20 84.09 71.69 58.67 70.00 74.18 74.74 70.03}%
+		\AddDataRow{Mean-based (RF)}{76.01	82.27	80.67	75.58	63.99	81.55	64.75	55.55	67.38	72.55	72.17	67.77}%
+		\AddDataRow{Discretized (RF)}{73.35	81.28	79.42	66.17	67.73	82.67	69.28	61.38	66.28	73.92	73.38	69.62}%
+		\AddDataRow{Mean-based (LB)}{71.52	79.27	81.76	69.81	72.93	85.04	72.28	63.84	72.22	74.30	73.31	67.11}%
+		\AddDataRow{Discretized (LB)}{75.58	80.75	85.56	73.14	72.93	84.80	72.89	57.31	71.86	74.31	75.42	70.24}%
+	}{\avgPre \avgOneProp \avgAllEval \avgAllSearch}
+
+\CustomDataTableForFigure{Data table for Figures~\ref{evalce_rmse}~and~\ref{evalrmse_ig}: 
+	Average accuracy by evaluation method}%
+	{
+		\AddDataRow{CE}{76.27	82.61	83.15	71.80	68.76	84.50	71.13	59.10	70.56	73.69	73.54	66.57}%
+		\AddDataRow{RMSE}{75.27	82.75	83.60	71.69	70.62	84.67	72.90	60.93	71.56	74.07	73.70	67.14}%
+		\AddDataRow{IG}{75.30	82.89	83.30	71.94	71.30	84.75	72.77	60.98	71.19	73.81	73.08	67.19}%
+	}{\avgPre \avgOneProp \avgOneSplit \avgAllSearch \avgAllBase}	
+
+\DataTableForFigure{searchall}{Accuracy by leaf node selection strategy}%
+		{Breadth first search}{74.31	82.19	84.50	71.30	71.09	84.65	74.68	62.58	71.10	73.66	73.60	66.28}%
+		{Best first search   }{73.31	82.82	84.71	72.26	70.62	84.74	72.70	61.94	70.41	74.20	73.75	66.68}%
+		{\avgPre \avgOneProp \avgOneSplit \avgAllEval \avgAllBase}
+
+\DataTableForFigure{chart_learner_avg}{Average accuracy by base learner}%
+		{\texttt{LogitBoost  }}{73.05	80.81	82.96	70.64	72.02	84.83	73.55	62.45	72.52	74.88	74.46	67.56}%
+		{\texttt{RandomForest}}{78.48	84.56	83.79	72.84	67.36	84.34	70.48	57.59	69.60	72.88	72.78	66.15}%
+		{\avgPre \avgOneProp \avgOneSplit \avgAllEval \avgAllSearch}
+		
+\DataTableForFigure{param_all}{Average accuracy - Impact of parameter selection}%
+		{Tree Size = 7	   }{74.04	82.47	84.55	71.82	70.30	84.50	73.16	60.45	70.49	73.95	73.95	66.48}%	
+		{Parameter Selected}{79.27	85.52	84.91	71.95	70.70	85.58	76.61	60.23	73.60	74.47	74.83	66.90}%
+		{\avgPre \avgOneProp \avgOneSplit \avgAllEval \avgAllSearch \avgAllBase}
+
+\DataTableForFigure{bagging_all}{Average accuracy - Impact of bagging}%
+		{Without Bagging}{74.04	82.47	84.55	71.82	70.30	84.50	73.16	60.45	70.49	73.95	73.95	66.48}%	
+		{With Bagging}{81.92	87.92	88.21	78.39	78.76	87.58	82.49	63.29	78.98	78.36	78.51	71.83}%
+		{\avgPre \avgOneProp \avgOneSplit \avgOneEval \avgOneSearch \avgAllBase}
+
+	\DataTableForFigure{bagg_rand_small}{Average bagged accuracy - Impact of randomization (for small trees)}%
+		{Without Randomization}{81.92	87.92	88.21	78.39	78.76	87.58	82.49	63.29	78.98	78.36	78.51	71.83}%
+		{With Randomization	  }{83.35	87.55	87.87	80.29	76.11	87.43	75.76	61.45	69.83	76.46	73.09	68.69}%
+		{\avgPre \avgOneProp \avgOneSplit \avgOneEval \avgOneSearch \avgAllBase}
+		
+	\DataTableForFigure{bagg_rand_max}{Maximum bagged accuracy - Impact of randomization}%
+		{Without Randomization}{83.42	89.44	88.73	79.73	79.17	88.52	84.20	65.40	80.55	79.06	79.41	72.51}%
+		{With Randomization	  }{87.85	89.43	89.86	82.33	79.28	88.37	79.10	63.70	74.05	78.25	74.71	70.76}%
+		{\maxPre \avgOneProp \avgOneSplit \avgOneEval \avgOneSearch \avgAllBase}		
+
+	\DataTableForFigure{vs_tlc}{Maximum accuracy - TLC vs count-based \AdaProp}%
+		{TLC	 }{86.80 88.00 89.39 87.64 81.40 87.64 81.55 67.00 86.55 82.43 81.98 76.55}%
+		{\AdaProp}{84.49 87.54 86.60   76.28 74.48 86.61   79.60 65.95 75.90   76.27 77.24 68.76}%
+		{\maxPre \avgOneProp \avgOneSplit \avgAllEval \avgAllSearch \avgAllBase}
+		
+	\DataTableForFigure{vs_tlc_bagg}{Maximum bagged accuracy - TLC vs count-based \AdaProp}%
+		{TLC	 }{86.80 88.70 89.47   88.12 81.40 88.93   81.55 67.00 86.85   82.43 83.01 76.55}%
+		{\AdaProp}{87.85 89.44 89.86   82.33 79.28 88.52   84.20 65.40 80.55   79.06 79.41 72.51}%
+		{\maxPre \avgOneProp \avgOneSplit \avgOneEval \avgOneSearch \avgAllBase \avgAllTLC}
+		
+	\DataTableForFigure{vs_relaggs_max}{Maximum accuracy - RELAGGS vs summary-based \AdaProp}%
+		{RELAGGS }{80.24 87.96 88.56 85.58 80.91 87.08   80.80 65.80 85.50   81.49 82.65 77.22}%
+		{\AdaProp}{85.11 89.93 89.54   85.38 82.03 89.20   82.60 66.85 85.50   82.05 83.07 77.19}%
+		{\maxPre \avgSumProp \avgAllSplit \avgAllEval \avgAllSearch \avgAllBase \avgAllRELAGGS}
+
+	\DataTableForFigure{chart_all_max}{Comparing \AdaProp against the other MI algorithms}%
+		{Others }{86.80 88.70 89.47    89.1 91.6 90.32    84.30 67.00 87.10    82.60 84.30 77.22}%
+		{AdaProp}{87.85 89.93 89.86    85.38 82.03 89.20    84.20 66.85 85.50    82.05 83.07 77.19}%
+		{The results were maximised over all experiments conducted in this report and combined with the 
+			results from~\cite{reMiles}. The respective algorithms are shown in Table~B.14.
+		}
+		
+	\begin{table}
+	\centering
+	\caption{Configurations list for Table B.13 (and Figure~\ref{chart_all_max})}
+	\begin{tabular}{rcc}
+			\toprule
+				Dataset & Others & AdaProp \\
+			\midrule
+				\tdsMA & Bagged TLC 			& Bagged count-based \\
+				\tdsMB & Bagged TLC 			& Summary-based \\
+				\tdsMC & Bagged TLC 			& Bagged count-based \\
+				\tdsMU & MILES with SMO (RBF) 	& Summary-based \\
+				\tdsMK & MILES with 1-Norm SVM 	& Summary-based \\
+				\tdsTX & AdaBoost with Opt.Ball & Summary-based \\
+				\tdsTG & MIWrapper over RandomForest & Bagged count-based \\
+				\tdsFX & SimpleMI over AdaBoost with DecisionStump & Summary-based \\
+				\tdsEL & MIWrapper over RandomForest 		& Summary-based \\
+				\tdsPP & MIWrapper over RandomForest 		& Summary-based \\
+				\tdsBK & SimpleMI over 1-Norm SVM 			& Summary-based \\
+				\tdsCA & RELAGGS 							& Summary-based \\
+			\bottomrule
+			\end{tabular}
+	\end{table}
+%TODO config
+
+\CustomDataTableForFigure{Data table for Figures~\ref{proprf},~and~\ref{proplb}: 
+	Average accuracy by propositionalisation method and base learner}%
+	{
+		\AddDataRow{Count, RF}{76.12	83.54	83.69	72.75	67.25	83.82	68.96	57.49	68.16	72.78	72.71	66.17}%
+		\AddDataRow{Summary, RF}{84.29	89.00	88.78	84.10	80.58	88.49	81.48	64.73	80.87	81.60	82.64	76.38}%
+		\AddDataRow{Count, LB}{71.94	79.79	82.82	70.65	71.86	84.62	72.77	63.34	71.89	74.63	73.95	67.27}%
+		\AddDataRow{Summary, LB}{84.02	86.21	85.11	77.52	76.46	86.82	81.46	60.03	78.39	77.18	78.99	71.65}%
+	}{\avgPre \avgAllSplit \avgAllEval \avgAllSearch}
+
+\CustomDataTableForFigure{Data table for Figures~\ref{propce},~and~\ref{proprmse}: 
+	Average accuracy by propositionalisation method and evaluation method}%
+	{
+		\AddDataRow{Count, CE}{74.68	81.69	83.09	71.83	68.54	84.08	70.07	59.09	69.69	73.50	73.29	66.52}%
+		\AddDataRow{Summary, CE}{83.80	87.93	87.36	80.65	79.94	87.67	81.53	61.93	80.66	79.76	80.70	74.13}%
+		\AddDataRow{Count, RMSE}{73.37	81.64	83.42	71.58	70.57	84.37	71.66	61.74	70.36	73.91	73.36	66.91}%
+		\AddDataRow{Summary, RMSE}{84.50	87.28	86.53	80.98	77.09	87.64	81.40	62.83	78.60	79.02	80.94	73.90}%
+	}{\avgPre \avgAllSplit \avgAllSearch \avgAllBase}
+
+\CustomDataTableForFigure{Data table for Figures~\ref{evalce_rmse_rf},~and~\ref{evalce_rmse_lb}: 
+	Average accuracy by base learner and evaluation method}%
+	{
+		\AddDataRow{RF, CE}{78.86	84.49	83.32	72.65	66.76	84.50	69.99	56.77	69.46	72.63	72.89	65.77}%
+		\AddDataRow{RF, RMSE}{78.11	84.62	84.27	73.03	67.97	84.17	70.96	58.41	69.74	73.13	72.68	66.54}%
+		\AddDataRow{LB, CE}{73.69	80.74	82.99	70.95	70.75	84.50	72.26	61.44	71.67	74.75	74.19	67.38}%
+		\AddDataRow{LB, RMSE}{72.42	80.88	82.93	70.34	73.28	85.17	74.84	63.46	73.38	75.01	74.73	67.74}%
+	}{\avgPre \avgOneProp \avgOneSplit \avgAllSearch}
+
+\clearpage
+
+\CustomDataTableForFigure{Data table for Figures~\ref{searchrf},~and~\ref{searchlb}: 
+	Average accuracy by base learner and leaf node selection strategy}%
+	{
+		\AddDataRow{RF, Breadth}{77.23	83.77	85.65	70.73	69.60	84.68	73.78	60.13	69.45	72.58	72.49	65.44}%
+		\AddDataRow{RF, Best}{75.15	84.61	85.32	71.34	69.91	84.79	69.97	59.55	68.68	73.29	72.47	65.49}%
+		\AddDataRow{LB, Breadth}{71.40	80.60	83.34	71.86	72.58	84.62	75.57	65.03	72.75	74.73	74.71	67.13}%
+		\AddDataRow{LB, Best}{71.47	81.02	84.10	73.18	71.34	84.69	75.43	64.33	72.13	75.10	75.02	67.87}%
+	}{\avgPre \avgOneProp \avgOneSplit \avgAllEval}
+
+\CustomDataTableForFigure{Data table for Figures~\ref{param_lb},~and~\ref{param_rf}: 
+	Average accuracy by base learner and parameter selection}%
+	{
+		\AddDataRow{RF, Without}{76.18	84.18	85.27	71.16	69.20	84.80	71.20	58.90	68.90	72.90	72.95	65.52}%
+		\AddDataRow{RF, With}{83.29	87.23	85.57	71.43	69.54	86.34	75.75	59.19	73.23	73.18	73.18	65.47}%
+		\AddDataRow{LB, Without}{71.90	80.76	83.83	72.49	71.40	84.20	75.11	62.00	72.09	75.00	74.95	67.45}%
+		\AddDataRow{LB, With}{75.26	83.82	84.25	72.46	71.86	84.83	77.46	61.28	73.98	75.76	76.49	68.34}%
+	}{\avgPre \avgOneProp \avgOneSplit \avgAllEval}
+
+
+
+
 \end{document}

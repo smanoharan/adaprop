@@ -1,5 +1,5 @@
 %\documentclass[12pt,a4paper,notitlepage]{article}
-\documentclass[13pt,handout]{beamer}
+\documentclass[12pt,handout]{beamer}
 
 \usepackage[utf8]{inputenc}
 \usepackage{amsmath}
@@ -35,46 +35,34 @@
 \begin{document}
 
 %\maketitle
-\Huge
+%\LARGE
+\huge
 
-%% Add slide: Machine Learning
-
-\begin{frame}{Title, Image Classification (1)}
-%\subsection*{Image Classification (1)}
+\begin{frame}{Title, Image Classification}
     \begin{wideitemize}
-    \item {\bf B Sem}
-    \item Given a category of interest
-    \item ML Approach, positive, -ve
+    \item MIL algo + Image Classification
+    \item Category of interest, $\pm$ve
+    \item ML Approach
     \end{wideitemize}
 \end{frame}
 
-\begin{frame}{Image Classification (2)}
-%\subsection*{Image Classification (2)}
-    \begin{wideitemize}
-    \item For Computers
-    \item Small (3k pixels of 300k)
-    \item Partially visible, disjoint parts
-    \end{wideitemize}
+\begin{frame}{Challenges}
+    \begin{itemize}
+    \item Scale: small obj
+    \item Orientation Invariance
+    \item Lighting: detail, abs color
+    \item Partially visible, disjoint
+    \end{itemize}
 \end{frame}
 
-%% Add slide, another set of challenges
-
-\begin{frame}{MI Learning (1)}
-%\subsection*{MI Learning (1)}
-    \begin{wideitemize}
-    \item Extract sub-regions
-    \item Windowing, Segmentation, Key Pts
-    \end{wideitemize}
+\begin{frame}{MI Learning, Feature Extraction}
+    \begin{itemize}
+    \item Subdivision (scale)
+    \item KeyPt (orient)
+    \item Feat Ext (lighting)
+    \item Disadv: Fewer algo for MIL
+    \end{itemize}
 \end{frame}
-
-\begin{frame}{MI Learning (2)}
-\begin{wideitemize}
-    \item Each subregion $\to$ vector.
-    \item MI: If any subregion, any part of the car $\to$ positive.
-    \item Disadv: Lack of algorithms.
-\end{wideitemize}
-\end{frame}
-
 %% Add slide, Feature Extraction methods
 
 \begin{frame}{Prop}
@@ -87,16 +75,25 @@
 
 \begin{frame}{AdaProp}
 \begin{wideitemize}
-    \item Use BL to detect relevant info
-    \item AdaProp: little prop - feedback
+    \item Key: Use BL
+    \item AdaProp: little prop - iterate
     \item fits BL, {\bf expensive}
 \end{wideitemize}
 \end{frame}
 
+\begin{frame}{Example Dataset}
+\begin{wideitemize}
+    \item Separate out imp inst
+    \item Prop by count
+    \item Run thru BL last time
+\end{wideitemize}
+\end{frame}
+
+
 \begin{frame}{WEKA}
 \begin{wideitemize}
     \item ML workbench, Waikato
-    \item 8 options (4 impl summer)
+    \item 8 options
     \item Has SI algo, 10 $\times$ 10-fold cv
 \end{wideitemize}
 \end{frame}
@@ -112,6 +109,5 @@
 \end{itemize}
 \end{frame}
 
-%% Add another summary slide?
 
 \end{document}
